@@ -85,6 +85,11 @@ public class AntiRevoke extends Feature {
         XposedBridge.hookMethod(bubbleMethod, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                // WaEnhancer: defensive guard - check args length
+                if (param.args == null || param.args.length < 3) {
+                    XposedBridge.log("WaEnhancer: AntiRevoke bubbleMethod skipped: insufficient args");
+                    return;
+                }
                 var objMessage = param.args[2];
                 var dateTextView = (TextView) param.args[1];
                 isMRevoked(objMessage, dateTextView, "antirevoke");
@@ -94,6 +99,11 @@ public class AntiRevoke extends Feature {
         XposedBridge.hookMethod(unknownStatusPlaybackMethod, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                // WaEnhancer: defensive guard - check args length
+                if (param.args == null || param.args.length < 1) {
+                    XposedBridge.log("WaEnhancer: AntiRevoke unknownStatusPlaybackMethod skipped: insufficient args");
+                    return;
+                }
                 Object obj = ReflectionUtils.getArg(param.args, param.method.getDeclaringClass(), 0);
                 var objFMessage = param.args[0];
                 if (!FMessageWpp.TYPE.isInstance(objFMessage)) {
