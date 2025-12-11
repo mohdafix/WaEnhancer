@@ -1,33 +1,91 @@
 # Add project specific ProGuard rules here.
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Preserve line numbers for debugging
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep attributes needed for reflection
+-keepattributes Signature
+-keepattributes *Annotation*
+-keepattributes EnclosingMethod
+-keepattributes InnerClasses
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
--dontwarn *
+# ===== CRITICAL: Don't obfuscate - Xposed needs original class names =====
+-dontobfuscate
 
--keepclasseswithmembers class com.wmods.** {
-     *;
+# ===== Keep all your app classes (Xposed module) =====
+-keep class com.wmods.wppenhacer.** { *; }
+
+# ===== Keep Xposed entry points =====
+-keep class * implements de.robv.android.xposed.IXposedHookLoadPackage {
+    public void handleLoadPackage(...);
+}
+-keep class * implements de.robv.android.xposed.IXposedHookZygoteInit {
+    public void initZygote(...);
+}
+-keep class * implements de.robv.android.xposed.IXposedHookInitPackageResources {
+    public void handleInitPackageResources(...);
 }
 
--keepclasseswithmembernames class com.wmods.**
+# ===== Keep Application class =====
+-keep class com.wmods.wppenhacer.App { *; }
 
--keepclasseswithmembers class cz.vutbr.** {
-     *;}
+# ===== Keep BridgeService and HookProvider =====
+-keep class com.wmods.wppenhacer.xposed.bridge.service.BridgeService { *; }
+-keep class com.wmods.wppenhacer.xposed.bridge.providers.HookProvider { *; }
 
--keepclasseswithmembers class com.assemblyai.api.** {*;}
+# ===== Keep all Activities =====
+-keep class * extends android.app.Activity { *; }
+-keep class * extends androidx.appcompat.app.AppCompatActivity { *; }
+-keep class * extends androidx.fragment.app.Fragment { *; }
+
+# ===== Keep all BroadcastReceivers =====
+-keep class * extends android.content.BroadcastReceiver { *; }
+
+# ===== Keep all Services =====
+-keep class * extends android.app.Service { *; }
+
+# ===== Keep all ContentProviders =====
+-keep class * extends android.content.ContentProvider { *; }
+
+# ===== Keep Xposed Framework =====
+-keep class de.robv.android.xposed.** { *; }
+-keep interface de.robv.android.xposed.** { *; }
+
+# ===== Keep DexKit =====
+-keep class org.luckypray.dexkit.** { *; }
+
+# ===== Keep native methods =====
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+# ===== Keep enums =====
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# ===== Keep Parcelable =====
+-keepclassmembers class * implements android.os.Parcelable {
+    public static final ** CREATOR;
+}
+
+# ===== Suppress warnings for missing classes =====
+-dontwarn com.google.auto.value.**
+-dontwarn org.jetbrains.annotations.**
+-dontwarn org.slf4j.**
+-dontwarn lombok.**
+-dontwarn com.whatsapp.**
+-dontwarn com.whatsapp.w4b.**
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn kotlin.**
+-dontwarn androidx.**
+-dontwarn com.google.android.material.**
+
+# ===== Ignore all notes and warnings =====
+-dontnote **
+-ignorewarnings

@@ -90,15 +90,15 @@ android {
             ) {
                 isMinifyEnabled = true
                 proguardFiles(
-                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    getDefaultProguardFile("proguard-android.txt"),
                     "proguard-rules.pro"
                 )
             }
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
+                getDefaultProguardFile("proguard-android.txt"),
                 "proguard-rules.pro"
             )
         }
