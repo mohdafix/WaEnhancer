@@ -28,9 +28,6 @@
 -keepclasseswithmembernames class com.wmods.**
 
 -keepclasseswithmembers class cz.vutbr.** {
-     *;
-}
+     *;}
 
--keepclasseswithmembers class com.assemblyai.api.** {
-     *;
-}
+-keepclasseswithmembers class com.assemblyai.api.** {*;}

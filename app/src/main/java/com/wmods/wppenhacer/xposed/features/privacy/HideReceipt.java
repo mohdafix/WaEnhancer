@@ -39,30 +39,43 @@ public class HideReceipt extends Feature {
         XposedBridge.hookMethod(method, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                var userJidObject = ReflectionUtils.getArg(param.args, Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.Jid"), 0);
-                if (userJidObject == null) return;
-                var strings = ReflectionUtils.findClassesOfType(((Method) param.method).getParameterTypes(), String.class);
-                FMessageWpp.Key keyMessage = getKeyMessage(param, userJidObject, strings);
-                if (keyMessage == null)
-                    return;
-                var currentUserJid = new FMessageWpp.UserJid(userJidObject);
-                var fmessage = keyMessage.getFMessage();
-                if (fmessage != null) {
+                try {
+                    var userJidObject = ReflectionUtils.getArg(param.args, Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.Jid"), 0);
+                    if (userJidObject == null) return;
+                    var strings = ReflectionUtils.findClassesOfType(((Method) param.method).getParameterTypes(), String.class);
+                    FMessageWpp.Key keyMessage = getKeyMessage(param, userJidObject, strings);
+                    if (keyMessage == null)
+                        return;
+                    var currentUserJid = new FMessageWpp.UserJid(userJidObject);
+                    var fmessage = keyMessage.getFMessage();
+
+                    if (fmessage == null) {
+                        XposedBridge.log("HideReceipt: fMessageWpp == null, skipping hook action");
+                        return;
+                    }
+                    if (fmessage.getKey() == null) {
+                        XposedBridge.log("HideReceipt: fMessageWpp.getKey() == null");
+                        return;
+                    }
+
                     if (MessageHistory.getInstance().getHideSeenMessage(fmessage.getKey().remoteJid.getPhoneRawString(), fmessage.getKey().messageID, fmessage.isViewOnce() ? MessageHistory.MessageType.VIEW_ONCE_TYPE : MessageHistory.MessageType.MESSAGE_TYPE) != null) {
                         return;
                     }
-                }
-                var privacy = CustomPrivacy.getJSON(currentUserJid.getPhoneNumber());
-                var customHideReceipt = privacy.optBoolean("HideReceipt", hideReceipt);
-                var msgTypeIdx = strings.get(strings.size() - 1).first;
-                var customHideRead = privacy.optBoolean("HideSeen", hideread);
-                if (param.args[msgTypeIdx] != "sender" && (customHideReceipt || ghostmode)) {
-                    if (WppCore.getCurrentConversation() == null || customHideRead)
-                        param.args[msgTypeIdx] = "inactive";
-                }
-                if (param.args[msgTypeIdx] == "inactive") {
-                    MessageHistory.getInstance().insertHideSeenMessage(currentUserJid.getPhoneRawString(), fmessage.getKey().messageID, fmessage.isViewOnce() ? MessageHistory.MessageType.VIEW_ONCE_TYPE : MessageHistory.MessageType.MESSAGE_TYPE, false);
-                    HideSeenView.updateAllBubbleViews();
+
+                    var privacy = CustomPrivacy.getJSON(currentUserJid.getPhoneNumber());
+                    var customHideReceipt = privacy.optBoolean("HideReceipt", hideReceipt);
+                    var msgTypeIdx = strings.get(strings.size() - 1).first;
+                    var customHideRead = privacy.optBoolean("HideSeen", hideread);
+                    if (param.args[msgTypeIdx] != "sender" && (customHideReceipt || ghostmode)) {
+                        if (WppCore.getCurrentConversation() == null || customHideRead)
+                            param.args[msgTypeIdx] = "inactive";
+                    }
+                    if (param.args[msgTypeIdx] == "inactive") {
+                        MessageHistory.getInstance().insertHideSeenMessage(currentUserJid.getPhoneRawString(), fmessage.getKey().messageID, fmessage.isViewOnce() ? MessageHistory.MessageType.VIEW_ONCE_TYPE : MessageHistory.MessageType.MESSAGE_TYPE, false);
+                        HideSeenView.updateAllBubbleViews();
+                    }
+                } catch (Throwable t) {
+                    XposedBridge.log("HideReceipt: " + android.util.Log.getStackTraceString(t));
                 }
             }
         });

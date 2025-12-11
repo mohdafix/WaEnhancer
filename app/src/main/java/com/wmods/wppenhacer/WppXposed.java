@@ -51,8 +51,26 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
         var classLoader = lpparam.classLoader;
 
         if (packageName.equals(BuildConfig.APPLICATION_ID)) {
-            XposedHelpers.findAndHookMethod(MainActivity.class.getName(), lpparam.classLoader, "isXposedEnabled", XC_MethodReplacement.returnConstant(true));
-            XposedHelpers.findAndHookMethod(PreferenceManager.class.getName(), lpparam.classLoader, "getDefaultSharedPreferencesMode", XC_MethodReplacement.returnConstant(ContextWrapper.MODE_WORLD_READABLE));
+            try {
+                XposedHelpers.findAndHookMethod(MainActivity.class.getName(), lpparam.classLoader, "isXposedEnabled", XC_MethodReplacement.returnConstant(true));
+            } catch (Throwable t) {
+                XposedBridge.log("WppXposed: Failed to hook isXposedEnabled: " + t);
+            }
+            try {
+                // Safely hook getDefaultSharedPreferencesMode if it exists
+                Class<?> prefsManagerClass = XposedHelpers.findClassIfExists(PreferenceManager.class.getName(), lpparam.classLoader);
+                if (prefsManagerClass != null) {
+                   try {
+                       XposedHelpers.findAndHookMethod(prefsManagerClass, "getDefaultSharedPreferencesMode", XC_MethodReplacement.returnConstant(ContextWrapper.MODE_WORLD_READABLE));
+                   } catch (NoSuchMethodError | Exception e) {
+                       XposedBridge.log("WppXposed: getDefaultSharedPreferencesMode method not found, skipping hook");
+                   }
+                } else {
+                   XposedBridge.log("WppXposed: PreferenceManager class not found");
+                }
+            } catch (Throwable t) {
+                XposedBridge.log("WppXposed: Error hooking PreferenceManager: " + t);
+            }
             return;
         }
 

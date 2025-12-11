@@ -32,6 +32,7 @@ import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
 import com.wmods.wppenhacer.xposed.utils.DesignUtils;
 import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
+import com.wmods.wppenhacer.xposed.utils.MonetColorEngine;
 import com.wmods.wppenhacer.xposed.utils.Utils;
 
 import java.util.HashMap;
@@ -290,19 +291,41 @@ public class CustomThemeV2 extends Feature {
         var textColor = DesignUtils.checkSystemColor(properties.getProperty("text_color", "0"));
         var backgroundColor = DesignUtils.checkSystemColor(properties.getProperty("background_color", "0"));
 
-        if (prefs.getBoolean("changecolor", false)) {
-            primaryColor = primaryColorInt == 0 ? "0" : IColors.toString(primaryColorInt);
-            textColor = textColorInt == 0 ? "0" : IColors.toString(textColorInt);
-            backgroundColor = backgroundColorInt == 0 ? "0" : IColors.toString(backgroundColorInt);
+        if (prefs.getBoolean("monet_theme", false)) {
+            try {
+                int sysPrimary = MonetColorEngine.getSystemPrimaryColor(Utils.getApplication());
+                if (sysPrimary != -1) {
+                    primaryColorInt = sysPrimary;
+                    primaryColor = IColors.toString(sysPrimary);
+                }
+                int sysBackground = MonetColorEngine.getSystemBackgroundColor(Utils.getApplication());
+                if (sysBackground != -1) {
+                    backgroundColorInt = sysBackground;
+                    backgroundColor = IColors.toString(sysBackground);
+                }
+                // Assuming text color might be system secondary or we keep default
+                // int sysSecondary = MonetColorEngine.getSystemSecondaryColor(Utils.getApplication());
+                // if (sysSecondary != -1) {
+                //    textColorInt = sysSecondary;
+                //    textColor = IColors.toString(sysSecondary);
+                // }
+            } catch (Exception ignored) {
+            }
         }
 
-        if (!DesignUtils.isNightMode()) {
-            textColors.clear();
-            textColors.putAll(backgroundColors);
-            backgroundColors.clear();
-        }
+        if (prefs.getBoolean("changecolor", false) || Objects.equals(properties.getProperty("change_colors"), "true") || prefs.getBoolean("monet_theme", false)) {
 
-        if (prefs.getBoolean("changecolor", false) || Objects.equals(properties.getProperty("change_colors"), "true")) {
+            if (prefs.getBoolean("changecolor", false)) {
+                primaryColor = primaryColorInt == 0 ? "0" : IColors.toString(primaryColorInt);
+                textColor = textColorInt == 0 ? "0" : IColors.toString(textColorInt);
+                backgroundColor = backgroundColorInt == 0 ? "0" : IColors.toString(backgroundColorInt);
+            }
+
+            if (!DesignUtils.isNightMode()) {
+                textColors.clear();
+                textColors.putAll(backgroundColors);
+                backgroundColors.clear();
+            }
 
             if (!primaryColor.equals("0") && DesignUtils.isValidColor(primaryColor)) {
                 processColors(primaryColor, primaryColors);
@@ -329,21 +352,20 @@ public class CustomThemeV2 extends Feature {
                 newAlphaColors.put(color, realColor);
             }
             alphacolors = newAlphaColors;
+
+            IColors.colors.putAll(primaryColors);
+            IColors.colors.putAll(textColors);
+            IColors.colors.putAll(backgroundColors);
+            primaryColors.clear();
+            textColors.clear();
+
+            if (!DesignUtils.isNightMode()) {
+                backgroundColors.clear();
+                backgroundColors.put("#ff1b8755", "#ffffffff");
+                backgroundColors.put("#ffffffff", "#ffffffff");
+                backgroundColors.put("ffffff", "ffffff");
+            }
         }
-
-        IColors.colors.putAll(primaryColors);
-        IColors.colors.putAll(textColors);
-        IColors.colors.putAll(backgroundColors);
-        primaryColors.clear();
-        textColors.clear();
-
-        if (!DesignUtils.isNightMode()) {
-            backgroundColors.clear();
-            backgroundColors.put("#ff1b8755", "#ffffffff");
-            backgroundColors.put("#ffffffff", "#ffffffff");
-            backgroundColors.put("ffffff", "ffffff");
-        }
-
     }
 
     private void replaceTransparency(HashMap<String, String> wallpaperColors, float mAlpha) {

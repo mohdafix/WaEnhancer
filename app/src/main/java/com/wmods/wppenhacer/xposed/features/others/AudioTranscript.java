@@ -14,6 +14,7 @@ import com.wmods.wppenhacer.xposed.utils.Utils;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 
 import de.robv.android.xposed.XC_MethodHook;
@@ -60,21 +61,38 @@ public class AudioTranscript extends Feature {
                 var fmessageObj = fieldFMessage.get(pttTranscriptionRequest);
                 var fmessage = new FMessageWpp(fmessageObj);
                 File file = fmessage.getMediaFile();
+                
                 if (file == null) {
                     Utils.showToast(Utils.getApplication().getString(ResId.string.download_not_available), 1);
                     return;
                 }
+                
+                // Defensive check: verify file existence before proceeding
+                if (!file.exists()) {
+                     XposedBridge.log("AudioTranscript: file not found: " + file.getAbsolutePath());
+                     Utils.showToast("Audio file not found locally", 0);
+                     return;
+                }
+                
                 var callback = param.args[1];
                 var onComplete = ReflectionUtils.findMethodUsingFilter(callback.getClass(), method -> method.getParameterCount() == 4);
-                if (file == null || !file.exists())
-                    return;
 
                 // Choose transcription provider based on user preference
                 String transcript;
-                if ("groq".equals(provider)) {
-                    transcript = transcriptionGroqAI(file);
-                } else {
-                    transcript = transcriptionAssemblyAI(file);
+                try {
+                    if ("groq".equals(provider)) {
+                        transcript = transcriptionGroqAI(file);
+                    } else {
+                        transcript = transcriptionAssemblyAI(file);
+                    }
+                } catch (IOException e) {
+                     XposedBridge.log("AudioTranscript IO error: " + e);
+                     Utils.showToast("Transcription IO error", 0);
+                     return;
+                } catch (Exception e) {
+                     XposedBridge.log("AudioTranscript error: " + e);
+                     Utils.showToast("Transcription failed", 0);
+                     return;
                 }
 
                 var segments = new ArrayList<>();
@@ -96,6 +114,13 @@ public class AudioTranscript extends Feature {
         if (TextUtils.isEmpty(apiKey)) {
             return "API key not provided";
         }
+        
+        // Final check before network call
+        if (!fileOpus.exists()) {
+             throw new IOException("File not found for upload: " + fileOpus.getAbsolutePath());
+        }
+
+        XposedBridge.log("AudioTranscript: trying to open " + fileOpus.getAbsolutePath());
 
         OkHttpClient client = new OkHttpClient();
 
@@ -170,6 +195,12 @@ public class AudioTranscript extends Feature {
         if (TextUtils.isEmpty(apiKey)) {
             return "Groq API key not provided";
         }
+        
+         if (!fileAudio.exists()) {
+             throw new IOException("File not found for upload: " + fileAudio.getAbsolutePath());
+        }
+
+        XposedBridge.log("AudioTranscript: trying to open " + fileAudio.getAbsolutePath());
 
         OkHttpClient client = new OkHttpClient();
 
