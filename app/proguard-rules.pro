@@ -57,6 +57,19 @@
 # ===== Keep DexKit =====
 -keep class org.luckypray.dexkit.** { *; }
 
+# ===== Keep CSS Parser (jstyleparser) implementation classes and API =====
+# Keep css parser impl classes and API classes
+-keep class cz.vutbr.web.csskit.** { *; }
+-keep class cz.vutbr.web.css.** { *; }
+
+# Keep public constructors and static initializer for SPI impl
+-keepclassmembers class cz.vutbr.web.csskit.** {
+    public <init>(...);
+    <clinit>();
+}
+
+# Note: Service files (META-INF/services/*) are kept via build.gradle.kts packaging options
+
 # ===== Keep native methods =====
 -keepclasseswithmembernames class * {
     native <methods>;

@@ -78,6 +78,12 @@ android {
             excludes += "org/**"
             excludes += "**.properties"
             excludes += "**.bin"
+
+            // CRITICAL: Keep CSS parser SPI service files (needed for jstyleparser)
+            // This overrides the META-INF/** exclusion for specific service files
+            pickFirsts.add("META-INF/services/cz.vutbr.web.css.RuleFactory")
+            pickFirsts.add("META-INF/services/cz.vutbr.web.css.SupportedCSS")
+            pickFirsts.add("META-INF/services/cz.vutbr.web.css.TermFactory")
         }
     }
 
