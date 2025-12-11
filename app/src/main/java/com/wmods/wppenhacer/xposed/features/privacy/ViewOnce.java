@@ -5,7 +5,9 @@ import androidx.annotation.NonNull;
 
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
+import com.wmods.wppenhacer.xposed.core.components.FMessageSafe;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
+import com.wmods.wppenhacer.xposed.utils.ReflectUtils;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XSharedPreferences;
@@ -28,6 +30,14 @@ public class ViewOnce extends Feature {
             XposedBridge.hookMethod(method, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
+                    Object maybeFMsg = param.thisObject;
+                    FMessageSafe f = FMessageSafe.from(maybeFMsg);
+                    if (!f.isValid()) {
+                        log("ViewOnce: fMessageWpp == null, skipping. raw=" + f.getRawClassName());
+                        if (f.getRaw() != null) log("ViewOnce probe: methods=" + ReflectUtils.methodListSnippet(f.getRaw(),20));
+                        return;
+                    }
+
                     int returnValue = (int) param.args[0];
                     var fMessage = new FMessageWpp(param.thisObject);
                     if (returnValue == 1 && !fMessage.getKey().isFromMe) {

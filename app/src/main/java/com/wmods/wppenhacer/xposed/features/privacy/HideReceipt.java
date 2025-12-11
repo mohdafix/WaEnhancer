@@ -7,10 +7,12 @@ import androidx.annotation.NonNull;
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
+import com.wmods.wppenhacer.xposed.core.components.FMessageSafe;
 import com.wmods.wppenhacer.xposed.core.db.MessageHistory;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
 import com.wmods.wppenhacer.xposed.features.customization.HideSeenView;
 import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
+import com.wmods.wppenhacer.xposed.utils.ReflectUtils;
 
 import org.luckypray.dexkit.query.enums.StringMatchType;
 
@@ -53,8 +55,23 @@ public class HideReceipt extends Feature {
                         XposedBridge.log("HideReceipt: fMessageWpp == null, skipping hook action");
                         return;
                     }
+
+                    // Use FMessageSafe for safe validation
+                    FMessageSafe f = FMessageSafe.from(fmessage.getObject());
+                    if (!f.isValid()) {
+                        XposedBridge.log("HideReceipt: fMessageWpp invalid, skipping. raw=" + f.getRawClassName());
+                        if (f.getRaw() != null) XposedBridge.log("HideReceipt probe: methods=" + ReflectUtils.methodListSnippet(f.getRaw(),20));
+                        return;
+                    }
+
                     if (fmessage.getKey() == null) {
                         XposedBridge.log("HideReceipt: fMessageWpp.getKey() == null");
+                        return;
+                    }
+
+                    Object userJid = f.getUserJid();
+                    if (userJid == null) {
+                        XposedBridge.log("HideReceipt: userJid null, skipping. raw=" + f.getRawClassName());
                         return;
                     }
 

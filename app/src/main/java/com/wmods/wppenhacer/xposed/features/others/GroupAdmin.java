@@ -12,8 +12,10 @@ import androidx.annotation.NonNull;
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
+import com.wmods.wppenhacer.xposed.core.components.FMessageSafe;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
 import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
+import com.wmods.wppenhacer.xposed.utils.ReflectUtils;
 import com.wmods.wppenhacer.xposed.utils.ResId;
 import com.wmods.wppenhacer.xposed.utils.Utils;
 
@@ -49,6 +51,25 @@ public class GroupAdmin extends Feature {
 
                     Object fMessageObj = XposedHelpers.callMethod(targetObj, "getFMessage");
 
+                    FMessageSafe f = FMessageSafe.from(fMessageObj);
+                    if (!f.isValid()) {
+                        Log.i(TAG, "GroupAdmin: fMessageWpp invalid, skipping. raw=" + f.getRawClassName());
+                        if (f.getRaw() != null) Log.i(TAG, "GroupAdmin probe: methods=" + ReflectUtils.methodListSnippet(f.getRaw(),20));
+                        return;
+                    }
+
+                    Object userJid = f.getUserJid();
+                    if (userJid == null) {
+                        Log.i(TAG, "GroupAdmin: userJid null, skipping. raw=" + f.getRawClassName());
+                        return;
+                    }
+
+                    boolean isGroup = ReflectUtils.cachedTryIsGroup(userJid);
+                    if (!isGroup) {
+                        return;
+                    }
+
+                    // Continue with existing logic using FMessageWpp for compatibility
                     FMessageWpp fMessage = null;
                     try {
                         fMessage = new FMessageWpp(fMessageObj);
@@ -60,8 +81,8 @@ public class GroupAdmin extends Feature {
                         return;
                     }
 
-                    FMessageWpp.UserJid userJid = fMessage.getUserJid();
-                    if (userJid == null || userJid.isNull()) {
+                    FMessageWpp.UserJid userJidWpp = fMessage.getUserJid();
+                    if (userJidWpp == null || userJidWpp.isNull()) {
                         Log.i(TAG, "userJid is null, skipping");
                         return;
                     }
@@ -85,10 +106,10 @@ public class GroupAdmin extends Feature {
 
                     Object userJidField = null;
                     try {
-                        userJidField = userJid.getClass().getField("userJid").get(userJid);
+                        userJidField = userJidWpp.getClass().getField("userJid").get(userJidWpp);
                     } catch (Exception e) {
                         Log.w(TAG, "Could not get userJid field from userJid object, falling back to userJid itself: " + e.getMessage());
-                        userJidField = userJid.userJid;
+                        userJidField = userJidWpp.userJid;
                     }
 
                     var result = grpcheckAdmin.invoke(grpParticipants, jidGrp, userJidField);
