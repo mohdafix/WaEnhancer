@@ -1,5 +1,7 @@
 package com.wmods.wppenhacer.xposed.core.components;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -23,6 +25,7 @@ import de.robv.android.xposed.XposedHelpers;
  */
 public class FMessageWpp {
 
+    private static final String TAG = "FMessageWpp";
     public static Class<?> TYPE;
     private static Method userJidMethod;
     private static Field keyMessage;
@@ -35,13 +38,36 @@ public class FMessageWpp {
     private static Class abstractMediaMessageClass;
     private static Field broadcastField;
     private final Object fmessage;
+    private final Object userJid; // keep as Object to avoid classloader issues
+    private final boolean valid;
     private Key key;
 
-    public FMessageWpp(Object fMessage) {
-        if (fMessage == null) throw new RuntimeException("Object fMessage is null");
-        if (!FMessageWpp.TYPE.isInstance(fMessage))
-            throw new RuntimeException("Object fMessage is not a FMessage Instance");
-        this.fmessage = fMessage;
+    public FMessageWpp(Object rawMsg) {
+        this.fmessage = rawMsg;
+        Object tmpJid;
+        boolean ok;
+        if (rawMsg == null || !FMessageWpp.TYPE.isInstance(rawMsg)) {
+            if (rawMsg == null) {
+                Log.w(TAG, "FMessageWpp constructed with null rawMsg");
+            } else {
+                Log.w(TAG, "FMessageWpp constructed with an invalid object type");
+            }
+            tmpJid = null;
+            ok = false;
+        } else {
+            try {
+                // attempt to extract userJid safely; adjust field/method names to your target class
+                tmpJid = safeGetUserJid(rawMsg);
+                ok = (tmpJid != null);
+            } catch (Throwable t) {
+                // don't rethrow — log and mark invalid
+                Log.w(TAG, "FMessageWpp ctor unexpected input: " + t.getMessage());
+                tmpJid = null;
+                ok = false;
+            }
+        }
+        this.userJid = tmpJid;
+        this.valid = ok;
     }
 
     public static void initialize(ClassLoader classLoader) {
@@ -75,14 +101,23 @@ public class FMessageWpp {
         return false;
     }
 
-
-    public UserJid getUserJid() {
+    private Object safeGetUserJid(Object rawMsg) {
         try {
-            return new UserJid(userJidMethod.invoke(fmessage));
-        } catch (Exception e) {
-            XposedBridge.log(e);
+            if (userJidMethod != null) {
+                return userJidMethod.invoke(rawMsg);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "Failed to invoke userJidMethod: " + t.getMessage());
         }
         return null;
+    }
+
+    public boolean isValid() {
+        return valid;
+    }
+
+    public UserJid getUserJid() {
+        return new UserJid(userJid);
     }
 
     public Object getDeviceJid() {
