@@ -68,6 +68,9 @@
     <clinit>();
 }
 
+# Suppress warnings for W3C DOM traversal classes (not available on Android)
+-dontwarn org.w3c.dom.traversal.**
+
 # Note: Service files (META-INF/services/*) are kept via build.gradle.kts packaging options
 
 # ===== Keep native methods =====

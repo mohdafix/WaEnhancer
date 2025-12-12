@@ -27,6 +27,10 @@ import de.robv.android.xposed.XposedHelpers;
 
 public class HideSeen extends Feature {
 
+    // Cache reflection results to avoid repeated lookups
+    private static Class<?> cachedJidClass;
+    private static Class<?> cachedSendJobClass;
+
     public HideSeen(ClassLoader loader, XSharedPreferences preferences) {
         super(loader, preferences);
     }
@@ -52,6 +56,9 @@ public class HideSeen extends Feature {
         var sendJob = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "SendReadReceiptJob");
         log(Unobfuscator.getMethodDescriptor(SendReadReceiptJobMethod));
 
+        // Cache the sendJob class
+        cachedSendJobClass = sendJob;
+
         var ghostmode = WppCore.getPrivBoolean("ghostmode", false);
         var hideread = prefs.getBoolean("hideread", false);
         var hideaudioseen = prefs.getBoolean("hideaudioseen", false);
@@ -62,15 +69,21 @@ public class HideSeen extends Feature {
         XposedBridge.hookMethod(SendReadReceiptJobMethod, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if (!sendJob.isInstance(param.thisObject)) return;
-                var sendReadReceiptJob = sendJob.cast(param.thisObject);
-                var messageIds = (String[]) XposedHelpers.getObjectField(sendReadReceiptJob, "messageIds");
+                // Use cached class instead of repeated lookup
+                if (!cachedSendJobClass.isInstance(param.thisObject)) return;
+                var sendReadReceiptJob = cachedSendJobClass.cast(param.thisObject);
+
+                // Early return: check if blue_on_reply is set
                 if (XposedHelpers.getAdditionalInstanceField(sendReadReceiptJob, "blue_on_reply") != null) {
                     return;
                 }
                 var lid = (String) XposedHelpers.getObjectField(sendReadReceiptJob, "jid");
                 if (TextUtils.isEmpty(lid) || lid.contains("lid_me") || lid.contains("status_me"))
                     return;
+
+                // Early return: if no features enabled, skip all work
+                if (!hideread && !hideread_group && !hidestatusview && !ghostmode) return;
+
                 FMessageWpp.UserJid userJid = new FMessageWpp.UserJid(lid);
                 if (userJid.isNull()) return;
                 var privacy = CustomPrivacy.getJSON(userJid.getPhoneNumber());
@@ -94,11 +107,15 @@ public class HideSeen extends Feature {
                     isHide = true;
                 }
                 if (isHide) {
+                    var messageIds = (String[]) XposedHelpers.getObjectField(sendReadReceiptJob, "messageIds");
                     for (String messageId : messageIds) {
                         var fmessage = new FMessageWpp.Key(messageId, userJid, false).getFMessage();
-                        MessageHistory.getInstance().insertHideSeenMessage(userJid.getPhoneRawString(), messageId, fmessage.isViewOnce() ? MessageHistory.MessageType.VIEW_ONCE_TYPE : MessageHistory.MessageType.MESSAGE_TYPE, false);
-                        HideSeenView.updateAllBubbleViews();
+                        if (fmessage != null) {
+                            MessageHistory.getInstance().insertHideSeenMessage(userJid.getPhoneRawString(), messageId, fmessage.isViewOnce() ? MessageHistory.MessageType.VIEW_ONCE_TYPE : MessageHistory.MessageType.MESSAGE_TYPE, false);
+                        }
                     }
+                    // Move updateAllBubbleViews outside the loop - only call once
+                    HideSeenView.updateAllBubbleViews();
                 }
 
             }
@@ -108,24 +125,38 @@ public class HideSeen extends Feature {
         Method ReceiptMethod = Unobfuscator.loadReceiptMethod(classLoader);
         logDebug("ReceiptMethod", Unobfuscator.getMethodDescriptor(ReceiptMethod));
 
+        // Cache the Jid class and string classes for this method
+        cachedJidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.Jid");
+        var cachedReceiptStringClasses = ReflectionUtils.findClassesOfType(ReceiptMethod.getParameterTypes(), String.class);
+
         XposedBridge.hookMethod(ReceiptMethod, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 if (WppCore.getCurrentConversation() != WppCore.getCurrentActivity()) return;
-                var userJidObject = ReflectionUtils.getArg(param.args, Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.Jid"), 0);
+
+                // Early return: if no features enabled, skip all work
+                if (!hideread && !hideread_group && !ghostmode) return;
+
+                // Use cached class instead of repeated lookup
+                var userJidObject = ReflectionUtils.getArg(param.args, cachedJidClass, 0);
                 if (userJidObject == null) return;
-                var strings = ReflectionUtils.findClassesOfType(((Method) param.method).getParameterTypes(), String.class);
-                FMessageWpp.Key keyMessage = getKeyMessage(param, userJidObject, strings);
-                if (keyMessage == null)
-                    return;
+
+                // Use cached string classes instead of recalculating
+                FMessageWpp.Key keyMessage = getKeyMessage(param, userJidObject, cachedReceiptStringClasses);
+                if (keyMessage == null) return;
+
+                var msgTypeIdx = cachedReceiptStringClasses.get(cachedReceiptStringClasses.size() - 1).first;
+
+                // Early return: only process "read" receipts
+                if (!Objects.equals("read", param.args[msgTypeIdx])) return;
+
                 var fmessage = keyMessage.getFMessage();
                 if (fmessage != null) {
                     if (MessageHistory.getInstance().getHideSeenMessage(keyMessage.remoteJid.getPhoneRawString(), keyMessage.messageID, fmessage.isViewOnce() ? MessageHistory.MessageType.VIEW_ONCE_TYPE : MessageHistory.MessageType.MESSAGE_TYPE) != null) {
                         return;
                     }
                 }
-                var msgTypeIdx = strings.get(strings.size() - 1).first;
-                if (!Objects.equals("read", param.args[msgTypeIdx])) return;
+
                 var privacy = CustomPrivacy.getJSON(keyMessage.remoteJid.getPhoneNumber());
                 var customHideRead = privacy.optBoolean("HideSeen", hideread);
                 if (keyMessage.remoteJid.isGroup()) {
@@ -147,7 +178,12 @@ public class HideSeen extends Feature {
         XposedBridge.hookMethod(loadSenderPlayed, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                // Early return: if no features enabled, skip all work
+                if (!hideonceseen && !hideaudioseen && !ghostmode) return;
+
                 var fMessage = new FMessageWpp(param.args[0]);
+                if (!fMessage.isValid()) return;
+
                 var media_type = fMessage.getMediaType();  // 2 = voice note ; 82 = viewonce note voice; 42 = image view once; 43 = video view once
                 var isHide = false;
                 if ((hideonceseen || ghostmode) && fMessage.isViewOnce()) {
@@ -157,6 +193,8 @@ public class HideSeen extends Feature {
                     isHide = true;
                 }
                 var key = fMessage.getKey();
+                if (key == null) return;
+
                 var userJid = key.remoteJid;
                 var messageId = key.messageID;
                 if (isHide) {
@@ -174,30 +212,40 @@ public class HideSeen extends Feature {
         XposedBridge.hookMethod(loadSenderPlayedBusiness, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                // Early return: if no features enabled, skip all work
+                if (!hideonceseen && !hideaudioseen && !ghostmode) return;
+
                 var set = (Set) param.args[0];
-                if (set != null && !set.isEmpty()) {
-                    var fMessage = new FMessageWpp(set.iterator().next());
-                    var media_type = fMessage.getMediaType();  // 2 = voice note ; 82 = viewonce note voice; 42 = image view once; 43 = video view once
-                    var isHide = false;
-                    if ((hideonceseen || ghostmode) && fMessage.isViewOnce()) {
-                        param.setResult(null);
-                        isHide = true;
-                    } else if ((hideaudioseen || ghostmode) && media_type == 2) {
-                        param.setResult(null);
-                        isHide = true;
-                    }
-                    var key = fMessage.getKey();
-                    var userJid = key.remoteJid;
-                    var messageId = key.messageID;
-                    if (isHide) {
-                        MessageHistory.getInstance().insertHideSeenMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.MESSAGE_TYPE, false);
-                    }
-                    if (fMessage.isViewOnce() && !hideonceseen && !ghostmode) {
-                        MessageHistory.getInstance().updateViewedMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.VIEW_ONCE_TYPE, true);
-                        MessageHistory.getInstance().updateViewedMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.MESSAGE_TYPE, true);
-                    }
-                    HideSeenView.updateAllBubbleViews();
+                if (set == null || set.isEmpty()) return;
+
+                var fMessage = new FMessageWpp(set.iterator().next());
+                if (!fMessage.isValid()) return;
+
+                var media_type = fMessage.getMediaType();  // 2 = voice note ; 82 = viewonce note voice; 42 = image view once; 43 = video view once
+                var isHide = false;
+
+                if ((hideonceseen || ghostmode) && fMessage.isViewOnce()) {
+                    param.setResult(null);
+                    isHide = true;
+                } else if ((hideaudioseen || ghostmode) && media_type == 2) {
+                    param.setResult(null);
+                    isHide = true;
                 }
+
+                var key = fMessage.getKey();
+                if (key == null) return;
+
+                var userJid = key.remoteJid;
+                var messageId = key.messageID;
+
+                if (isHide) {
+                    MessageHistory.getInstance().insertHideSeenMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.MESSAGE_TYPE, false);
+                }
+                if (fMessage.isViewOnce() && !hideonceseen && !ghostmode) {
+                    MessageHistory.getInstance().updateViewedMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.VIEW_ONCE_TYPE, true);
+                    MessageHistory.getInstance().updateViewedMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.MESSAGE_TYPE, true);
+                }
+                HideSeenView.updateAllBubbleViews();
             }
         });
     }
