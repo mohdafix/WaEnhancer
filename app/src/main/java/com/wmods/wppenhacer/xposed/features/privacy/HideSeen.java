@@ -8,12 +8,10 @@ import androidx.annotation.NonNull;
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
-import com.wmods.wppenhacer.xposed.core.components.FMessageSafe;
 import com.wmods.wppenhacer.xposed.core.db.MessageHistory;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
 import com.wmods.wppenhacer.xposed.features.customization.HideSeenView;
 import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
-import com.wmods.wppenhacer.xposed.utils.ReflectUtils;
 
 import org.luckypray.dexkit.query.enums.StringMatchType;
 
@@ -149,25 +147,10 @@ public class HideSeen extends Feature {
         XposedBridge.hookMethod(loadSenderPlayed, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                Object maybeFMsg = (param != null && param.args != null && param.args.length > 0) ? param.args[0] : null;
-                FMessageSafe f = FMessageSafe.from(maybeFMsg);
-                if (!f.isValid()) {
-                    log("HideSeen: fMessageWpp == null or invalid, skipping hook action. raw=" + f.getRawClassName());
-                    if (f.getRaw() != null) {
-                        log("HideSeen probe: methods=" + ReflectUtils.methodListSnippet(f.getRaw(), 20));
-                    }
-                    return;
-                }
-
-                // safe check for view-once using wrapper helper
-                boolean viewOnce = false;
-                try { viewOnce = f.isViewOnce(); } catch (Throwable t) { log("isViewOnce failed: "+t.getMessage()); }
-
-                // Continue with existing logic using FMessageWpp for compatibility
                 var fMessage = new FMessageWpp(param.args[0]);
                 var media_type = fMessage.getMediaType();  // 2 = voice note ; 82 = viewonce note voice; 42 = image view once; 43 = video view once
                 var isHide = false;
-                if ((hideonceseen || ghostmode) && viewOnce) {
+                if ((hideonceseen || ghostmode) && fMessage.isViewOnce()) {
                     param.setResult(null);
                 } else if ((hideaudioseen || ghostmode) && media_type == 2) {
                     param.setResult(null);
@@ -179,7 +162,7 @@ public class HideSeen extends Feature {
                 if (isHide) {
                     MessageHistory.getInstance().insertHideSeenMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.MESSAGE_TYPE, false);
                 }
-                if (viewOnce && !hideonceseen && !ghostmode) {
+                if (fMessage.isViewOnce() && !hideonceseen && !ghostmode) {
                     MessageHistory.getInstance().updateViewedMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.VIEW_ONCE_TYPE, true);
                     MessageHistory.getInstance().updateViewedMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.MESSAGE_TYPE, true);
                 }
@@ -193,25 +176,10 @@ public class HideSeen extends Feature {
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 var set = (Set) param.args[0];
                 if (set != null && !set.isEmpty()) {
-                    Object maybeFMsg = set.iterator().next();
-                    FMessageSafe f = FMessageSafe.from(maybeFMsg);
-                    if (!f.isValid()) {
-                        log("HideSeen(Business): fMessageWpp == null or invalid, skipping hook action. raw=" + f.getRawClassName());
-                        if (f.getRaw() != null) {
-                            log("HideSeen(Business) probe: methods=" + ReflectUtils.methodListSnippet(f.getRaw(), 20));
-                        }
-                        return;
-                    }
-
-                    // safe check for view-once using wrapper helper
-                    boolean viewOnce = false;
-                    try { viewOnce = f.isViewOnce(); } catch (Throwable t) { log("isViewOnce failed: "+t.getMessage()); }
-
-                    // Continue with existing logic using FMessageWpp for compatibility
-                    var fMessage = new FMessageWpp(maybeFMsg);
+                    var fMessage = new FMessageWpp(set.iterator().next());
                     var media_type = fMessage.getMediaType();  // 2 = voice note ; 82 = viewonce note voice; 42 = image view once; 43 = video view once
                     var isHide = false;
-                    if ((hideonceseen || ghostmode) && viewOnce) {
+                    if ((hideonceseen || ghostmode) && fMessage.isViewOnce()) {
                         param.setResult(null);
                         isHide = true;
                     } else if ((hideaudioseen || ghostmode) && media_type == 2) {
@@ -224,7 +192,7 @@ public class HideSeen extends Feature {
                     if (isHide) {
                         MessageHistory.getInstance().insertHideSeenMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.MESSAGE_TYPE, false);
                     }
-                    if (viewOnce && !hideonceseen && !ghostmode) {
+                    if (fMessage.isViewOnce() && !hideonceseen && !ghostmode) {
                         MessageHistory.getInstance().updateViewedMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.VIEW_ONCE_TYPE, true);
                         MessageHistory.getInstance().updateViewedMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.MESSAGE_TYPE, true);
                     }

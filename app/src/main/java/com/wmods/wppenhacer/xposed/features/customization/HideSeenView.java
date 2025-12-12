@@ -16,10 +16,8 @@ import androidx.annotation.NonNull;
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
-import com.wmods.wppenhacer.xposed.core.components.FMessageSafe;
 import com.wmods.wppenhacer.xposed.core.db.MessageHistory;
 import com.wmods.wppenhacer.xposed.utils.Utils;
-import com.wmods.wppenhacer.xposed.utils.ReflectUtils;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XSharedPreferences;
@@ -60,14 +58,6 @@ public class HideSeenView extends Feature {
                         if (viewGroup == null) return;
                         Object fMessageObj = mAdapter.getItem(position);
                         if (fMessageObj == null) return;
-
-                        FMessageSafe f = FMessageSafe.from(fMessageObj);
-                        if (!f.isValid()) {
-                            XposedBridge.log("HideSeenView: fMessageWpp == null, skipping. raw=" + f.getRawClassName());
-                            if (f.getRaw() != null) XposedBridge.log("HideSeenView probe: methods=" + ReflectUtils.methodListSnippet(f.getRaw(),20));
-                            return;
-                        }
-
                         var fmessage = new FMessageWpp(fMessageObj);
                         if (fmessage.getKey().isFromMe) return;
                         viewGroup.post(() -> updateBubbleView(fmessage, viewGroup));
