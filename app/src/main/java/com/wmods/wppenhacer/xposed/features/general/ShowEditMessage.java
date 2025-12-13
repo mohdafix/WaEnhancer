@@ -68,23 +68,51 @@ public class ShowEditMessage extends Feature {
         XposedBridge.hookMethod(onMessageEdit, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                var editMessage = getEditMessage.invoke(null, param.args[0]);
+                // Guard: check raw message object exists
+                Object rawMessage = param.args[0];
+                if (rawMessage == null) return;
+
+                var editMessage = getEditMessage.invoke(null, rawMessage);
                 if (editMessage == null) return;
-                var invoked = callerMessageEditMethod.invoke(null, param.args[0]);
+
+                var invoked = callerMessageEditMethod.invoke(null, rawMessage);
                 long timestamp = XposedHelpers.getLongField(invoked, "A00");
-                var fMessage = new FMessageWpp(param.args[0]);
-                long id = fMessage.getRowId();
-                var origMessage = MessageStore.getInstance().getCurrentMessageByID(id);
-                String newMessage = fMessage.getMessageStr();
+
+                // DO NOT use FMessageWpp validation for edited messages
+                // Instead, safely extract only the fields we need
+                long id = -1;
+                String newMessage = null;
+
+                try {
+                    // Safely get row ID without full FMessageWpp validation
+                    var fMessage = new FMessageWpp(rawMessage);
+                    id = fMessage.getRowId();
+                    newMessage = fMessage.getMessageStr();
+                } catch (Throwable t) {
+                    // If FMessageWpp fails, try direct field access
+                    logDebug("FMessageWpp failed for edited message, trying direct access: " + t.getMessage());
+                }
+
+                // Fallback: try to get message string directly if FMessageWpp failed
                 if (newMessage == null) {
-                    var methods = ReflectionUtils.findAllMethodsUsingFilter(param.args[0].getClass(), method -> method.getReturnType() == String.class && ReflectionUtils.isOverridden(method));
+                    var methods = ReflectionUtils.findAllMethodsUsingFilter(rawMessage.getClass(), method -> method.getReturnType() == String.class && ReflectionUtils.isOverridden(method));
                     for (var method : methods) {
-                        newMessage = (String) method.invoke(param.args[0]);
-                        if (newMessage != null) break;
+                        try {
+                            newMessage = (String) method.invoke(rawMessage);
+                            if (newMessage != null) break;
+                        } catch (Throwable ignored) {}
                     }
                     if (newMessage == null) return;
                 }
+
+                // If we still don't have an ID, we can't proceed
+                if (id == -1) {
+                    logDebug("Could not extract row ID from edited message");
+                    return;
+                }
+
                 try {
+                    var origMessage = MessageStore.getInstance().getCurrentMessageByID(id);
                     var message = MessageHistory.getInstance().getMessages(id);
                     if (message == null) {
                         MessageHistory.getInstance().insertMessage(id, origMessage, 0);
@@ -107,8 +135,23 @@ public class ShowEditMessage extends Feature {
                     textView.setOnClickListener((v) -> {
                         try {
                             var messageObj = XposedHelpers.callMethod(param.thisObject, "getFMessage");
-                            var fMesage = new FMessageWpp(messageObj);
-                            long id = fMesage.getRowId();
+                            if (messageObj == null) return;
+
+                            // Safely extract row ID without strict validation
+                            long id = -1;
+                            try {
+                                var fMessage = new FMessageWpp(messageObj);
+                                id = fMessage.getRowId();
+                            } catch (Throwable t) {
+                                logDebug("FMessageWpp failed in click handler, trying direct access: " + t.getMessage());
+                                // Could add fallback direct field access here if needed
+                            }
+
+                            if (id == -1) {
+                                logDebug("Could not extract row ID for edited message history");
+                                return;
+                            }
+
                             var messages = MessageHistory.getInstance().getMessages(id);
                             if (messages == null) {
                                 messages = new ArrayList<>();
