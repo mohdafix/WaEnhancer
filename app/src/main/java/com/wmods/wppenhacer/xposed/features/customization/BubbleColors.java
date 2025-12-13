@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
 import com.wmods.wppenhacer.xposed.utils.DesignUtils;
+import com.wmods.wppenhacer.xposed.utils.MonetColorEngine;
 import com.wmods.wppenhacer.xposed.utils.Utils;
 
 import java.util.Objects;
@@ -25,18 +26,58 @@ public class BubbleColors extends Feature {
         super(loader, preferences);
     }
 
+    /**
+     * Resolves bubble color with priority: Manual > Monet > CSS/Properties > Default (0)
+     * @param isOutgoing true for right/outgoing bubble, false for left/incoming
+     * @param manualColor manual color from preferences (0 if not set)
+     * @param propertyColor color from CSS properties
+     * @param monetEnabled whether Monet theming is enabled
+     * @return resolved color (0 means use WhatsApp default)
+     */
+    private int resolveBubbleColor(boolean isOutgoing, int manualColor, int propertyColor, boolean monetEnabled) {
+        // Priority 1: Manual color always takes precedence
+        if (manualColor != 0) return manualColor;
+
+        // Priority 2: Monet colors (if enabled and available)
+        if (monetEnabled) {
+            try {
+                int monetColor = isOutgoing
+                    ? MonetColorEngine.getBubbleOutgoingColor(Utils.getApplication())
+                    : MonetColorEngine.getBubbleIncomingColor(Utils.getApplication());
+                if (monetColor != -1) return monetColor;
+            } catch (Exception ignored) {}
+        }
+
+        // Priority 3: CSS/Properties color
+        if (propertyColor != 0) return propertyColor;
+
+        // Priority 4: Default (0 = use WhatsApp default)
+        return 0;
+    }
+
     @Override
     public void doHook() throws Exception {
 
         Properties properties = Utils.getProperties(prefs, "custom_css", "custom_filters");
 
         boolean bubbleColor = prefs.getBoolean("bubble_color", false);
+        boolean monetTheme = prefs.getBoolean("monet_theme", false);
 
-        if (!bubbleColor && !Objects.equals(properties.getProperty("bubble_colors"), "true"))
+        // Enable hook if any bubble customization is active
+        if (!bubbleColor && !Objects.equals(properties.getProperty("bubble_colors"), "true") && !monetTheme)
             return;
 
-        int bubbleLeftColor = bubbleColor ? prefs.getInt("bubble_left", 0) : Color.parseColor(DesignUtils.checkSystemColor(properties.getProperty("bubble_left", "#00000000")));
-        int bubbleRightColor = bubbleColor ? prefs.getInt("bubble_right", 0) : Color.parseColor(DesignUtils.checkSystemColor(properties.getProperty("bubble_right", "#00000000")));
+        // Get manual colors (0 if not set)
+        int manualLeftColor = bubbleColor ? prefs.getInt("bubble_left", 0) : 0;
+        int manualRightColor = bubbleColor ? prefs.getInt("bubble_right", 0) : 0;
+
+        // Get CSS/property colors
+        int propertyLeftColor = Color.parseColor(DesignUtils.checkSystemColor(properties.getProperty("bubble_left", "#00000000")));
+        int propertyRightColor = Color.parseColor(DesignUtils.checkSystemColor(properties.getProperty("bubble_right", "#00000000")));
+
+        // Resolve final colors with priority: Manual > Monet > Properties > Default
+        int bubbleLeftColor = resolveBubbleColor(false, manualLeftColor, propertyLeftColor, monetTheme);
+        int bubbleRightColor = resolveBubbleColor(true, manualRightColor, propertyRightColor, monetTheme);
 
         var dateWrapper = Unobfuscator.loadBallonDateDrawable(classLoader);
 

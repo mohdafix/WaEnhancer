@@ -71,6 +71,32 @@ public class MonetColorEngine {
         return -1;
     }
 
+    @ColorInt
+    public static int getBubbleOutgoingColor(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                // Outgoing bubble: accent1_500 (primary accent tone)
+                return context.getColor(android.R.color.system_accent1_500);
+            } catch (Exception e) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    @ColorInt
+    public static int getBubbleIncomingColor(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                // Incoming bubble: accent3_500 (tertiary accent tone, different from outgoing)
+                return context.getColor(android.R.color.system_accent3_500);
+            } catch (Exception e) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
     private static boolean isNightMode(Context context) {
         int nightModeFlags = context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
