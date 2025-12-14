@@ -2,12 +2,10 @@ package com.wmods.wppenhacer.xposed.features.general;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -28,7 +26,6 @@ import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
 import com.wmods.wppenhacer.xposed.utils.ResId;
 import com.wmods.wppenhacer.xposed.utils.Utils;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Objects;
@@ -42,9 +39,9 @@ public class ShowEditMessage extends Feature {
 
     public ShowEditMessage(
             @NonNull ClassLoader loader,
-            @NonNull XSharedPreferences prefs
+            @NonNull XSharedPreferences preferences
     ) {
-        super(loader, prefs);
+        super(loader, preferences);
     }
 
     @Override
@@ -52,13 +49,12 @@ public class ShowEditMessage extends Feature {
 
         if (!prefs.getBoolean("antieditmessages", false)) return;
 
-        /*
-         * ------------------------------------------------------------
-         * 1) Capture edited message history
-         * ------------------------------------------------------------
-         */
+        /* ------------------------------------------------------------
+         * PART 1: Capture edit history (DATA)
+         * ------------------------------------------------------------ */
+
         Method onMessageEdit = Unobfuscator.loadMessageEditMethod(classLoader);
-        Method callerMessageEditMethod = Unobfuscator.loadCallerMessageEditMethod(classLoader);
+        Method callerMessageEdit = Unobfuscator.loadCallerMessageEditMethod(classLoader);
         Method getEditMessage = Unobfuscator.loadGetEditMessageMethod(classLoader);
 
         XposedBridge.hookMethod(onMessageEdit, new XC_MethodHook() {
@@ -68,165 +64,140 @@ public class ShowEditMessage extends Feature {
                     Object raw = param.args[0];
                     if (raw == null) return;
 
-                    Object edit = getEditMessage.invoke(null, raw);
-                    if (edit == null) return;
+                    if (getEditMessage.invoke(null, raw) == null) return;
 
-                    Object invoked = callerMessageEditMethod.invoke(null, raw);
-                    long timestamp = XposedHelpers.getLongField(invoked, "A00");
+                    Object invoked = callerMessageEdit.invoke(null, raw);
+                    long ts = XposedHelpers.getLongField(invoked, "A00");
 
                     FMessageWpp f = new FMessageWpp(raw);
-                    long id = f.getRowId();
+                    long rowId = f.getRowId();
 
-                    String newText = f.getMessageStr();
-                    if (newText == null) {
+                    String newMsg = f.getMessageStr();
+                    if (newMsg == null) {
                         for (var m : ReflectionUtils.findAllMethodsUsingFilter(
                                 raw.getClass(),
                                 mm -> mm.getReturnType() == String.class
                         )) {
-                            try {
-                                newText = (String) m.invoke(raw);
-                                if (newText != null) break;
-                            } catch (Throwable ignored) {}
+                            newMsg = (String) m.invoke(raw);
+                            if (newMsg != null) break;
                         }
+                        if (newMsg == null) return;
                     }
 
-                    if (newText == null) return;
-
-                    var history = MessageHistory.getInstance().getMessages(id);
+                    var history = MessageHistory.getInstance().getMessages(rowId);
                     if (history == null) {
+                        String original = MessageStore
+                                .getInstance()
+                                .getCurrentMessageByID(rowId);
                         MessageHistory.getInstance()
-                                .insertMessage(
-                                        id,
-                                        MessageStore.getInstance().getCurrentMessageByID(id),
-                                        0
-                                );
+                                .insertMessage(rowId, original, 0);
                     }
 
-                    MessageHistory.getInstance().insertMessage(id, newText, timestamp);
+                    MessageHistory.getInstance()
+                            .insertMessage(rowId, newMsg, ts);
 
-                } catch (Throwable t) {
-                    logDebug(t);
-                }
+                } catch (Throwable ignored) {}
             }
         });
 
-        /*
-         * ------------------------------------------------------------
-         * 2) Decorate the existing "Edited" label (SAFE PATH)
-         * ------------------------------------------------------------
-         */
+        /* ------------------------------------------------------------
+         * PART 2: UI — Edited label (STABLE)
+         * ------------------------------------------------------------ */
+
         Method showMethod = Unobfuscator.loadEditMessageShowMethod(classLoader);
-        Field labelField = Unobfuscator.loadEditMessageViewField(classLoader);
+        var textViewField = Unobfuscator.loadEditMessageViewField(classLoader);
 
         XposedBridge.hookMethod(showMethod, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
-
                 try {
-                    TextView tv = (TextView) labelField.get(param.thisObject);
+                    TextView tv = (TextView) textViewField.get(param.thisObject);
                     if (tv == null) return;
 
-                    CharSequence text = tv.getText();
-                    if (text == null) return;
+                    Object msgObj = XposedHelpers.callMethod(param.thisObject, "getFMessage");
+                    if (msgObj == null) return;
 
-                    // WhatsApp already decided this is edited
-                    if (!text.toString().contains("Edited")) return;
+                    long rowId = new FMessageWpp(msgObj).getRowId();
+                    var history = MessageHistory
+                            .getInstance()
+                            .getMessages(rowId);
 
-                    // Prevent duplication on recycled views
-                    if (text.toString().contains("📝")) return;
+                    // 🔑 THIS is why 📝 no longer lies
+                    if (history == null || history.size() < 2) return;
 
-                    tv.setVisibility(View.VISIBLE);
+                    if (tv.getTag() != null) return;
+                    tv.setTag("edited");
+
                     tv.getPaint().setUnderlineText(true);
-                    tv.append(" 📝");
+                    tv.append(" \uD83D\uDCDD");
 
-                    tv.setOnClickListener(v -> {
-                        try {
-                            Object msg = XposedHelpers.callMethod(param.thisObject, "getFMessage");
-                            if (msg == null) return;
-
-                            long id = new FMessageWpp(msg).getRowId();
-                            var messages = MessageHistory.getInstance().getMessages(id);
-                            if (messages == null) messages = new ArrayList<>();
-
-                            showBottomDialog(messages);
-
-                        } catch (Throwable ignored) {}
-                    });
+                    tv.setOnClickListener(v ->
+                            showBottomDialog(history)
+                    );
 
                 } catch (Throwable ignored) {}
             }
         });
     }
 
-    /*
-     * ------------------------------------------------------------
-     * Bottom dialog (unchanged & safe)
-     * ------------------------------------------------------------
-     */
+    /* ------------------------------------------------------------
+     * Bottom dialog
+     * ------------------------------------------------------------ */
     @SuppressLint("SetTextI18n")
-    private void showBottomDialog(ArrayList<MessageHistory.MessageItem> messages) {
+    private void showBottomDialog(
+            ArrayList<MessageHistory.MessageItem> messages
+    ) {
 
-        Objects.requireNonNull(WppCore.getCurrentConversation()).runOnUiThread(() -> {
+        Objects.requireNonNull(WppCore.getCurrentConversation())
+                .runOnUiThread(() -> {
 
-            Context ctx = (Context) WppCore.getCurrentConversation();
-            var dialog = WppCore.createBottomDialog(ctx);
+                    Context ctx = WppCore.getCurrentConversation();
+                    var dialog = WppCore.createBottomDialog(ctx);
 
-            NestedScrollView scroll = new NestedScrollView(ctx);
-            scroll.setLayoutParams(new ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT));
+                    NestedScrollView scroll = new NestedScrollView(ctx);
+                    scroll.setLayoutParams(new ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                    ));
+                    scroll.setFillViewport(true);
 
-            LinearLayout root = new LinearLayout(ctx);
-            root.setOrientation(LinearLayout.VERTICAL);
-            root.setPadding(
-                    Utils.dipToPixels(20),
-                    Utils.dipToPixels(20),
-                    Utils.dipToPixels(20),
-                    0
-            );
-            root.setBackground(
-                    DesignUtils.createDrawable(
-                            "rc_dialog_bg",
-                            DesignUtils.getPrimarySurfaceColor()
-                    )
-            );
+                    LinearLayout root = new LinearLayout(ctx);
+                    root.setOrientation(LinearLayout.VERTICAL);
+                    root.setPadding(
+                            Utils.dipToPixels(20),
+                            Utils.dipToPixels(20),
+                            Utils.dipToPixels(20),
+                            0
+                    );
+                    root.setBackground(
+                            DesignUtils.createDrawable(
+                                    "rc_dialog_bg",
+                                    DesignUtils.getPrimarySurfaceColor()
+                            )
+                    );
 
-            TextView title = new TextView(ctx);
-            title.setText(ResId.string.edited_history);
-            title.setTypeface(null, Typeface.BOLD);
-            title.setTextColor(DesignUtils.getPrimaryTextColor());
-            title.setTextSize(16f);
+                    TextView title = new TextView(ctx);
+                    title.setText(ResId.string.edited_history);
+                    title.setTypeface(null, Typeface.BOLD);
+                    title.setTextSize(16f);
+                    title.setTextColor(DesignUtils.getPrimaryTextColor());
 
-            ListView list = new NoScrollListView(ctx);
-            list.setAdapter(new MessageAdapter(ctx, messages));
+                    ListView list = new NoScrollListView(ctx);
+                    list.setAdapter(new MessageAdapter(ctx, messages));
 
-            ImageView handle = new ImageView(ctx);
-            handle.setLayoutParams(new LinearLayout.LayoutParams(
-                    Utils.dipToPixels(70),
-                    Utils.dipToPixels(8)
-            ));
-            handle.setBackground(
-                    DesignUtils.alphaDrawable(
-                            DesignUtils.createDrawable("rc_dotline_dialog", Color.BLACK),
-                            DesignUtils.getPrimaryTextColor(),
-                            33
-                    )
-            );
+                    Button ok = new Button(ctx);
+                    ok.setText("OK");
+                    ok.setOnClickListener(v -> dialog.dismissDialog());
 
-            Button ok = new Button(ctx);
-            ok.setText("OK");
-            ok.setOnClickListener(v -> dialog.dismissDialog());
+                    root.addView(title);
+                    root.addView(list);
+                    root.addView(ok);
 
-            root.addView(handle);
-            root.addView(title);
-            root.addView(list);
-            root.addView(ok);
-
-            scroll.addView(root);
-            dialog.setContentView(scroll);
-            dialog.setCanceledOnTouchOutside(true);
-            dialog.showDialog();
-        });
+                    scroll.addView(root);
+                    dialog.setContentView(scroll);
+                    dialog.setCanceledOnTouchOutside(true);
+                    dialog.showDialog();
+                });
     }
 
     @NonNull
