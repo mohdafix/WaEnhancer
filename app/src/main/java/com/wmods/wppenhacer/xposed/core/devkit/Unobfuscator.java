@@ -1147,6 +1147,41 @@ public class Unobfuscator {
         });
     }
 
+
+    public synchronized static Method loadConversationRowBindMethod(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getMethod(loader, () -> {
+
+            // Anchor on ConversationRow (same string you already use elsewhere)
+            var classData = dexkit.findClass(
+                    FindClass.create()
+                            .matcher(ClassMatcher.create()
+                                    .addUsingString("ConversationRow/setUpUsernameInGroupView"))
+            ).singleOrNull();
+
+            if (classData == null)
+                throw new RuntimeException("ConversationRow class not found");
+
+            // A2K signature: (ViewGroup, TextView, FMessage)
+            var methods = classData.findMethod(
+                    FindMethod.create()
+                            .matcher(MethodMatcher.create().paramCount(3))
+            );
+
+            for (var m : methods) {
+                var params = m.getParamTypes();
+
+                // second parameter MUST be TextView
+                if (params.size() == 3 &&
+                        params.get(1).getName().equals(TextView.class.getName())) {
+
+                    return m.getMethodInstance(loader);
+                }
+            }
+
+            throw new RuntimeException("ConversationRow bind method (A2K) not found");
+        });
+    }
+
     /**
      * @noinspection DataFlowIssue
      */
