@@ -4,11 +4,14 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.graphics.Typeface;
+import android.text.TextUtils;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.core.widget.NestedScrollView;
 
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.WppCore;
@@ -16,7 +19,9 @@ import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
 import com.wmods.wppenhacer.xposed.core.db.MessageHistory;
 import com.wmods.wppenhacer.xposed.core.db.MessageStore;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
+import com.wmods.wppenhacer.xposed.utils.DesignUtils;
 import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
+import com.wmods.wppenhacer.xposed.utils.Utils;
 
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
@@ -44,14 +49,10 @@ public class ShowEditMessage extends Feature {
     @Override
     public void doHook() throws Throwable {
 
-        if (!prefs.getBoolean("antieditmessages", false)) {
-            return;
-        }
-
-        logDebug("ShowEditMessage: Feature enabled!");
+        if (!prefs.getBoolean("antieditmessages", false)) return;
 
         /* ============================================================
-         * PART 1 — Capture edited message history (DATA)
+         * PART 1 — Capture edited message history
          * ============================================================ */
 
         var onMessageEdit = Unobfuscator.loadMessageEditMethod(classLoader);
@@ -104,15 +105,13 @@ public class ShowEditMessage extends Feature {
                         MessageHistory.getInstance()
                                 .insertMessage(rowId, newText, timestamp);
 
-                    } catch (Throwable t) {
-                        logDebug("Error in onMessageEdit: " + t.getMessage());
-                    }
+                    } catch (Throwable ignored) {}
                 }
             });
         }
 
         /* ============================================================
-         * PART 2 — UI: Conversation Row Bind
+         * PART 2 — Conversation row UI hook
          * ============================================================ */
 
         Method bindMethod = Unobfuscator.loadConversationRowBindMethod(classLoader);
@@ -131,181 +130,206 @@ public class ShowEditMessage extends Feature {
                         long rowId = new FMessageWpp(msgObj).getRowId();
                         if (rowId <= 0) return;
 
-                        // Get merged history
-                        ArrayList<MessageHistory.MessageItem> history = getMergedHistory(rowId);
+                        ArrayList<MessageHistory.MessageItem> history =
+                                getMergedHistory(rowId);
 
-                        // ✅ Only edited messages (need at least 2 versions)
-                        if (history == null || history.size() <= 1) {
-                            return;
-                        }
+                        if (history == null || history.size() <= 1) return;
 
-                        CharSequence cs = metaView.getText();
-                        String currentText = cs != null ? cs.toString() : "";
+                        String currentText =
+                                metaView.getText() != null ? metaView.getText().toString() : "";
 
-                        if (currentText.contains("📝")) {
-                            return;
-                        }
+                        if (currentText.contains("📝")) return;
 
                         metaView.setClickable(true);
-                        metaView.setFocusable(true);
-                        metaView.setVisibility(View.VISIBLE);
                         metaView.getPaint().setUnderlineText(true);
                         metaView.append(" 📝");
-
-                        // Store history in view tag
                         metaView.setTag(history);
 
-                        metaView.setOnClickListener(v -> {
-                            try {
-                                ArrayList<MessageHistory.MessageItem> clickedHistory =
-                                        (ArrayList<MessageHistory.MessageItem>) v.getTag();
-                                if (clickedHistory == null) return;
+                        metaView.setOnClickListener(v ->
+                                showBottomDialog(
+                                        (ArrayList<MessageHistory.MessageItem>) v.getTag()
+                                )
+                        );
 
-                                showBottomDialog(clickedHistory);
-                            } catch (Throwable t) {
-                                logDebug("Click error: " + t.getMessage());
-                            }
-                        });
-
-                    } catch (Throwable t) {
-                        logDebug("Bind method error: " + t.getMessage());
-                    }
+                    } catch (Throwable ignored) {}
                 }
             });
         }
     }
 
+    /* ============================================================
+     * Merge WA + local history
+     * ============================================================ */
+
     private ArrayList<MessageHistory.MessageItem> getMergedHistory(long rowId) {
-        // Use a LinkedHashMap to de-duplicate by message text while preserving order
         Map<String, MessageHistory.MessageItem> merged = new LinkedHashMap<>();
 
-        // 1. Get from WhatsApp's own message_add_on table (Official history)
-        List<MessageHistory.MessageItem> waHistory = MessageStore.getInstance().getWAEditHistory(rowId);
-        for (var item : waHistory) {
-            if (item.message != null && !item.message.isEmpty()) {
-                merged.put(item.message, item);
-            }
+        List<MessageHistory.MessageItem> wa =
+                MessageStore.getInstance().getWAEditHistory(rowId);
+        for (var item : wa) {
+            if (!TextUtils.isEmpty(item.message)) merged.put(item.message, item);
         }
 
-        // 2. Get from our local database (Captured history)
-        ArrayList<MessageHistory.MessageItem> localHistory = MessageHistory.getInstance().getMessages(rowId);
-        if (localHistory != null) {
-            for (var item : localHistory) {
-                if (item.message != null && !item.message.isEmpty()) {
-                    // Only add if not already present or if it's the first one (original)
-                    if (!merged.containsKey(item.message)) {
-                        merged.put(item.message, item);
-                    }
+        ArrayList<MessageHistory.MessageItem> local =
+                MessageHistory.getInstance().getMessages(rowId);
+        if (local != null) {
+            for (var item : local) {
+                if (!TextUtils.isEmpty(item.message) && !merged.containsKey(item.message)) {
+                    merged.put(item.message, item);
                 }
             }
         }
 
         if (merged.isEmpty()) return null;
 
-        ArrayList<MessageHistory.MessageItem> result = new ArrayList<>(merged.values());
-        // Sort by timestamp if needed, but LinkedHashMap usually keeps insertion order
+        ArrayList<MessageHistory.MessageItem> result =
+                new ArrayList<>(merged.values());
         result.sort((a, b) -> Long.compare(a.timestamp, b.timestamp));
-        
         return result;
     }
 
     /* ============================================================
-     * Edited History Bottom Dialog
+     * Bottom Sheet UI
      * ============================================================ */
 
     @SuppressLint("SetTextI18n")
     private void showBottomDialog(ArrayList<MessageHistory.MessageItem> messages) {
-        try {
-            Activity activity = WppCore.getCurrentActivity();
-            if (activity == null) return;
+        Activity activity = WppCore.getCurrentActivity();
+        if (activity == null) return;
 
-            activity.runOnUiThread(() -> {
-                try {
-                    showSimpleAlertDialog(activity, messages);
-                } catch (Throwable t) {
-                    Toast.makeText(activity,
-                            "Edit History: " + messages.size() + " versions",
-                            Toast.LENGTH_LONG).show();
+        activity.runOnUiThread(() -> {
+            try {
+                var dialog = WppCore.createBottomDialog(activity);
+
+                LinearLayout root = new LinearLayout(activity);
+                root.setOrientation(LinearLayout.VERTICAL);
+                int pad = Utils.dipToPixels(16);
+                root.setPadding(pad, pad, pad, pad);
+                root.setBackground(
+                        DesignUtils.createDrawable(
+                                "rc_dialog_bg",
+                                DesignUtils.getPrimarySurfaceColor()
+                        )
+                );
+
+                View handle = new View(activity);
+                LinearLayout.LayoutParams hlp =
+                        new LinearLayout.LayoutParams(
+                                Utils.dipToPixels(48),
+                                Utils.dipToPixels(5)
+                        );
+                hlp.bottomMargin = Utils.dipToPixels(12);
+                hlp.gravity = 17;
+                handle.setLayoutParams(hlp);
+                handle.setBackground(
+                        DesignUtils.alphaDrawable(
+                                DesignUtils.createDrawable("rc_dotline_dialog", 0),
+                                DesignUtils.getPrimaryTextColor(),
+                                35
+                        )
+                );
+                root.addView(handle);
+
+                TextView title = new TextView(activity);
+                title.setText("✏️ Edit history (" + messages.size() + ")");
+                title.setTextSize(16f);
+                title.setTypeface(Typeface.DEFAULT_BOLD);
+                title.setTextColor(DesignUtils.getPrimaryTextColor());
+                title.setPadding(0, 0, 0, Utils.dipToPixels(12));
+                root.addView(title);
+
+                NestedScrollView scroll = new NestedScrollView(activity);
+                LinearLayout list = new LinearLayout(activity);
+                list.setOrientation(LinearLayout.VERTICAL);
+                scroll.addView(list);
+
+                for (int i = messages.size() - 1; i >= 0; i--) {
+                    list.addView(createHistoryItem(activity, messages.get(i)));
                 }
-            });
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
+
+                root.addView(scroll);
+                dialog.setContentView(root);
+                dialog.setCanceledOnTouchOutside(true);
+                dialog.showDialog();
+
+            } catch (Throwable t) {
+                Toast.makeText(activity, "Failed to show edit history", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
-    private void showSimpleAlertDialog(Activity activity, ArrayList<MessageHistory.MessageItem> messages) {
-        try {
-            AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-            builder.setTitle("✏️ Edit History (" + messages.size() + " versions)");
+    private View createHistoryItem(Activity ctx, MessageHistory.MessageItem item) {
+        LinearLayout card = new LinearLayout(ctx);
+        card.setOrientation(LinearLayout.VERTICAL);
+        int pad = Utils.dipToPixels(12);
+        card.setPadding(pad, pad, pad, pad);
 
-            ArrayList<String> itemsList = new ArrayList<>();
-            // Show newest first
-            for (int i = messages.size() - 1; i >= 0; i--) {
-                MessageHistory.MessageItem item = messages.get(i);
-                String message = item.message;
-                long timestamp = item.timestamp;
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        lp.bottomMargin = Utils.dipToPixels(10);
+        card.setLayoutParams(lp);
 
-                String timeStr;
-                if (timestamp == 0) {
-                    timeStr = "Original";
-                } else {
-                    timeStr = new SimpleDateFormat("dd/MM HH:mm:ss", Locale.getDefault())
-                            .format(new Date(timestamp));
-                }
+        card.setBackground(
+                DesignUtils.alphaDrawable(
+                        DesignUtils.createDrawable("selector_bg", 0),
+                        DesignUtils.getPrimaryTextColor(),
+                        8
+                )
+        );
 
-                if (message == null) message = "[No text]";
-                String preview = message.length() > 100 ?
-                        message.substring(0, 100) + "..." : message;
+        TextView time = new TextView(ctx);
+        time.setTextSize(12f);
+        time.setTypeface(Typeface.MONOSPACE);
 
-                itemsList.add(timeStr + "\n" + preview);
-            }
+        int baseColor = DesignUtils.getPrimaryTextColor();
+        time.setTextColor(
+                android.graphics.Color.argb(
+                        160,
+                        android.graphics.Color.red(baseColor),
+                        android.graphics.Color.green(baseColor),
+                        android.graphics.Color.blue(baseColor)
+                )
+        );
 
-            String[] items = itemsList.toArray(new String[0]);
-            builder.setItems(items, (dialog, which) -> {
-                // Show full text on click
-                int index = messages.size() - 1 - which;
-                showFullTextMessage(activity, messages.get(index));
-            });
-            builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
 
-            AlertDialog dialog = builder.create();
-            dialog.show();
-        } catch (Throwable t) {
-            showAlternativeDialog(activity, messages);
+
+        if (item.timestamp == 0) {
+            time.setText("Original");
+        } else {
+            time.setText(
+                    new SimpleDateFormat("dd MMM · HH:mm", Locale.getDefault())
+                            .format(new Date(item.timestamp))
+            );
         }
+
+        TextView msg = new TextView(ctx);
+        msg.setTextSize(14f);
+        msg.setTextColor(DesignUtils.getPrimaryTextColor());
+        msg.setMaxLines(3);
+        msg.setEllipsize(TextUtils.TruncateAt.END);
+        msg.setText(item.message != null ? item.message : "[No text]");
+        msg.setPadding(0, Utils.dipToPixels(6), 0, 0);
+
+        card.addView(time);
+        card.addView(msg);
+
+        card.setOnClickListener(v -> showFullTextMessage(ctx, item));
+
+        return card;
     }
 
     private void showFullTextMessage(Activity activity, MessageHistory.MessageItem item) {
         AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-        builder.setTitle("Full Message Text");
+        builder.setTitle("Full message");
         builder.setMessage(item.message);
-        builder.setPositiveButton("Copy", (dialog, which) -> {
-            com.wmods.wppenhacer.xposed.utils.Utils.setToClipboard(item.message);
-            Toast.makeText(activity, "Copied to clipboard", Toast.LENGTH_SHORT).show();
+        builder.setPositiveButton("Copy", (d, w) -> {
+            Utils.setToClipboard(item.message);
+            Toast.makeText(activity, "Copied", Toast.LENGTH_SHORT).show();
         });
-        builder.setNegativeButton("Back", (dialog, which) -> dialog.dismiss());
+        builder.setNegativeButton("Close", null);
         builder.show();
-    }
-
-    private void showAlternativeDialog(Activity activity, ArrayList<MessageHistory.MessageItem> messages) {
-        try {
-            StringBuilder sb = new StringBuilder();
-            for (int i = messages.size() - 1; i >= 0; i--) {
-                MessageHistory.MessageItem item = messages.get(i);
-                String time = item.timestamp == 0 ? "Original" : 
-                    new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date(item.timestamp));
-
-                sb.append("[").append(time).append("]:\n")
-                        .append(item.message != null ? item.message : "[No text]")
-                        .append("\n\n");
-            }
-
-            AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-            builder.setTitle("✏️ Edit History");
-            builder.setMessage(sb.toString());
-            builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
-            builder.show();
-        } catch (Throwable t) {}
     }
 
     @NonNull
