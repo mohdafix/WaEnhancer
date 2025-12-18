@@ -14,29 +14,48 @@ import de.robv.android.xposed.XposedBridge;
 
 public class MessageStore {
 
-
     private static MessageStore mInstance;
-
     private SQLiteDatabase sqLiteDatabase;
 
     private MessageStore() {
-        var dataDir = Utils.getApplication().getFilesDir().getParentFile();
-        var dbFile = new File(dataDir, "/databases/msgstore.db");
-        if (!dbFile.exists()) return;
-        sqLiteDatabase = SQLiteDatabase.openDatabase(dbFile.getAbsolutePath(), null, SQLiteDatabase.OPEN_READWRITE);
+        try {
+            var dataDir = Utils.getApplication().getFilesDir().getParentFile();
+            var dbFile = new File(dataDir, "/databases/msgstore.db");
+            
+            XposedBridge.log("MessageStore: Initializing. DB Path: " + dbFile.getAbsolutePath());
+
+            if (dbFile.exists()) {
+                sqLiteDatabase = SQLiteDatabase.openDatabase(dbFile.getAbsolutePath(), null, SQLiteDatabase.OPEN_READWRITE);
+                XposedBridge.log("MessageStore: Database opened successfully.");
+            } else {
+                XposedBridge.log("MessageStore: msgstore.db does not exist yet.");
+            }
+        } catch (Exception e) {
+            XposedBridge.log("MessageStore: Error initializing database: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public static MessageStore getInstance() {
         synchronized (MessageStore.class) {
-            if (mInstance == null || mInstance.sqLiteDatabase == null || !mInstance.sqLiteDatabase.isOpen()) {
+            if (mInstance == null) {
                 mInstance = new MessageStore();
+            } else {
+                // If instance exists but DB is closed or null, try to reopen
+                if (mInstance.sqLiteDatabase == null || !mInstance.sqLiteDatabase.isOpen()) {
+                    XposedBridge.log("MessageStore: Instance exists but DB closed/null. Retrying init.");
+                    mInstance = new MessageStore();
+                }
             }
         }
         return mInstance;
     }
 
     public String getMessageById(long id) {
-        if (sqLiteDatabase == null) return "";
+        if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) {
+            XposedBridge.log("MessageStore: DB not open when getting message by ID");
+            return "";
+        }
         String message = "";
         Cursor cursor = null;
         try {
@@ -45,11 +64,11 @@ public class MessageStore {
             String[] selectionArgs = new String[]{String.valueOf(id)};
 
             cursor = sqLiteDatabase.query("message_ftsv2_content", columns, selection, selectionArgs, null, null, null);
-            if (cursor.moveToFirst()) {
+            if (cursor != null && cursor.moveToFirst()) {
                 message = cursor.getString(cursor.getColumnIndexOrThrow("c0content"));
             }
         } catch (Exception e) {
-            XposedBridge.log(e);
+            XposedBridge.log("MessageStore: Error getting message by ID: " + e.getMessage());
         } finally {
             if (cursor != null) cursor.close();
         }
@@ -57,12 +76,12 @@ public class MessageStore {
     }
 
     public String getCurrentMessageByKey(String message_key) {
-        if (sqLiteDatabase == null) return "";
+        if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return "";
         String[] columns = new String[]{"text_data"};
         String selection = "key_id=?";
         String[] selectionArgs = new String[]{message_key};
         try (Cursor cursor = sqLiteDatabase.query("message", columns, selection, selectionArgs, null, null, null)) {
-            if (cursor.moveToFirst()) {
+            if (cursor != null && cursor.moveToFirst()) {
                 return cursor.getString(0);
             }
         } catch (Exception e) {
@@ -72,12 +91,12 @@ public class MessageStore {
     }
 
     public long getIdfromKey(String message_key) {
-        if (sqLiteDatabase == null) return -1;
+        if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return -1;
         String[] columns = new String[]{"_id"};
         String selection = "key_id=?";
         String[] selectionArgs = new String[]{message_key};
         try (Cursor cursor = sqLiteDatabase.query("message", columns, selection, selectionArgs, null, null, null)) {
-            if (cursor.moveToFirst()) {
+            if (cursor != null && cursor.moveToFirst()) {
                 return cursor.getLong(0);
             }
         } catch (Exception e) {
@@ -87,12 +106,12 @@ public class MessageStore {
     }
 
     public String getMediaFromID(long id) {
-        if (sqLiteDatabase == null) return null;
+        if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return null;
         String[] columns = new String[]{"file_path"};
         String selection = "message_row_id=?";
         String[] selectionArgs = new String[]{String.valueOf(id)};
         try (Cursor cursor = sqLiteDatabase.query("message_media", columns, selection, selectionArgs, null, null, null)) {
-            if (cursor.moveToFirst()) {
+            if (cursor != null && cursor.moveToFirst()) {
                 return cursor.getString(0);
             }
         } catch (Exception e) {
@@ -102,12 +121,12 @@ public class MessageStore {
     }
 
     public String getCurrentMessageByID(long row_id) {
-        if (sqLiteDatabase == null) return "";
+        if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return "";
         String[] columns = new String[]{"text_data"};
         String selection = "_id=?";
         String[] selectionArgs = new String[]{String.valueOf(row_id)};
         try (Cursor cursor = sqLiteDatabase.query("message", columns, selection, selectionArgs, null, null, null)) {
-            if (cursor.moveToFirst()) {
+            if (cursor != null && cursor.moveToFirst()) {
                 return cursor.getString(0);
             }
         } catch (Exception e) {
@@ -117,10 +136,10 @@ public class MessageStore {
     }
 
     public String getOriginalMessageKey(long id) {
-        if (sqLiteDatabase == null) return "";
+        if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return "";
         String message = "";
         try (Cursor cursor = sqLiteDatabase.rawQuery("SELECT parent_message_row_id, key_id FROM message_add_on WHERE parent_message_row_id=\"" + id + "\"", null)) {
-            if (cursor.moveToFirst()) {
+            if (cursor != null && cursor.moveToFirst()) {
                 message = cursor.getString(1);
             }
         } catch (Exception e) {
@@ -129,23 +148,31 @@ public class MessageStore {
         return message;
     }
 
-//    public String getMessageKeyByID(long id) {
-//        if (sqLiteDatabase == null) return "";
-//        String message = "";
-//        try (Cursor cursor = sqLiteDatabase.rawQuery("SELECT _id, key_id FROM message WHERE _id=\"" + id + "\"", null)) {
-//            if (cursor.moveToFirst()) {
-//                message = cursor.getString(1);
-//            }
-//        } catch (Exception e) {
-//            XposedBridge.log(e);
-//        } finally {
-//            sqLiteDatabase.close();
-//        }
-//        return message;
-//    }
+    public List<MessageHistory.MessageItem> getWAEditHistory(long rowId) {
+        List<MessageHistory.MessageItem> history = new ArrayList<>();
+        if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return history;
+
+        // Query message_add_on for edits (type 7)
+        // Usually message_add_on stores previous versions
+        String sql = "SELECT text_data, timestamp FROM message_add_on WHERE parent_message_row_id = ? AND message_add_on_type = 7 ORDER BY timestamp ASC";
+        try (Cursor cursor = sqLiteDatabase.rawQuery(sql, new String[]{String.valueOf(rowId)})) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int textIdx = cursor.getColumnIndexOrThrow("text_data");
+                int tsIdx = cursor.getColumnIndexOrThrow("timestamp");
+                do {
+                    String text = cursor.getString(textIdx);
+                    long ts = cursor.getLong(tsIdx);
+                    history.add(new MessageHistory.MessageItem(rowId, text, ts));
+                } while (cursor.moveToNext());
+            }
+        } catch (Exception e) {
+            XposedBridge.log("MessageStore: Error getting edit history: " + e.getMessage());
+        }
+        return history;
+    }
 
     public List<String> getAudioListByMessageList(List<String> messageList) {
-        if (sqLiteDatabase == null || messageList == null || messageList.isEmpty()) {
+        if (sqLiteDatabase == null || !sqLiteDatabase.isOpen() || messageList == null || messageList.isEmpty()) {
             return new ArrayList<>();
         }
 
@@ -153,7 +180,7 @@ public class MessageStore {
         var placeholders = messageList.stream().map(m -> "?").collect(Collectors.joining(","));
         var sql = "SELECT message_type FROM message WHERE key_id IN (" + placeholders + ")";
         try (Cursor cursor = sqLiteDatabase.rawQuery(sql, messageList.toArray(new String[0]))) {
-            if (cursor.moveToFirst()) {
+            if (cursor != null && cursor.moveToFirst()) {
                 do {
                     if (cursor.getInt(0) == 2) {
                         list.add(cursor.getString(0));
@@ -169,7 +196,7 @@ public class MessageStore {
 
     public synchronized void executeSQL(String sql) {
         try {
-            if (sqLiteDatabase == null) return;
+            if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return;
             sqLiteDatabase.execSQL(sql);
         } catch (Exception e) {
             XposedBridge.log(e);
@@ -177,13 +204,13 @@ public class MessageStore {
     }
 
     public void storeMessageRead(String messageId) {
-        if (sqLiteDatabase == null) return;
+        if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return;
         XposedBridge.log("storeMessageRead: " + messageId);
         sqLiteDatabase.execSQL("UPDATE message SET status = 1 WHERE key_id = \"" + messageId + "\"");
     }
 
     public boolean isReadMessageStatus(String messageId) {
-        if (sqLiteDatabase == null) return false;
+        if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return false;
         boolean result = false;
         Cursor cursor = null;
         try {
@@ -192,7 +219,7 @@ public class MessageStore {
             String[] selectionArgs = new String[]{messageId};
 
             cursor = sqLiteDatabase.query("message", columns, selection, selectionArgs, null, null, null);
-            if (cursor.moveToFirst()) {
+            if (cursor != null && cursor.moveToFirst()) {
                 result = cursor.getInt(cursor.getColumnIndexOrThrow("status")) == 1;
             }
         } catch (Exception e) {

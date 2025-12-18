@@ -927,7 +927,7 @@ public class Unobfuscator {
 
     public synchronized static Method loadPinnedInChatMethod(ClassLoader loader) throws Exception {
         return UnobfuscatorCache.getInstance().getMethod(loader, () -> {
-            var method = dexkit.findMethod(new FindMethod().matcher(new MethodMatcher().addUsingNumber(3732).returnType(int.class)));
+            var method = dexkit.findMethod(FindMethod.create().matcher(new MethodMatcher().addUsingNumber(3732).returnType(int.class)));
             if (method.isEmpty()) throw new RuntimeException("PinnedInChat method not found");
             return method.get(0).getMethodInstance(loader);
         });
