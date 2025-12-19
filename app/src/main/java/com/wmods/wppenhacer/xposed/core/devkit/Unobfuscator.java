@@ -308,7 +308,7 @@ public class Unobfuscator {
     }
 
     public synchronized static Class<?> loadForwardClassMethod(ClassLoader classLoader) throws Exception {
-        return UnobfuscatorCache.getInstance().getClass(classLoader, () -> findFirstClassUsingStrings(classLoader, StringMatchType.Contains, "UserActions/userActionForwardMessage"));
+        return UnobfuscatorCache.getInstance().getClass(classLoader, () -> findFirstClassUsingStrings(classLoader, StringMatchType.Contains, "UserActionsUtils/userActionForwardMessage"));
     }
 
 
