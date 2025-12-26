@@ -87,11 +87,7 @@ public class Others extends Feature {
         var disableAd = prefs.getBoolean("disable_ads", false);
 
         // --- POPULATE PROPS MAPS ---
-        propsInteger.put(3877, oldStatus ? igstatus ? 2 : 0 : 2);
-
-//        propsBoolean.put(5171, filterSeen);
-
-//        propsBoolean.put(18250, false);
+        propsInteger.put(3877, oldStatus ? igstatus ? 2 : 0 : 2);  //        propsBoolean.put(5171, filterSeen);  //        propsBoolean.put(18250, false);
         propsBoolean.put(11528, filterSeen);
 
         propsBoolean.put(4497, menuWIcons);
@@ -224,7 +220,11 @@ public class Others extends Feature {
         }
 
         if (audio_type > 0) {
-            sendAudioType(audio_type);
+            try {
+                sendAudioType(audio_type);
+            } catch (Exception e) {
+                logDebug(e);
+            }
         }
 
         customPlayBackSpeed();
@@ -470,7 +470,8 @@ public class Others extends Feature {
                     }
                 }
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
     }
 
     private void adjustPaddingForContent(View view, boolean headerOff) {
@@ -486,7 +487,8 @@ public class Others extends Feature {
             if (view.getPaddingTop() < topPadding) {
                 view.setPadding(view.getPaddingLeft(), topPadding, view.getPaddingRight(), view.getPaddingBottom());
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
 
     // ==========================================

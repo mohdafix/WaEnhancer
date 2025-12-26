@@ -43,7 +43,10 @@ public class MainActivity extends BaseActivity {
         MainPagerAdapter pagerAdapter = new MainPagerAdapter(this);
         binding.viewPager.setAdapter(pagerAdapter);
 
-        binding.viewPager.setPageTransformer(new DepthPageTransformer());
+        var prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this);
+        if (!prefs.getBoolean("call_recording_enable", false)) {
+            binding.navView.getMenu().findItem(R.id.navigation_recordings).setVisible(false);
+        }
 
         binding.navView.setOnItemSelectedListener(new NavigationBarView.OnItemSelectedListener() {
             @SuppressLint("NonConstantResourceId")
@@ -68,6 +71,10 @@ public class MainActivity extends BaseActivity {
                     }
                     case R.id.navigation_colors -> {
                         binding.viewPager.setCurrentItem(4, true);
+                        yield true;
+                    }
+                    case R.id.navigation_recordings -> {
+                        binding.viewPager.setCurrentItem(5);
                         yield true;
                     }
                     default -> false;
@@ -143,6 +150,7 @@ public class MainActivity extends BaseActivity {
         return super.onSupportNavigateUp();
     }
 
+    // This inner class was not part of the conflict, but is required for the file to be complete.
     private static class DepthPageTransformer implements ViewPager2.PageTransformer {
         private static final float MIN_SCALE = 0.85f;
 

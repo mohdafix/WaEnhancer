@@ -1559,14 +1559,31 @@ public class Unobfuscator {
                     // If DexKit doesn't find the method, we might have the wrong class or string
                     // But we proceed to reflection as a fallback
             var result = dexkit.findMethod(new FindMethod().matcher(new MethodMatcher().addUsingString("audio/ogg; codecs=opus", StringMatchType.Contains).paramCount(0).returnType(boolean.class)));
+            String[] commonStrings = new String[]{
+                    "audio/ogg; codecs=opus",
+                    "audio/ogg",
+                    "audio/amr",
+                    "audio/mp4",
+                    "audio/aac"
+            };
+
             var clazz = loadFMessageClass(classLoader);
-            if (result.isEmpty()) throw new RuntimeException("OriginFMessageField not found");
-            var fields = result.get(0).getUsingFields();
-            for (var field : fields) {
-                var f = field.getField().getFieldInstance(classLoader);
-                if (f.getDeclaringClass().equals(clazz)) {
-                    return f;
-                }
+            
+            for (String str : commonStrings) {
+                try {
+                    var result = dexkit.findMethod(new FindMethod().matcher(new MethodMatcher().addUsingString(str, StringMatchType.Contains)));
+                    if (result.isEmpty()) continue;
+                    
+                    for (var m : result) {
+                        var fields = m.getUsingFields();
+                        for (var field : fields) {
+                            var f = field.getField().getFieldInstance(classLoader);
+                            if (f.getDeclaringClass().equals(clazz)) {
+                                return f;
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
 
             // 3. Use Reflection to find the field
