@@ -1541,6 +1541,7 @@ public class Unobfuscator {
     // TODO: Classes and Methods for OriginFMessageField (Missing)
     public synchronized static Field loadOriginFMessageField(ClassLoader classLoader) throws Exception {
         return UnobfuscatorCache.getInstance().getField(classLoader, () -> {
+
             // 1. Find the FMessage class
             Class<?> fMessageClass = Unobfuscator.findFirstClassUsingStrings(classLoader, StringMatchType.Contains, "FMessage");
             if (fMessageClass == null) throw new Exception("FMessage class not found");
@@ -1557,6 +1558,14 @@ public class Unobfuscator {
                 if (methods.isEmpty()) {
                     // If DexKit doesn't find the method, we might have the wrong class or string
                     // But we proceed to reflection as a fallback
+            var result = dexkit.findMethod(new FindMethod().matcher(new MethodMatcher().addUsingString("audio/ogg; codecs=opus", StringMatchType.Contains).paramCount(0).returnType(boolean.class)));
+            var clazz = loadFMessageClass(classLoader);
+            if (result.isEmpty()) throw new RuntimeException("OriginFMessageField not found");
+            var fields = result.get(0).getUsingFields();
+            for (var field : fields) {
+                var f = field.getField().getFieldInstance(classLoader);
+                if (f.getDeclaringClass().equals(clazz)) {
+                    return f;
                 }
             }
 

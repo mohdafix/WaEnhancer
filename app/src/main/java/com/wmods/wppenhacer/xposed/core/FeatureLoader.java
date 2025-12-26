@@ -50,9 +50,7 @@ import com.wmods.wppenhacer.xposed.features.general.SeenTick;
 import com.wmods.wppenhacer.xposed.features.general.ShareLimit;
 import com.wmods.wppenhacer.xposed.features.general.ShowEditMessage;
 import com.wmods.wppenhacer.xposed.features.general.Tasker;
-import com.wmods.wppenhacer.xposed.features.listeners.ContactItemListener;
-import com.wmods.wppenhacer.xposed.features.listeners.ConversationItemListener;
-import com.wmods.wppenhacer.xposed.features.listeners.MenuStatusListener;
+import com.wmods.wppenhacer.xposed.features.media.CallRecording;
 import com.wmods.wppenhacer.xposed.features.media.DownloadProfile;
 import com.wmods.wppenhacer.xposed.features.media.DownloadViewOnce;
 import com.wmods.wppenhacer.xposed.features.media.MediaPreview;
@@ -161,7 +159,6 @@ public class FeatureLoader {
                     initComponents(loader, pref);
                     plugins(loader, pref, packageInfo.versionName);
                     sendEnabledBroadcast(mApp);
-
 //                    XposedHelpers.setStaticIntField(XposedHelpers.findClass("com.whatsapp.util.Log", loader), "level", 5);
 //                    XposedHelpers.setStaticIntField(XposedHelpers.findClass("com.whatsapp.infra.logging.Log", loader), "level", 5);
                     var timemillis2 = System.currentTimeMillis() - timemillis;
@@ -240,7 +237,6 @@ public class FeatureLoader {
         });
     }
 
-
     private static void checkUpdate(@NonNull Activity activity) {
         if (WppCore.getPrivBoolean("need_restart", false)) {
             WppCore.setPrivBoolean("need_restart", false);
@@ -250,9 +246,9 @@ public class FeatureLoader {
                         setPositiveButton(activity.getString(ResId.string.yes), (dialog, which) -> {
                             if (!Utils.doRestart(activity))
                                 Toast.makeText(activity, "Unable to rebooting activity", Toast.LENGTH_SHORT).show();
-                        })
-                        .setNegativeButton(activity.getString(ResId.string.no), null)
-                        .show();
+                        }).
+                        setNegativeButton(activity.getString(ResId.string.no), null).
+                        show();
             } catch (Throwable ignored) {
             }
         }
@@ -360,7 +356,8 @@ public class FeatureLoader {
                 CustomPrivacy.class,
                 AudioTranscript.class,
                 GoogleTranslate.class,
-                ContactBlockedVerify.class
+                ContactBlockedVerify.class,
+                CallRecording.class
         };
         XposedBridge.log("Loading Plugins");
         var executorService = Executors.newWorkStealingPool(Math.min(Runtime.getRuntime().availableProcessors(), 4));

@@ -429,7 +429,14 @@
     <string name="show_contact_blocked_sum">This option verifies whether the contact may have blocked you (note: false positives may occur).</string>
     <string name="block_unverified">Block Unverified</string>
     <string name="disable_whatsapp_expiration">Disable WhatsApp Expiration</string>
-    <string name="disable_whatsapp_expiration_sum">Deactivates the expired version of WhatsApp, (Note: Manual Disable to update WhatsApp on the Play Store or mark the Play Store on LSposed)</string>
+    <string name="disable_whatsapp_expiration_sum">Deactivates the expired version of WhatsApp, (Note: Manual Disable to update WhatsApp on the Play Store or mark the Play Store on LSposed)
     <string name="disable_ads">Disable Ads</string>
     <string name="disable_ads_sum">Blocks ads from appearing in WhatsApp</string>
+    <string name="call_recording_title">Call Recording</string>
+    <string name="call_recording_enable">Enable Call Recording</string>
+    <string name="call_recording_enable_sum">Record incoming and outgoing calls (Voice &amp; Video) as audio.</string>
+    <string name="call_recording_path">Recordings Output Folder</string>
+    <string name="video_call_screen_rec">Record Video Calls (Screen)</string>
+    <string name="video_call_screen_rec_locked">Upcoming feature! Requires 1k+ followers on GitHub (@mubashardev).</string>
+</string>
 </resources>
