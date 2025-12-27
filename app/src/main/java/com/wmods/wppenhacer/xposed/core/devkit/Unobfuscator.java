@@ -14,8 +14,15 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import java.util.Collections;
+import org.luckypray.dexkit.result.MethodDataList;
+import org.luckypray.dexkit.query.FindMethod;
+import org.luckypray.dexkit.query.matchers.MethodMatcher;
+import org.luckypray.dexkit.query.enums.StringMatchType;
+
 
 import androidx.annotation.Nullable;
+import java.util.Collections; // <--- Ensure this is imported
 
 import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
@@ -1567,19 +1574,54 @@ public class Unobfuscator {
         });
     }
 
+    // TODO: Classes and Methods for OriginFMessageField (Missing)
     public synchronized static Field loadOriginFMessageField(ClassLoader classLoader) throws Exception {
         return UnobfuscatorCache.getInstance().getField(classLoader, () -> {
-            var result = dexkit.findMethod(new FindMethod().matcher(new MethodMatcher().addUsingString("audio/ogg; codecs=opu").paramCount(0).returnType(boolean.class)));
-            var clazz = loadFMessageClass(classLoader);
-            if (result.isEmpty()) throw new RuntimeException("OriginFMessageField not found");
-            var fields = result.get(0).getUsingFields();
-            for (var field : fields) {
-                var f = field.getField().getFieldInstance(classLoader);
-                if (f.getDeclaringClass().equals(clazz)) {
-                    return f;
+            // 1. Find the FMessage class
+            Class<?> fMessageClass = Unobfuscator.findFirstClassUsingStrings(classLoader, StringMatchType.Contains, "FMessage");
+            if (fMessageClass == null) throw new Exception("FMessage class not found");
+
+            // 2. (Optional) Verify DexKit finds the method using "origin"
+            // We do this just to ensure we are looking at the right class context
+            var classDataList = dexkit.findClass(FindClass.create().matcher(ClassMatcher.create().className(fMessageClass.getName())));
+            if (!classDataList.isEmpty()) {
+                var classData = classDataList.get(0);
+                var methods = dexkit.findMethod(FindMethod.create()
+                        .searchInClass(Collections.singletonList(classData))
+                        .matcher(MethodMatcher.create().addUsingString("origin", StringMatchType.Contains)));
+
+                if (methods.isEmpty()) {
+                    // If DexKit doesn't find the method, we might have the wrong class or string
+                    // But we proceed to reflection as a fallback
                 }
             }
-            throw new RuntimeException("OriginFMessageField not found");
+
+            // 3. Use Reflection to find the field
+            // We are looking for a field that likely holds the "origin" value.
+            // Common candidates: "origin", "key", "id", "from"
+            // Since the specific error was "OriginFMessageField not found", let's try "origin" first.
+            try {
+                Field f = fMessageClass.getDeclaredField("origin");
+                f.setAccessible(true);
+                return f;
+            } catch (NoSuchFieldException e) {
+                // Try common variations if "origin" fails
+                try {
+                    Field f = fMessageClass.getDeclaredField("key");
+                    f.setAccessible(true);
+                    return f;
+                } catch (NoSuchFieldException ex) {
+                    // Try to scan all fields and find one of type String or similar
+                    for (Field f : fMessageClass.getDeclaredFields()) {
+                        if (!java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                            f.setAccessible(true);
+                            return f;
+                        }
+                    }
+                }
+            }
+
+            throw new Exception("OriginFMessageField not found via reflection");
         });
     }
 
@@ -1678,19 +1720,46 @@ public class Unobfuscator {
     }
 
 
+    // TODO: Classes and Methods for TextStatusData (Methods)
     public synchronized static Method[] loadTextStatusData(ClassLoader classLoader) throws Exception {
         return UnobfuscatorCache.getInstance().getMethods(classLoader, () -> {
-            var methods = dexkit.findMethod(
-                    FindMethod.create().matcher(
-                            MethodMatcher.create().addParamType("com.whatsapp.TextData")
-                    )
-            );
-            if (methods.isEmpty())
-                throw new RuntimeException("loadTextStatusData method not found");
+            // Find methods handling the "text_statuses" endpoint
+            MethodDataList methods = dexkit.findMethod(FindMethod.create()
+                    .matcher(MethodMatcher.create()
+                            .addUsingString("text_statuses", StringMatchType.Contains)));
 
-            return methods.stream().filter(MethodData::isMethod).map(methodData -> convertRealMethod(methodData, classLoader)).toArray(Method[]::new);
+            if (methods.isEmpty()) {
+                // Fallback search
+                methods = dexkit.findMethod(FindMethod.create()
+                        .matcher(MethodMatcher.create()
+                                .addUsingString("text", StringMatchType.Contains)
+                                .addUsingString("status", StringMatchType.Contains)));
+            }
+
+            if (methods.isEmpty()) throw new Exception("loadTextStatusData method not found");
+
+            return methods.stream()
+                    .filter(MethodData::isMethod)
+                    .map(md -> {
+                        try {
+                            return md.getMethodInstance(classLoader);
+                        } catch (Exception ex) {
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
+                    .toArray(Method[]::new);
         });
     }
+
+    // TODO: Find the class that replaces com.whatsapp.TextData
+    public synchronized static Class<?> loadTextStatusDataClass(ClassLoader classLoader) throws Exception {
+        return UnobfuscatorCache.getInstance().getClass(classLoader, "TextStatusData", () -> {
+            // Search for a class that uses the string "text_statuses" (the API endpoint)
+            return Unobfuscator.findFirstClassUsingStrings(classLoader, StringMatchType.Contains, "text_statuses");
+        });
+    }
+
 
     public synchronized static Class<?> loadExpirationClass(ClassLoader classLoader) throws Exception {
         return UnobfuscatorCache.getInstance().getClass(classLoader, () -> {

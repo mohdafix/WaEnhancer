@@ -162,7 +162,6 @@ public class AndroidPermissions {
         });
     }
 
-
     private static void grantInstallOrRuntimePermission
             (List<String> requestedPermissions, Object uidState,
              Object registry, String permission) {

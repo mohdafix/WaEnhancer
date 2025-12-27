@@ -19,6 +19,9 @@ import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
+// ADD THIS IMPORT
+import java.lang.reflect.Method;
+
 public class TextStatusComposer extends Feature {
     private static final ColorData colorData = new ColorData();
 
@@ -73,27 +76,52 @@ public class TextStatusComposer extends Feature {
                     }
                 });
 
+        // 1. Get the NEW class
+        Class<?> textDataClass;
+        try {
+            textDataClass = Unobfuscator.loadTextStatusDataClass(classLoader);
+        } catch (Exception e) {
+            log("Failed to find TextData class: " + e.getMessage());
+            return;
+        }
 
-        var methodsTextStatus = Unobfuscator.loadTextStatusData(classLoader);
+        // 2. Get methods (Use java.lang.reflect.Method to match the return type)
+        // Unobfuscator returns java.lang.reflect.Method[]
+        java.lang.reflect.Method[] methodsTextStatus;
 
-        for (var method : methodsTextStatus) {
-            Class<?> textDataClass = classLoader.loadClass("com.whatsapp.TextData");
+        try {
+            methodsTextStatus = Unobfuscator.loadTextStatusData(classLoader);
+        } catch (Exception e) {
+            log("Failed to load text status methods: " + e.getMessage());
+            return;
+        }
+
+        if (methodsTextStatus == null || methodsTextStatus.length == 0) {
+            log("No methods found for text status");
+            return;
+        }
+
+        // 3. Loop and Hook
+        for (java.lang.reflect.Method method : methodsTextStatus) {
             logDebug("setColorTextComposer", Unobfuscator.getMethodDescriptor(method));
+
             XposedBridge.hookMethod(method, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     var textData = ReflectionUtils.getArg(param.args, textDataClass, 0);
+
                     if (textData == null) return;
+
                     if (colorData.textColor != -1)
                         XposedHelpers.setObjectField(textData, "textColor", colorData.textColor);
                     if (colorData.backgroundColor != -1)
                         XposedHelpers.setObjectField(textData, "backgroundColor", colorData.backgroundColor);
+
                     colorData.textColor = -1;
                     colorData.backgroundColor = -1;
                 }
             });
         }
-
     }
 
     @NonNull
