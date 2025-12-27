@@ -250,7 +250,7 @@ public class Others extends Feature {
 
     private void hookSearchbar(String filterChats) throws Exception {
         // 1. Parse the filter mode ONCE.
-        final ChatFilterMode mode = parseFilterMode(filterChats);
+        ChatFilterMode mode = parseFilterMode(filterChats);
 
         // 2. Hook the method that adds the search bar view
         try {
@@ -271,7 +271,6 @@ public class Others extends Feature {
 
                     int searchBarId = Utils.getID("my_search_bar", "id");
                     if (view.getId() == searchBarId) {
-                        // Use the helper to hide view AND adjust padding for siblings
                         hideSearchBarView(view);
                     }
                 }
@@ -294,6 +293,7 @@ public class Others extends Feature {
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     if (mode == ChatFilterMode.ICON_ONLY) {
                         homeActivity = param.thisObject;
+                        // Handle static methods or instance methods
                         if (Modifier.isStatic(param.method.getModifiers()) && param.args.length > 0) {
                             homeActivity = param.args[0];
                         }
@@ -340,6 +340,7 @@ public class Others extends Feature {
                 Menu menu = (Menu) param.args[0];
                 int searchItemId = Utils.getID("menuitem_search", "id");
 
+                // Optimization: Don't touch menu if ID is invalid
                 if (searchItemId == 0 || searchItemId == -1) return;
 
                 var item = menu.findItem(searchItemId);
@@ -372,6 +373,33 @@ public class Others extends Feature {
         return ChatFilterMode.SHOW_HEADER;
     }
 
+    private void hideSearchBarView(final View searchBar) {
+        searchBar.post(() -> {
+            try {
+                searchBar.setVisibility(View.GONE);
+                ViewGroup.LayoutParams params = searchBar.getLayoutParams();
+                if (params != null) {
+                    params.height = 0;
+                    searchBar.setLayoutParams(params);
+                }
+
+                // Adjust padding for siblings
+                if (searchBar.getParent() instanceof ViewGroup) {
+                    ViewGroup parent = (ViewGroup) searchBar.getParent();
+                    for (int i = 0; i < parent.getChildCount(); i++) {
+                        View child = parent.getChildAt(i);
+                        if (child != searchBar && child.getVisibility() == View.VISIBLE && child instanceof ViewGroup) {
+                            // Pass true to indicate we are in "Header Off" mode
+                            adjustPaddingForContent(child, true);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logDebug(e);
+            }
+        });
+    }
+
     private void modifyMenuItem(android.view.MenuItem item, ChatFilterMode mode) {
         switch (mode) {
             case ICON_ONLY:
@@ -391,35 +419,6 @@ public class Others extends Feature {
         }
     }
 
-    private void hideSearchBarView(final View searchBar) {
-        searchBar.post(() -> {
-            try {
-                searchBar.setVisibility(View.GONE);
-                ViewGroup.LayoutParams params = searchBar.getLayoutParams();
-                if (params != null) {
-                    params.height = 0;
-                    searchBar.setLayoutParams(params);
-                }
-
-                // Adjust padding for siblings (The Chat List)
-                if (searchBar.getParent() instanceof ViewGroup) {
-                    ViewGroup parent = (ViewGroup) searchBar.getParent();
-                    for (int i = 0; i < parent.getChildCount(); i++) {
-                        View child = parent.getChildAt(i);
-                        if (child != searchBar && child.getVisibility() == View.VISIBLE) {
-                            if (child instanceof ViewGroup) {
-                                // This will check if it's the chat list and apply padding
-                                adjustPaddingForContent(child);
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                logDebug(e);
-            }
-        });
-    }
-
     private void hideSearchBarFromActivity(Object activityObj) {
         if (!(activityObj instanceof android.app.Activity)) return;
         android.app.Activity activity = (android.app.Activity) activityObj;
@@ -435,12 +434,13 @@ public class Others extends Feature {
                     searchBar.setLayoutParams(params);
                 }
 
-                // Adjust pager padding (Fallback for some layouts)
+                // Adjust pager padding
                 int pagerId = Utils.getID("pager", "id");
                 if (pagerId != -1) {
                     View content = activity.findViewById(pagerId);
                     if (content != null) {
-                        adjustPaddingForContent(content);
+                        // Pass true to indicate we are in "Header Off" mode
+                        adjustPaddingForContent(content, true);
                     }
                 }
             }
@@ -448,30 +448,29 @@ public class Others extends Feature {
     }
 
     /**
-     * This method checks if the view is a Chat List (RecyclerView/ListVIew).
-     * If it is, it applies padding. If it's a generic container (like ViewPager on Status/Calls),
-     * it skips it to prevent the "Big Gap".
+     * Legacy wrapper for compatibility
      */
     private void adjustPaddingForContent(View view) {
+        adjustPaddingForContent(view, false);
+    }
+
+    /**
+     * Adjusts padding. If 'headerOff' is true, it adds extra top padding
+     * to push content down and prevent overlap with IGStatus.
+     */
+    private void adjustPaddingForContent(View view, boolean headerOff) {
         if (view == null) return;
-
-        // 1. Check if this view is actually the Chat List
-        int viewId = view.getId();
-        int expectedId = Utils.getID("recycler_view", "id");
-        if (expectedId == 0 || expectedId == -1) {
-            expectedId = Utils.getID("list_view", "id");
-        }
-
-        // Only apply padding if this is the Chat List.
-        // If it's a ViewPager or other container, return immediately.
-        if (viewId != expectedId) {
-            return;
-        }
-
         try {
             int density = (int) Utils.getApplication().getResources().getDisplayMetrics().density;
-            // Use a slightly larger padding to ensure IGStatus fits
-            int topPadding = 80 * density;
+
+            // Base padding (original logic: 55dp)
+            int topPadding = 55 * density;
+
+            // FIX: If header is OFF (Icon Only or Hide All), add extra space
+            // 30dp should be enough to separate IGStatus from the content
+            if (headerOff) {
+                topPadding += (30 * density);
+            }
 
             if (view.getPaddingTop() < topPadding) {
                 view.setPadding(view.getPaddingLeft(), topPadding, view.getPaddingRight(), view.getPaddingBottom());
