@@ -162,31 +162,20 @@ public class ShowEditMessage extends Feature {
      * ============================================================ */
 
     private ArrayList<MessageHistory.MessageItem> getMergedHistory(long rowId) {
-        Map<String, MessageHistory.MessageItem> merged = new LinkedHashMap<>();
-
-        List<MessageHistory.MessageItem> wa =
-                MessageStore.getInstance().getWAEditHistory(rowId);
-        for (var item : wa) {
-            if (!TextUtils.isEmpty(item.message)) merged.put(item.message, item);
-        }
-
+        // ✅ FIXED: Only use MessageHistory.db
         ArrayList<MessageHistory.MessageItem> local =
                 MessageHistory.getInstance().getMessages(rowId);
-        if (local != null) {
-            for (var item : local) {
-                if (!TextUtils.isEmpty(item.message) && !merged.containsKey(item.message)) {
-                    merged.put(item.message, item);
-                }
-            }
+
+        if (local == null || local.isEmpty()) {
+            return null;
         }
 
-        if (merged.isEmpty()) return null;
-
-        ArrayList<MessageHistory.MessageItem> result =
-                new ArrayList<>(merged.values());
-        result.sort((a, b) -> Long.compare(a.timestamp, b.timestamp));
-        return result;
+        local.sort((a, b) -> Long.compare(a.timestamp, b.timestamp));
+        return local;
     }
+
+// ✅ No orphaned code - clean!
+
 
     /* ============================================================
      * Bottom Sheet UI
