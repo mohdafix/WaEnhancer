@@ -241,9 +241,32 @@ public class UnobfuscatorCache {
         return fields.toArray(new Field[0]);
     }
 
+    // -----------------------------------------------------------------------------------------
+    // UPDATED METHOD: CORRUPTION FIX
+    // -----------------------------------------------------------------------------------------
     public Method getMethod(ClassLoader loader, FunctionCall<Method> functionCall) throws Exception {
         var methodName = getKeyName();
         String value = sPrefsCacheHooks.getString(methodName, null);
+
+        // 1. Check if value exists and is valid
+        if (value != null) {
+            boolean isCorrupted = false;
+
+            // Detect the specific "Intent" bug or malformed strings
+            if (value.contains("Intent") && !value.contains(":")) isCorrupted = true;
+            if (value.startsWith("L")) isCorrupted = true; // DexKit format sometimes leaks
+            if (value.contains(";")) isCorrupted = true; // Signature format
+
+            if (isCorrupted) {
+                XposedBridge.log("UnobfuscatorCache: Detected corruption in " + methodName + ". Rescanning...");
+                Method result = functionCall.call();
+                if (result == null) throw new NoSuchMethodException("Method is null");
+                saveMethod(methodName, result);
+                return result;
+            }
+        }
+
+        // 2. Standard Logic (Null check)
         if (value == null) {
             try {
                 Method result = functionCall.call();
@@ -254,7 +277,17 @@ public class UnobfuscatorCache {
                 throw new Exception("Error getting method " + methodName + ": " + e.getMessage(), e);
             }
         }
-        return getMethodFromString(loader, value);
+
+        // 3. Try to load from cache (with safety net)
+        try {
+            return getMethodFromString(loader, value);
+        } catch (Exception e) {
+            XposedBridge.log("UnobfuscatorCache: Failed to parse cached method " + methodName + ". Rescanning...");
+            Method result = functionCall.call();
+            if (result == null) throw new NoSuchMethodException("Method is null");
+            saveMethod(methodName, result);
+            return result;
+        }
     }
 
     public Method[] getMethods(ClassLoader loader, FunctionCall<Method[]> functionCall) throws Exception {
@@ -280,8 +313,12 @@ public class UnobfuscatorCache {
     }
 
     @NonNull
-    private Method getMethodFromString(ClassLoader loader, String value) {
+    private Method getMethodFromString(ClassLoader loader, String value) throws Exception {
+        if (value == null) throw new Exception("Cache value is null");
+
         String[] classAndName = value.split(":");
+        if (classAndName.length < 2) throw new Exception("Invalid format");
+
         Class<?> cls = XposedHelpers.findClass(classAndName[0], loader);
         if (classAndName.length == 3) {
             String[] params = classAndName[2].split(",");
@@ -290,7 +327,6 @@ public class UnobfuscatorCache {
         }
         return XposedHelpers.findMethodExact(cls, classAndName[1]);
     }
-
 
     public Class<?> getClass(ClassLoader loader, FunctionCall<Class<?>> functionCall) throws Exception {
         return getClass(loader, getKeyName(), functionCall);
@@ -349,7 +385,6 @@ public class UnobfuscatorCache {
     }
 
     private void saveHashMap(String key, HashMap<String, Field> map) {
-        // Cria um novo JSONObject para armazenar os pares
         JSONObject jsonObject = new JSONObject();
         for (Map.Entry<String, Field> entry : map.entrySet()) {
             Field field = entry.getValue();
@@ -375,8 +410,6 @@ public class UnobfuscatorCache {
             while (keys.hasNext()) {
                 String mapKey = keys.next();
                 String value = jsonObject.getString(mapKey);
-
-                // Quebra "com.package.Classe:campo"
                 String[] parts = value.split(":");
                 if (parts.length == 2) {
                     String className = parts[0];
@@ -386,18 +419,15 @@ public class UnobfuscatorCache {
                         Field field = clazz.getDeclaredField(fieldName);
                         field.setAccessible(true);
                         map.put(mapKey, field);
-                    } catch (Exception e) {
-                        e.printStackTrace(); // ignora campos inválidos
+                    } catch (Exception ignored) {
                     }
                 }
             }
         } catch (JSONException e) {
             e.printStackTrace();
         }
-
         return map;
     }
-
 
     @SuppressWarnings("ApplySharedPref")
     public void saveField(String key, Field field) {
@@ -484,9 +514,7 @@ public class UnobfuscatorCache {
         sPrefsCacheHooks.edit().putString(key, value).commit();
     }
 
-
     public interface FunctionCall<T> {
         T call() throws Exception;
     }
-
 }

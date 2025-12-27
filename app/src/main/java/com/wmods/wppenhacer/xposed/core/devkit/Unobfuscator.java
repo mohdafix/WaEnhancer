@@ -19,10 +19,23 @@ import org.luckypray.dexkit.result.MethodDataList;
 import org.luckypray.dexkit.query.FindMethod;
 import org.luckypray.dexkit.query.matchers.MethodMatcher;
 import org.luckypray.dexkit.query.enums.StringMatchType;
+import org.luckypray.dexkit.DexKitBridge;
+import org.luckypray.dexkit.query.FindClass;
+import org.luckypray.dexkit.query.FindMethod;
+import org.luckypray.dexkit.query.enums.StringMatchType;
+import org.luckypray.dexkit.query.matchers.ClassMatcher;
+import org.luckypray.dexkit.query.matchers.MethodMatcher;
+import org.luckypray.dexkit.result.ClassData;
+import org.luckypray.dexkit.result.MethodData;
+import org.luckypray.dexkit.result.MethodDataList;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 
 import androidx.annotation.Nullable;
-import java.util.Collections; // <--- Ensure this is imported
 
 import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
@@ -315,7 +328,16 @@ public class Unobfuscator {
     }
 
     public synchronized static Class<?> loadForwardClassMethod(ClassLoader classLoader) throws Exception {
-        return UnobfuscatorCache.getInstance().getClass(classLoader, () -> findFirstClassUsingStrings(classLoader, StringMatchType.Contains, "UserActionsUtils/userActionForwardMessage"));
+        return UnobfuscatorCache.getInstance().getClass(classLoader, () -> {
+            for (var s : new String[]{
+                    "UserActions/userActionForwardMessage",
+                    "UserActionsMessageForwarding/userActionForwardMessage"
+            }) {
+                var cls = findFirstClassUsingStrings(classLoader, StringMatchType.Contains, s);
+                if (cls != null) return cls;
+            }
+            throw new ClassNotFoundException("ForwardClass method not found");
+        });
     }
 
 
@@ -1759,6 +1781,27 @@ public class Unobfuscator {
             return Unobfuscator.findFirstClassUsingStrings(classLoader, StringMatchType.Contains, "text_statuses");
         });
     }
+
+    // TODO: Find fields in a class that are likely color fields (int type)
+    public synchronized static Field[] findColorFields(ClassLoader classLoader, Class<?> targetClass) throws Exception {
+        // We search for the class using DexKit to get ClassData
+        var classDataList = dexkit.findClass(FindClass.create().matcher(ClassMatcher.create().className(targetClass.getName())));
+        if (classDataList.isEmpty()) return new Field[0];
+
+        // Look for methods that set fields (PUT_FIELD) in the target class
+        // This is complex, so let's just use Reflection to find all non-static int fields
+        // This is a brute force approach but usually safe for data objects
+
+        List<Field> fields = new ArrayList<>();
+        for (Field f : targetClass.getDeclaredFields()) {
+            if (f.getType() == int.class && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                f.setAccessible(true);
+                fields.add(f);
+            }
+        }
+        return fields.toArray(new Field[0]);
+    }
+
 
 
     public synchronized static Class<?> loadExpirationClass(ClassLoader classLoader) throws Exception {

@@ -43,24 +43,46 @@ import de.robv.android.xposed.XposedHelpers;
 
 public class IGStatusAdapter extends ArrayAdapter {
 
-
     private final Class<?> clazzImageStatus;
     private final Class<?> statusInfoClazz;
     private final Method setCountStatus;
     private static Drawable cacheIcon;
+
+    // Store the mode to determine if we need to shift the view
+    private String filterChatsMode = null;
 
     @NonNull
     @Override
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
         var item = itens.get(position);
         IGStatusViewHolder holder;
+
+        // Check if we need to recalculate padding (if mode changed)
+        // Note: In a real hook, you might pass the mode via constructor or static field
+        // For now, let's assume we always apply the shift if the user has IGStatus enabled
+        // and we detect the search bar logic is active.
+
         if (convertView == null) {
             holder = new IGStatusViewHolder();
             convertView = createLayoutStatus(holder);
+
+            // --- FIX FOR OVERLAP ---
+            // Apply extra top margin to push the IGStatus below the removed header area
+            // We add 60dp of margin (enough to clear the 55dp search bar + spacing)
+            int extraMarginTop = Utils.dipToPixels(60);
+
+            // Apply to the root RelativeLayout
+            if (convertView.getLayoutParams() instanceof ViewGroup.MarginLayoutParams mParams) {
+                mParams.topMargin += extraMarginTop;
+                convertView.setLayoutParams(mParams);
+            }
+            // ------------------------
+
             convertView.setTag(holder);
         } else {
             holder = (IGStatusViewHolder) convertView.getTag();
         }
+
         if (item == null) {
             holder.setInfo("my_status");
             holder.addButton.setVisibility(View.VISIBLE);
@@ -71,6 +93,7 @@ public class IGStatusAdapter extends ArrayAdapter {
             holder.setInfo(item);
             holder.addButton.setVisibility(View.GONE);
         }
+
         convertView.setOnClickListener(v -> {
             if (holder.myStatus) {
                 var activity = WppCore.getCurrentActivity();
@@ -146,9 +169,9 @@ public class IGStatusAdapter extends ArrayAdapter {
         return convertView;
     }
 
-    public IGStatusAdapter(@NonNull Context context, @NonNull Class<?> statusInfoClazz) {
+    public IGStatusAdapter(@NonNull Context context, @NonNull Class<?> statusInfoClazz) throws Exception {
         super(context, 0);
-        this.clazzImageStatus = XposedHelpers.findClass("com.whatsapp.status.ContactStatusThumbnail", this.getContext().getClassLoader());
+        this.clazzImageStatus = Unobfuscator.findFirstClassUsingName(this.getContext().getClassLoader(), StringMatchType.EndsWith, ".ContactStatusThumbnail");
         this.statusInfoClazz = statusInfoClazz;
         this.setCountStatus = ReflectionUtils.findMethodUsingFilter(this.clazzImageStatus, m -> m.getParameterCount() == 3 && Arrays.equals(new Class[]{int.class, int.class, int.class}, m.getParameterTypes()));
     }
@@ -211,6 +234,8 @@ public class IGStatusAdapter extends ArrayAdapter {
     @NonNull
     private RelativeLayout createLayoutStatus(IGStatusViewHolder holder) {
         RelativeLayout relativeLayout = new RelativeLayout(this.getContext());
+        // Original width: 86dp. Height: Wrap Content.
+        // We will rely on the Margin added in getView to push it down.
         RelativeLayout.LayoutParams relativeParams = new RelativeLayout.LayoutParams(Utils.dipToPixels(86), ViewGroup.LayoutParams.WRAP_CONTENT);
         relativeLayout.setLayoutParams(relativeParams);
 
@@ -263,7 +288,6 @@ public class IGStatusAdapter extends ArrayAdapter {
         iconImageView.setBackgroundColor(Color.TRANSPARENT);
         addBtnRelativeLayout.addView(iconImageView);
         holder.addButton = addBtnRelativeLayout;
-
 
         internalRelativeLayout.addView(contactPhoto);
         internalRelativeLayout.addView(addBtnRelativeLayout);

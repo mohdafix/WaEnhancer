@@ -63,6 +63,7 @@ public class Others extends Feature {
 
         properties = Utils.getProperties(prefs, "custom_css", "custom_filters");
 
+        // --- LOAD ALL PREFERENCES AT ONCE ---
         var menuWIcons = prefs.getBoolean("menuwicon", false);
         var newSettings = prefs.getBoolean("novaconfig", false);
         var filterChats = prefs.getString("chatfilter", "2");
@@ -84,6 +85,7 @@ public class Others extends Feature {
         var disableProfileStatus = prefs.getBoolean("disable_profile_status", false);
         var disableExpiration = prefs.getBoolean("disable_expiration", false);
 
+        // --- POPULATE PROPS MAPS ---
         propsInteger.put(3877, oldStatus ? igstatus ? 2 : 0 : 2);
         propsBoolean.put(5171, filterSeen);
         propsBoolean.put(4497, menuWIcons);
@@ -135,7 +137,7 @@ public class Others extends Feature {
         propsBoolean.put(5625, true);  // Enable option to autodelete channels media
 
         propsBoolean.put(8643, true);  // Enable TextStatusComposerActivityV2
-//        propsBoolean.put(3403, true);  // Enable Sticker Suggestion
+        // propsBoolean.put(3403, true);  // Enable Sticker Suggestion
         propsBoolean.put(8607, true);  // Enable Dialer keyboard
         propsBoolean.put(9578, true);  // Enable Privacy Checkup
         propsInteger.put(8135, 2);  // Call Filters
@@ -188,7 +190,7 @@ public class Others extends Feature {
         propsInteger.put(8522, status_style);
         propsInteger.put(8521, status_style);
 
-
+        // --- EXECUTE HOOKS ---
         hookProps();
         hookSearchbar(filterChats);
 
@@ -202,7 +204,6 @@ public class Others extends Feature {
                 XposedBridge.hookAllMethods(cls, "onSensorChanged", XC_MethodReplacement.DO_NOTHING);
             }
         }
-
 
         if (filter_items != null && prefs.getBoolean("custom_filters", true)) {
             filterItems(filter_items);
@@ -221,17 +222,11 @@ public class Others extends Feature {
         }
 
         customPlayBackSpeed();
-
         showOnline(showOnline);
-
         animationList();
-
         stampCopiedMessage();
-
         doubleTapReaction();
-
         alwaysOnline();
-
         callInfo();
 
         if (disableProfileStatus) {
@@ -241,8 +236,252 @@ public class Others extends Feature {
         if (disableExpiration) {
             disableExpirationVersion(classLoader);
         }
-
     }
+
+    // ==========================================
+    // OPTIMIZED SEARCH BAR HOOKING LOGIC
+    // ==========================================
+
+    private enum ChatFilterMode {
+        HIDE_ALL,   // 0, none, hide, false
+        ICON_ONLY,  // 1, options
+        SHOW_HEADER // 2, header, show, default
+    }
+
+    private void hookSearchbar(String filterChats) throws Exception {
+        // 1. Parse the filter mode ONCE.
+        final ChatFilterMode mode = parseFilterMode(filterChats);
+
+        // 2. Hook the method that adds the search bar view
+        try {
+            Method m1 = Unobfuscator.loadViewAddSearchBarMethod(classLoader);
+            XposedBridge.hookMethod(m1, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    if (mode == ChatFilterMode.SHOW_HEADER) return;
+
+                    View view = null;
+                    if (param.args.length > 0 && param.args[0] instanceof View) {
+                        view = (View) param.args[0];
+                    } else if (param.getResult() instanceof View) {
+                        view = (View) param.getResult();
+                    }
+
+                    if (view == null) return;
+
+                    int searchBarId = Utils.getID("my_search_bar", "id");
+                    if (view.getId() == searchBarId) {
+                        // Use the helper to hide view AND adjust padding for siblings
+                        hideSearchBarView(view);
+                    }
+                }
+            });
+            log("Hooked ViewAddSearchBarMethod");
+        } catch (Throwable t) {
+            logDebug("Error hooking ViewAddSearchBarMethod: " + t);
+        }
+
+        // 3. Hook the method that controls search options/icon (page ID manipulation)
+        try {
+            Method m2 = Unobfuscator.loadAddOptionSearchBarMethod(classLoader);
+            XposedBridge.hookMethod(m2, new XC_MethodHook() {
+                private Object homeActivity;
+                private Field pageIdField;
+                private int originalPageId = 0;
+                private boolean pageIdChanged = false;
+
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    if (mode == ChatFilterMode.ICON_ONLY) {
+                        homeActivity = param.thisObject;
+                        if (Modifier.isStatic(param.method.getModifiers()) && param.args.length > 0) {
+                            homeActivity = param.args[0];
+                        }
+
+                        adjustPageId(homeActivity);
+                    } else if (mode == ChatFilterMode.HIDE_ALL) {
+                        param.setResult(null);
+                    }
+                }
+
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    if (pageIdChanged && pageIdField != null) {
+                        try {
+                            pageIdField.setInt(homeActivity, originalPageId);
+                        } catch (Throwable ignored) {}
+                    }
+                    pageIdChanged = false;
+                }
+
+                private void adjustPageId(Object activity) {
+                    if (activity == null) return;
+                    try {
+                        pageIdField = XposedHelpers.findField(activity.getClass(), "A01");
+                        if (pageIdField != null && pageIdField.getType() == int.class) {
+                            originalPageId = pageIdField.getInt(activity);
+                            pageIdField.setInt(activity, 1); // Force icon mode
+                            pageIdChanged = true;
+                        }
+                    } catch (Throwable t) {
+                        logDebug("Error setting page ID: " + t);
+                    }
+                }
+            });
+            log("Hooked AddOptionSearchBarMethod");
+        } catch (Throwable t) {
+            logDebug("Error hooking AddOptionSearchBarMethod: " + t);
+        }
+
+        // 4. Unified Hook for Menu Preparations (onPrepareOptionsMenu + onCreateOptionsMenu)
+        XC_MethodHook menuHook = new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                Menu menu = (Menu) param.args[0];
+                int searchItemId = Utils.getID("menuitem_search", "id");
+
+                if (searchItemId == 0 || searchItemId == -1) return;
+
+                var item = menu.findItem(searchItemId);
+                if (item != null) {
+                    modifyMenuItem(item, mode);
+                }
+
+                // If header is disabled, ensure it's visually gone in the Activity
+                if (mode != ChatFilterMode.SHOW_HEADER) {
+                    hideSearchBarFromActivity(param.thisObject);
+                }
+            }
+        };
+
+        Class<?> homeActivityClass = WppCore.getHomeActivityClass(classLoader);
+        XposedHelpers.findAndHookMethod(homeActivityClass, "onPrepareOptionsMenu", Menu.class, menuHook);
+        XposedHelpers.findAndHookMethod(homeActivityClass, "onCreateOptionsMenu", Menu.class, menuHook);
+    }
+
+    // --- Helper Methods for Search Bar ---
+
+    private ChatFilterMode parseFilterMode(String rawVal) {
+        String raw = Objects.toString(rawVal, "2").trim().toLowerCase();
+        if (raw.equals("0") || raw.equals("none") || raw.equals("hide") || raw.equals("false")) {
+            return ChatFilterMode.HIDE_ALL;
+        } else if (raw.equals("1") || raw.equals("options")) {
+            return ChatFilterMode.ICON_ONLY;
+        }
+        // Default/2/Header/Show
+        return ChatFilterMode.SHOW_HEADER;
+    }
+
+    private void modifyMenuItem(android.view.MenuItem item, ChatFilterMode mode) {
+        switch (mode) {
+            case ICON_ONLY:
+                item.setVisible(true);
+                item.setEnabled(true);
+                item.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS);
+                break;
+            case HIDE_ALL:
+                item.setVisible(false);
+                item.setEnabled(false);
+                item.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER);
+                break;
+            case SHOW_HEADER:
+                // Default behavior
+                item.setVisible(true);
+                break;
+        }
+    }
+
+    private void hideSearchBarView(final View searchBar) {
+        searchBar.post(() -> {
+            try {
+                searchBar.setVisibility(View.GONE);
+                ViewGroup.LayoutParams params = searchBar.getLayoutParams();
+                if (params != null) {
+                    params.height = 0;
+                    searchBar.setLayoutParams(params);
+                }
+
+                // Adjust padding for siblings (The Chat List)
+                if (searchBar.getParent() instanceof ViewGroup) {
+                    ViewGroup parent = (ViewGroup) searchBar.getParent();
+                    for (int i = 0; i < parent.getChildCount(); i++) {
+                        View child = parent.getChildAt(i);
+                        if (child != searchBar && child.getVisibility() == View.VISIBLE) {
+                            if (child instanceof ViewGroup) {
+                                // This will check if it's the chat list and apply padding
+                                adjustPaddingForContent(child);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logDebug(e);
+            }
+        });
+    }
+
+    private void hideSearchBarFromActivity(Object activityObj) {
+        if (!(activityObj instanceof android.app.Activity)) return;
+        android.app.Activity activity = (android.app.Activity) activityObj;
+
+        try {
+            int searchBarId = Utils.getID("my_search_bar", "id");
+            View searchBar = activity.findViewById(searchBarId);
+            if (searchBar != null && searchBar.getVisibility() != View.GONE) {
+                searchBar.setVisibility(View.GONE);
+                ViewGroup.LayoutParams params = searchBar.getLayoutParams();
+                if (params != null) {
+                    params.height = 0;
+                    searchBar.setLayoutParams(params);
+                }
+
+                // Adjust pager padding (Fallback for some layouts)
+                int pagerId = Utils.getID("pager", "id");
+                if (pagerId != -1) {
+                    View content = activity.findViewById(pagerId);
+                    if (content != null) {
+                        adjustPaddingForContent(content);
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    /**
+     * This method checks if the view is a Chat List (RecyclerView/ListVIew).
+     * If it is, it applies padding. If it's a generic container (like ViewPager on Status/Calls),
+     * it skips it to prevent the "Big Gap".
+     */
+    private void adjustPaddingForContent(View view) {
+        if (view == null) return;
+
+        // 1. Check if this view is actually the Chat List
+        int viewId = view.getId();
+        int expectedId = Utils.getID("recycler_view", "id");
+        if (expectedId == 0 || expectedId == -1) {
+            expectedId = Utils.getID("list_view", "id");
+        }
+
+        // Only apply padding if this is the Chat List.
+        // If it's a ViewPager or other container, return immediately.
+        if (viewId != expectedId) {
+            return;
+        }
+
+        try {
+            int density = (int) Utils.getApplication().getResources().getDisplayMetrics().density;
+            // Use a slightly larger padding to ensure IGStatus fits
+            int topPadding = 80 * density;
+
+            if (view.getPaddingTop() < topPadding) {
+                view.setPadding(view.getPaddingLeft(), topPadding, view.getPaddingRight(), view.getPaddingBottom());
+            }
+        } catch (Exception ignored) {}
+    }
+
+    // ==========================================
+    // OTHER METHODS
+    // ==========================================
 
     private void disablePhotoProfileStatus() throws Exception {
         var refreshStatusClass = Unobfuscator.loadRefreshStatusClass(classLoader);
@@ -267,7 +506,6 @@ public class Others extends Feature {
                 field.set(param.thisObject, this.backup);
             }
         });
-
 
         XposedBridge.hookAllMethods(photoProfileClass, "setStatusIndicatorEnabled", new XC_MethodHook() {
             @Override
@@ -350,7 +588,6 @@ public class Others extends Feature {
         XposedBridge.hookMethod(stateChange, XC_MethodReplacement.DO_NOTHING);
     }
 
-
     private void doubleTapReaction() throws Exception {
 
         if (!prefs.getBoolean("doubletap2like", false)) return;
@@ -367,7 +604,6 @@ public class Others extends Feature {
                 viewGroup.setOnTouchListener(null);
             }
         });
-
 
         XposedBridge.hookMethod(bubbleMethod, new XC_MethodHook() {
 
@@ -475,7 +711,6 @@ public class Others extends Feature {
         });
     }
 
-
     private void sendAudioType(int audio_type) throws Exception {
         var sendAudioTypeMethod = Unobfuscator.loadSendAudioTypeMethod(classLoader);
         log(Unobfuscator.getMethodDescriptor(sendAudioTypeMethod));
@@ -507,7 +742,6 @@ public class Others extends Feature {
         });
     }
 
-
     private void autoNextStatus() throws Exception {
         Class<?> StatusPlaybackContactFragmentClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "StatusPlaybackContactFragment");
         var runNextStatusMethod = Unobfuscator.loadNextStatusRunMethod(classLoader);
@@ -523,7 +757,6 @@ public class Others extends Feature {
         var onPlayBackFinished = Unobfuscator.loadOnPlaybackFinished(classLoader);
         XposedBridge.hookMethod(onPlayBackFinished, XC_MethodReplacement.DO_NOTHING);
     }
-
 
     private void disable_defEmojis() throws Exception {
         var defEmojiClass = Unobfuscator.loadDefEmojiClass(classLoader);
@@ -572,7 +805,6 @@ public class Others extends Feature {
         });
     }
 
-
     private void hookProps() throws Exception {
         var methodPropsBoolean = Unobfuscator.loadPropsBooleanMethod(classLoader);
         logDebug(Unobfuscator.getMethodDescriptor(methodPropsBoolean));
@@ -608,227 +840,6 @@ public class Others extends Feature {
         });
     }
 
-    private void hookSearchbar(String filterChats) throws Exception {
-        // Hook to hide the search bar header (my_search_bar)
-        XC_MethodHook hideSearchBarHook = new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                // Reload preference each time
-                String currentFilterChats = prefs.getString("chatfilter", "2");
-                String raw = Objects.toString(currentFilterChats, "2").trim().toLowerCase();
-                boolean showHeader = raw.equals("2") || raw.equals("header") || raw.equals("show");
-
-                View view = null;
-                if (param.args.length > 0 && param.args[0] instanceof View) {
-                    view = (View) param.args[0];
-                } else if (param.getResult() instanceof View) {
-                    view = (View) param.getResult();
-                }
-
-                if (view == null) return;
-
-                int searchBarId = Utils.getID("my_search_bar", "id");
-                if (view.getId() != searchBarId) return;
-
-                if (!showHeader) {
-                    final View searchBar = view;
-                    searchBar.post(() -> {
-                        try {
-                            searchBar.setVisibility(View.GONE);
-                            ViewGroup.LayoutParams params = searchBar.getLayoutParams();
-                            if (params != null) {
-                                params.height = 0;
-                                searchBar.setLayoutParams(params);
-                            }
-
-                            if (searchBar.getParent() instanceof ViewGroup) {
-                                ViewGroup parent = (ViewGroup) searchBar.getParent();
-                                for (int i = 0; i < parent.getChildCount(); i++) {
-                                    View child = parent.getChildAt(i);
-                                    if (child != searchBar && child.getVisibility() == View.VISIBLE) {
-                                        if (child instanceof ViewGroup) {
-                                            adjustPaddingForContent(child);
-                                        }
-                                    }
-                                }
-                            }
-                        } catch (Exception e) {
-                            logDebug(e);
-                        }
-                    });
-                }
-            }
-        };
-
-        // Hook the method that adds the search bar view
-        try {
-            Method m1 = Unobfuscator.loadViewAddSearchBarMethod(classLoader);
-            XposedBridge.hookMethod(m1, hideSearchBarHook);
-            log("Hooked ViewAddSearchBarMethod");
-        } catch (Throwable t) {
-            logDebug("Error hooking ViewAddSearchBarMethod: " + t);
-        }
-
-        // Hook the method that controls search options/icon (page ID manipulation)
-        try {
-            Method m2 = Unobfuscator.loadAddOptionSearchBarMethod(classLoader);
-            XposedBridge.hookMethod(m2, new XC_MethodHook() {
-                private Object homeActivity;
-                private Field pageIdField;
-                private int originalPageId = 0;
-                private boolean pageIdChanged = false;
-
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    // Reload preference each time
-                    String currentFilterChats = prefs.getString("chatfilter", "2");
-                    String raw = Objects.toString(currentFilterChats, "2").trim().toLowerCase();
-                    boolean showIconOnly = raw.equals("1") || raw.equals("options");
-                    boolean hideAll = raw.equals("0") || raw.equals("none") || raw.equals("hide") || raw.equals("false");
-
-                    if (showIconOnly) {
-                        homeActivity = param.thisObject;
-                        if (Modifier.isStatic(param.method.getModifiers()) && param.args.length > 0) {
-                            homeActivity = param.args[0];
-                        }
-
-                        try {
-                            pageIdField = XposedHelpers.findField(homeActivity.getClass(), "A01");
-                            if (pageIdField != null && pageIdField.getType() == int.class) {
-                                originalPageId = pageIdField.getInt(homeActivity);
-                                pageIdField.setInt(homeActivity, 1); // Set page ID to 1 for icon mode
-                                pageIdChanged = true;
-                                log("Changed page ID to 1 for icon mode (original: " + originalPageId + ")");
-                            }
-                        } catch (Throwable t) {
-                            logDebug("Error setting page ID: " + t);
-                        }
-                    } else if (hideAll) {
-                        // Completely disable the search option method
-                        param.setResult(null);
-                    }
-                }
-
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    // Restore original page ID if we changed it
-                    if (pageIdChanged && pageIdField != null && originalPageId != 0) {
-                        try {
-                            pageIdField.setInt(homeActivity, originalPageId);
-                            log("Restored page ID to: " + originalPageId);
-                        } catch (Throwable t) {
-                            logDebug("Error restoring page ID: " + t);
-                        }
-                    }
-                    pageIdChanged = false; // Reset for next call
-                }
-            });
-            log("Hooked AddOptionSearchBarMethod");
-        } catch (Throwable t) {
-            logDebug("Error hooking AddOptionSearchBarMethod: " + t);
-        }
-
-        // Hook menu preparation to control search icon visibility
-        XposedHelpers.findAndHookMethod(WppCore.getHomeActivityClass(classLoader), "onPrepareOptionsMenu", Menu.class, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                // Reload preference each time
-                String currentFilterChats = prefs.getString("chatfilter", "2");
-                String raw = Objects.toString(currentFilterChats, "2").trim().toLowerCase();
-                boolean showHeader = raw.equals("2") || raw.equals("header") || raw.equals("show");
-                boolean showIconOnly = raw.equals("1") || raw.equals("options");
-                boolean hideAll = raw.equals("0") || raw.equals("none") || raw.equals("hide") || raw.equals("false");
-
-                Menu menu = (Menu) param.args[0];
-                int searchItemId = Utils.getID("menuitem_search", "id");
-                var item = menu.findItem(searchItemId);
-
-                if (item != null) {
-                    log("Found search menu item, mode: " + raw);
-                    if (showIconOnly) {
-                        // Force the search icon to be visible in the toolbar
-                        item.setVisible(true);
-                        item.setEnabled(true);
-                        item.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS);
-                        log("Set search icon to always show in toolbar");
-                    } else if (hideAll) {
-                        // Hide completely
-                        item.setVisible(false);
-                        item.setEnabled(false);
-                        item.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER);
-                        log("Hid search icon completely");
-                    } else if (showHeader) {
-                        // Default behavior - icon might be in overflow menu
-                        item.setVisible(true);
-                        // Let WhatsApp decide where to show it
-                        log("Default behavior for search icon");
-                    }
-               // } else {
-                 //   log("Search menu item not found");
-                }
-
-                // Additional defensive checks for header visibility
-                if (!showHeader) {
-                    try {
-                        android.app.Activity activity = (android.app.Activity) param.thisObject;
-                        int searchBarId = Utils.getID("my_search_bar", "id");
-                        View searchBar = activity.findViewById(searchBarId);
-                        if (searchBar != null && searchBar.getVisibility() != View.GONE) {
-                            searchBar.setVisibility(View.GONE);
-                            ViewGroup.LayoutParams params = searchBar.getLayoutParams();
-                            if (params != null) {
-                                params.height = 0;
-                                searchBar.setLayoutParams(params);
-                            }
-                            // Adjust padding for content
-                            int pagerId = Utils.getID("pager", "id");
-                            if (pagerId != -1) {
-                                View content = activity.findViewById(pagerId);
-                                if (content != null) {
-                                    adjustPaddingForContent(content);
-                                }
-                            }
-                        }
-                    } catch (Throwable ignored) {}
-                }
-            }
-        });
-
-        // Also hook onCreateOptionsMenu to ensure icon visibility
-        XposedHelpers.findAndHookMethod(WppCore.getHomeActivityClass(classLoader), "onCreateOptionsMenu", Menu.class, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                // Reload preference each time
-                String currentFilterChats = prefs.getString("chatfilter", "2");
-                String raw = Objects.toString(currentFilterChats, "2").trim().toLowerCase();
-                boolean showIconOnly = raw.equals("1") || raw.equals("options");
-                boolean hideAll = raw.equals("0") || raw.equals("none") || raw.equals("hide") || raw.equals("false");
-
-                if (showIconOnly || hideAll) {
-                    Menu menu = (Menu) param.args[0];
-                    int searchItemId = Utils.getID("menuitem_search", "id");
-                    var item = menu.findItem(searchItemId);
-
-                    if (item != null) {
-                        if (showIconOnly) {
-                            item.setVisible(true);
-                        } else if (hideAll) {
-                            item.setVisible(false);
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    private void adjustPaddingForContent(View view) {
-        if (view == null) return;
-        int density = (int) Utils.getApplication().getResources().getDisplayMetrics().density;
-        int topPadding = 55 * density;
-        if (view.getPaddingTop() < topPadding) {
-            view.setPadding(view.getPaddingLeft(), topPadding, view.getPaddingRight(), view.getPaddingBottom());
-        }
-    }
     @NonNull
     @Override
     public String getPluginName() {
