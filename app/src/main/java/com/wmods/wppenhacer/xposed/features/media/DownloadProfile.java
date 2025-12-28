@@ -8,10 +8,10 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 
 import com.wmods.wppenhacer.xposed.core.Feature;
-import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.components.WaContactWpp;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
 import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
+import com.wmods.wppenhacer.xposed.utils.ResId;
 import com.wmods.wppenhacer.xposed.utils.Utils;
 
 import org.luckypray.dexkit.query.enums.StringMatchType;
@@ -21,199 +21,195 @@ import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedHelpers;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 
 public class DownloadProfile extends Feature {
 
-    public DownloadProfile(@NonNull ClassLoader classLoader, @NonNull XSharedPreferences preferences) {
+    public DownloadProfile(@NonNull ClassLoader classLoader,
+                           @NonNull XSharedPreferences preferences) {
         super(classLoader, preferences);
     }
 
     @Override
     public void doHook() throws Throwable {
-        // We hook the ViewProfilePhoto class. This is the only reliable class we know.
+
         var loadProfileInfoField = Unobfuscator.loadProfileInfoField(classLoader);
-        var profileClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "ViewProfilePhoto");
+        var profileClass = Unobfuscator.findFirstClassUsingName(
+                classLoader,
+                StringMatchType.EndsWith,
+                "ViewProfilePhoto"
+        );
 
-        if (profileClass != null) {
-            XposedHelpers.findAndHookMethod(profileClass, "onCreateOptionsMenu", Menu.class, new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    try {
-                        var menu = (Menu) param.args[0];
-                        var item = menu.add(0, 0, 0, "Download");
+        if (profileClass == null) return;
+
+        XposedHelpers.findAndHookMethod(
+                profileClass,
+                "onCreateOptionsMenu",
+                Menu.class,
+                new XC_MethodHook() {
+
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        Menu menu = (Menu) param.args[0];
+
+                        MenuItem item = menu.add(
+                                0, 0, 0, ResId.string.download
+                        );
+
                         item.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
-
-                        // --- ICON IMPLEMENTATION ---
-                        try {
-                            var appContext = Utils.getApplication();
-                            if (appContext != null) {
-                                // IMPORTANT: Replace with your actual module's package name!
-                                var moduleContext = appContext.createPackageContext("com.wmods.wppenhacer", 0);
-                                int drawableId = moduleContext.getResources().getIdentifier("ic_download", "drawable", moduleContext.getPackageName());
-                                if (drawableId != 0) {
-                                    var iconDrawable = moduleContext.getDrawable(drawableId);
-                                    item.setIcon(iconDrawable);
-                                }
-                            }
-                        } catch (Exception e) {
-                            log("Failed to set icon: " + e.getMessage());
-                        }
-                        // --- END ICON ---
+                        item.setIcon(ResId.drawable.download);
 
                         item.setOnMenuItemClickListener(menuItem -> {
                             new Thread(() -> performDownload(param)).start();
                             return true;
                         });
-                    } catch (Exception e) {
-                        log("Failed to add download menu item: " + e.getMessage());
                     }
                 }
-            });
-            log("Successfully hooked ViewProfilePhoto for download button.");
-        } else {
-            log("Could not find ViewProfilePhoto class. The plugin will not work.");
-        }
+        );
     }
 
     private void performDownload(XC_MethodHook.MethodHookParam param) {
+
         try {
-            // --- Get the JID object ---
-            var subCls = param.thisObject.getClass().getSuperclass();
-            if (subCls == null) subCls = param.thisObject.getClass();
+            Class<?> cls = param.thisObject.getClass().getSuperclass();
+            if (cls == null) cls = param.thisObject.getClass();
 
-            var loadProfileInfoField = Unobfuscator.loadProfileInfoField(classLoader);
-            var field = ReflectionUtils.getFieldByType(subCls, loadProfileInfoField.getDeclaringClass());
-            if (field == null) {
-                field = ReflectionUtils.getFieldByType(param.thisObject.getClass(), loadProfileInfoField.getDeclaringClass());
-            }
-            if (field == null) {
-                Utils.showToast("Error: Could not find profile data.", Toast.LENGTH_SHORT);
-                return;
-            }
+            var field = ReflectionUtils.getFieldByType(
+                    cls,
+                    Unobfuscator.loadProfileInfoField(classLoader).getDeclaringClass()
+            );
 
-            var fieldObj = ReflectionUtils.getObjectField(field, param.thisObject);
-            if (fieldObj == null) {
-                Utils.showToast("Error: Profile data is empty.", Toast.LENGTH_SHORT);
-                return;
-            }
+            Object fieldObj = ReflectionUtils.getObjectField(field, param.thisObject);
+            if (fieldObj == null) return;
 
-            var waContact = new WaContactWpp(fieldObj);
-            var userJidWrapper = waContact.getUserJid();
-            if (userJidWrapper == null) {
-                Utils.showToast("Error: Could not get user JID.", Toast.LENGTH_SHORT);
-                return;
-            }
+            WaContactWpp waContact = new WaContactWpp(fieldObj);
+            var jidWrapper = waContact.getUserJid();
+            if (jidWrapper == null) return;
 
-            // --- Get raw JID strings from the wrapper, bypassing the buggy getUserRawString() ---
-            Object userJidObject = userJidWrapper.userJid;
-            Object phoneJidObject = userJidWrapper.phoneJid;
+            String userJid = (String) XposedHelpers.callMethod(
+                    jidWrapper.userJid, "getRawString"
+            );
 
-            String userJidString = (String) XposedHelpers.callMethod(userJidObject, "getRawString");
-            String phoneJidString = (phoneJidObject != null) ? (String) XposedHelpers.callMethod(phoneJidObject, "getRawString") : null;
-
-            // --- DECIDE WHETHER IT'S A CONTACT OR GROUP BASED ON THE JID STRING ---
-            boolean isGroup = userJidString != null && userJidString.contains("@g.us");
+            boolean isGroup = userJid.contains("@g.us");
 
             if (isGroup) {
-                performGroupDownload(userJidString);
+                performGroupDownload(userJid);
             } else {
-                performContactDownload(userJidString, phoneJidString);
+                performContactDownload(userJid);
             }
 
-        } catch (Exception e) {
-            log("Download failed: " + e.getMessage());
-            e.printStackTrace();
-            Utils.showToast("An unexpected error occurred.", Toast.LENGTH_SHORT);
+        } catch (Throwable t) {
+            log("Download failed: " + t.getMessage());
         }
     }
 
-    private void performContactDownload(String userJidString, String phoneJidString) {
-        // Search for the file using both LID and Phone JID patterns
-        var sourceFile = findProfilePhotoFile(userJidString); // Try with LID first
-        if (sourceFile == null && phoneJidString != null) {
-            sourceFile = findProfilePhotoFile(phoneJidString); // Try with Phone JID
-        }
-
-        if (sourceFile == null) {
-            Utils.showToast("Profile picture not found.", Toast.LENGTH_SHORT);
+    private void performContactDownload(String jid) {
+        File src = findProfilePhotoFile(jid);
+        if (src == null) {
+            Utils.showToast("Profile picture not found", Toast.LENGTH_SHORT);
             return;
         }
 
-        // Generate filename based on the JID that was found
-        String name = userJidString.replace("@lid", "").replace("@s.whatsapp.net", "") + ".jpg";
-
-        saveAndNotify(sourceFile, "Profile Pictures", name);
+        saveAndNotify(src, "Profile Pictures",
+                jid.replace("@s.whatsapp.net", "").replace("@lid", "") + ".jpg");
     }
 
-    private void performGroupDownload(String groupJidString) {
-        // For groups, the file is named based on the group JID
-        var sourceFile = findProfilePhotoFile(groupJidString);
-
-        if (sourceFile == null) {
-            Utils.showToast("Group picture not found.", Toast.LENGTH_SHORT);
+    private void performGroupDownload(String jid) {
+        File src = findProfilePhotoFile(jid);
+        if (src == null) {
+            Utils.showToast("Group picture not found", Toast.LENGTH_SHORT);
             return;
         }
 
-        String name = groupJidString.replace("@g.us", "") + ".jpg";
-        saveAndNotify(sourceFile, "Group Pictures", name);
+        saveAndNotify(src, "Group Pictures",
+                jid.replace("@g.us", "") + ".jpg");
     }
 
+    /**
+     * 🔥 FINAL FIX
+     */
     private void saveAndNotify(File sourceFile, String folderName, String fileName) {
+
         String destPath;
         try {
             destPath = Utils.getDestination(folderName);
         } catch (Exception e) {
-            log("Failed to get destination path: " + e.getMessage());
-            Utils.showToast("Error: Could not create destination folder.", Toast.LENGTH_SHORT);
+            Utils.showToast("Failed to create folder", Toast.LENGTH_SHORT);
             return;
         }
 
-        var error = Utils.copyFile(sourceFile, destPath, fileName);
-        if (TextUtils.isEmpty(error)) {
+        try {
+            if (sourceFile.getAbsolutePath().startsWith("/data/data/")) {
+
+                // 1️⃣ Copy to temp file we own
+                File temp = new File(Utils.getApplication().getCacheDir(), fileName);
+                copyFileDirect(sourceFile, temp);
+
+                // 2️⃣ Use MediaStore-aware copy
+                String err = Utils.copyFile(temp, destPath, fileName);
+                temp.delete();
+
+                if (!TextUtils.isEmpty(err)) {
+                    Utils.showToast("Save failed: " + err, Toast.LENGTH_SHORT);
+                    return;
+                }
+
+            } else {
+                // normal external file
+                String err = Utils.copyFile(sourceFile, destPath, fileName);
+                if (!TextUtils.isEmpty(err)) {
+                    Utils.showToast("Save failed: " + err, Toast.LENGTH_SHORT);
+                    return;
+                }
+            }
+
             Utils.showToast("Saved to: " + destPath, Toast.LENGTH_LONG);
-        } else {
-            Utils.showToast("Error when saving: " + error, Toast.LENGTH_LONG);
+
+        } catch (Throwable t) {
+            log("Copy failed: " + t.getMessage());
+            Utils.showToast("Unable to save this picture", Toast.LENGTH_SHORT);
         }
     }
 
+
     /**
-     * Searches for the profile photo file in common WhatsApp storage locations,
-     * including the new internal app data cache directory.
+     * Direct stream copy – NO ContentResolver, NO PFD
      */
-    private File findProfilePhotoFile(String jidString) {
-        if (jidString == null) return null;
+    private void copyFileDirect(File src, File dst) throws Exception {
 
-        // Create variations of the filename
-        String baseName = jidString.replace("@lid", "").replace("@s.whatsapp.net", "").replace("@g.us", "");
-        String[] fileNames = {
-                jidString + ".jpg",         // e.g., "1234567890@lid.jpg" or "123-456@g.us.jpg"
-                baseName + ".jpg"            // e.g., "1234567890.jpg" or "123-456.jpg"
-        };
+        try (FileInputStream in = new FileInputStream(src);
+             FileOutputStream out = new FileOutputStream(dst)) {
 
-        // Search in common directories AND the new internal cache directory
-        // NOTE: Reading from /data/data/... requires the storage permissions to be granted
-        // by the WPP Enhancer module's permission hook.
-        File[] possibleDirs = {
-                // NEW INTERNAL CACHE DIR (This is the most likely one now)
+            byte[] buf = new byte[8192];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+        }
+    }
+
+    private File findProfilePhotoFile(String jid) {
+
+        String base = jid
+                .replace("@lid", "")
+                .replace("@s.whatsapp.net", "")
+                .replace("@g.us", "");
+
+        String[] names = { jid + ".jpg", base + ".jpg" };
+
+        File[] dirs = {
                 new File("/data/data/com.whatsapp/cache/Profile Pictures"),
-
-                // Standard external directories (keep them just in case)
-                new File("/sdcard/Android/media/com.whatsapp/WhatsApp/Media/Profile Pictures"),
-                new File("/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/Profile Pictures"),
-                new File("/sdcard/WhatsApp/Media/Profile Pictures"),
-                new File("/storage/emulated/0/WhatsApp/Media/Profile Pictures"),
-                new File("/sdcard/Android/media/com.whatsapp/WhatsApp/Profile Pictures"),
-                new File("/sdcard/WhatsApp/Profile Pictures"),
-                new File("/storage/emulated/0/WhatsApp/Profile Pictures")
+                new File("/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/Profile Pictures")
         };
 
-        for (File dir : possibleDirs) {
-            if (dir != null && dir.exists() && dir.isDirectory()) {
-                for (String name : fileNames) {
-                    var potentialFile = new File(dir, name);
-                    if (potentialFile.exists()) {
-                        log("Found profile photo at: " + potentialFile.getAbsolutePath());
-                        return potentialFile;
+        for (File dir : dirs) {
+            if (dir != null && dir.isDirectory()) {
+                for (String n : names) {
+                    File f = new File(dir, n);
+                    if (f.exists()) {
+                        log("Found profile photo: " + f.getAbsolutePath());
+                        return f;
                     }
                 }
             }
