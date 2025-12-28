@@ -1,3 +1,6 @@
-[WHATSAPP]
-* Added support for version 2.25.35.XX (Thanks to frknkrc44)
-* Added support for version 2.25.36.XX
+* Improved support for version 2.25.37.XX
+* Add support for version 2.26.1.XX beta
+
+[WAE]
+* Version updated to 1.5.3
+* Improved colors and animations in the interface
