@@ -15,25 +15,12 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import java.util.Collections;
-import org.luckypray.dexkit.result.MethodDataList;
-import org.luckypray.dexkit.query.FindMethod;
-import org.luckypray.dexkit.query.matchers.MethodMatcher;
-import org.luckypray.dexkit.query.enums.StringMatchType;
-import org.luckypray.dexkit.DexKitBridge;
-import org.luckypray.dexkit.query.FindClass;
-import org.luckypray.dexkit.query.FindMethod;
-import org.luckypray.dexkit.query.enums.StringMatchType;
-import org.luckypray.dexkit.query.matchers.ClassMatcher;
-import org.luckypray.dexkit.query.matchers.MethodMatcher;
-import org.luckypray.dexkit.result.ClassData;
-import org.luckypray.dexkit.result.MethodData;
-import org.luckypray.dexkit.result.MethodDataList;
+
+
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-
 
 import androidx.annotation.Nullable;
 
@@ -83,6 +70,7 @@ public class Unobfuscator {
 
     private static final String TAG = "Unobfuscator";
     private static DexKitBridge dexkit;
+
 
     public static final HashMap<String, Class<?>> cacheClasses = new HashMap<>();
 
@@ -1745,61 +1733,23 @@ public class Unobfuscator {
     // TODO: Classes and Methods for TextStatusData (Methods)
     public synchronized static Method[] loadTextStatusData(ClassLoader classLoader) throws Exception {
         return UnobfuscatorCache.getInstance().getMethods(classLoader, () -> {
-            // Find methods handling the "text_statuses" endpoint
-            MethodDataList methods = dexkit.findMethod(FindMethod.create()
-                    .matcher(MethodMatcher.create()
-                            .addUsingString("text_statuses", StringMatchType.Contains)));
-
-            if (methods.isEmpty()) {
-                // Fallback search
-                methods = dexkit.findMethod(FindMethod.create()
-                        .matcher(MethodMatcher.create()
-                                .addUsingString("text", StringMatchType.Contains)
-                                .addUsingString("status", StringMatchType.Contains)));
+            Class<?> textData;
+            var textDataList = dexkit.findClass(FindClass.create().matcher(ClassMatcher.create().addUsingString("TextData;")));
+            if (textDataList.isEmpty()) {
+                textData = findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "TextData");
+            } else {
+                textData = textDataList.get(0).getInstance(classLoader);
             }
+            var methods = dexkit.findMethod(
+                    FindMethod.create().matcher(
+                            MethodMatcher.create().addParamType(textData)
+                    )
+            );
+            if (methods.isEmpty())
+                throw new RuntimeException("loadTextStatusData method not found");
 
-            if (methods.isEmpty()) throw new Exception("loadTextStatusData method not found");
-
-            return methods.stream()
-                    .filter(MethodData::isMethod)
-                    .map(md -> {
-                        try {
-                            return md.getMethodInstance(classLoader);
-                        } catch (Exception ex) {
-                            return null;
-                        }
-                    })
-                    .filter(Objects::nonNull)
-                    .toArray(Method[]::new);
+            return methods.stream().filter(MethodData::isMethod).map(methodData -> convertRealMethod(methodData, classLoader)).toArray(Method[]::new);
         });
-    }
-
-    // TODO: Find the class that replaces com.whatsapp.TextData
-    public synchronized static Class<?> loadTextStatusDataClass(ClassLoader classLoader) throws Exception {
-        return UnobfuscatorCache.getInstance().getClass(classLoader, "TextStatusData", () -> {
-            // Search for a class that uses the string "text_statuses" (the API endpoint)
-            return Unobfuscator.findFirstClassUsingStrings(classLoader, StringMatchType.Contains, "text_statuses");
-        });
-    }
-
-    // TODO: Find fields in a class that are likely color fields (int type)
-    public synchronized static Field[] findColorFields(ClassLoader classLoader, Class<?> targetClass) throws Exception {
-        // We search for the class using DexKit to get ClassData
-        var classDataList = dexkit.findClass(FindClass.create().matcher(ClassMatcher.create().className(targetClass.getName())));
-        if (classDataList.isEmpty()) return new Field[0];
-
-        // Look for methods that set fields (PUT_FIELD) in the target class
-        // This is complex, so let's just use Reflection to find all non-static int fields
-        // This is a brute force approach but usually safe for data objects
-
-        List<Field> fields = new ArrayList<>();
-        for (Field f : targetClass.getDeclaredFields()) {
-            if (f.getType() == int.class && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
-                f.setAccessible(true);
-                fields.add(f);
-            }
-        }
-        return fields.toArray(new Field[0]);
     }
 
 
