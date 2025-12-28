@@ -25,10 +25,9 @@ val gitHash: String = getGitHashCommit().uppercase(Locale.getDefault())
 android {
     namespace = "com.wmods.wppenhacer"
     compileSdk = 36
-    ndkVersion = "27.0.11902837 rc2"
+    ndkVersion = "27.0.11902837" // Cleaned up version name
 
     flavorDimensions += "version"
-
     productFlavors {
         create("whatsapp") {
             dimension = "version"
@@ -48,42 +47,35 @@ android {
         versionCode = 152
         versionName = "1.5.2-DEV ($gitHash)"
         multiDexEnabled = true
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         signingConfigs.create("config") {
-            val androidStoreFile = project.findProperty("androidStoreFile") as String?
+            val androidStoreFile = properties["androidStoreFile"] as? String
             if (!androidStoreFile.isNullOrEmpty()) {
                 storeFile = rootProject.file(androidStoreFile)
-                storePassword = project.property("androidStorePassword") as String
-                keyAlias = project.property("androidKeyAlias") as String
-                keyPassword = project.property("androidKeyPassword") as String
+                storePassword = properties["androidStorePassword"] as String
+                keyAlias = properties["androidKeyAlias"] as String
+                keyPassword = properties["androidKeyPassword"] as String
             }
         }
 
         ndk {
-            abiFilters.add("armeabi-v7a")
-            abiFilters.add("arm64-v8a")
-            abiFilters.add("x86_64")
-            abiFilters.add("x86")
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64", "x86"))
         }
-
     }
 
     packaging {
         resources {
-            excludes += "META-INF/**"
-            excludes += "okhttp3/**"
-            excludes += "kotlin/**"
-            excludes += "org/**"
-            excludes += "**.properties"
-            excludes += "**.bin"
-
-            // CRITICAL: Keep CSS parser SPI service files (needed for jstyleparser)
-            // This overrides the META-INF/** exclusion for specific service files
-            pickFirsts.add("META-INF/services/cz.vutbr.web.css.RuleFactory")
-            pickFirsts.add("META-INF/services/cz.vutbr.web.css.SupportedCSS")
-            pickFirsts.add("META-INF/services/cz.vutbr.web.css.TermFactory")
+            excludes += setOf(
+                "META-INF/**", "okhttp3/**", "kotlin/**", "org/**",
+                "**.properties", "**.bin"
+            )
+            // Critical CSS parser files
+            pickFirsts.addAll(listOf(
+                "META-INF/services/cz.vutbr.web.css.RuleFactory",
+                "META-INF/services/cz.vutbr.web.css.SupportedCSS",
+                "META-INF/services/cz.vutbr.web.css.TermFactory"
+            ))
         }
     }
 
@@ -113,12 +105,16 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
     buildFeatures {
         viewBinding = true
         buildConfig = true
         aidl = true
     }
-
 
     lint {
         disable += "SelectedPhotoAccess"
@@ -126,22 +122,16 @@ android {
 
     materialThemeBuilder {
         themes {
-            for ((name, color) in listOf(
-                "Green" to "4FAF50"
-            )) {
-                create("Material$name") {
-                    lightThemeFormat = "ThemeOverlay.Light.%s"
-                    darkThemeFormat = "ThemeOverlay.Dark.%s"
-                    primaryColor = "#$color"
-                }
+            create("MaterialGreen") {
+                lightThemeFormat = "ThemeOverlay.Light.%s"
+                darkThemeFormat = "ThemeOverlay.Dark.%s"
+                primaryColor = "#4FAF50"
             }
         }
-        // Add Material Design 3 color tokens (such as palettePrimary100) in generated theme
-        // rikka.material >= 2.0.0 provides such attributes
         generatePalette = true
     }
-
 }
+
 
 // Task that patches generated AIDL .java files (escapes backslashes in header comment lines).
 val fixAidlGeneratedJava = tasks.register("fixAidlGeneratedJava") {
