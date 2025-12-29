@@ -408,7 +408,7 @@ public class FMessageWpp {
         public Object userJid;
 
         public UserJid(@Nullable String rawjid) {
-            if (rawjid == null) return;
+            if (isNonValidJid(rawjid)) return;
             if (checkValidLID(rawjid)) {
                 this.userJid = WppCore.createUserJid(rawjid);
                 this.phoneJid = WppCore.getPhoneJidFromUserJid(this.userJid);
@@ -418,19 +418,34 @@ public class FMessageWpp {
             }
         }
 
+
         public UserJid(@Nullable Object lidOrJid) {
             if (lidOrJid == null) return;
-            try {
-                String raw = (String) XposedHelpers.callMethod(lidOrJid, "getRawString");
-                if (raw != null && checkValidLID(raw)) {
-                    this.userJid = lidOrJid;
-                    this.phoneJid = WppCore.getPhoneJidFromUserJid(this.userJid);
-                } else {
-                    this.phoneJid = lidOrJid;
-                    this.userJid = WppCore.getUserJidFromPhoneJid(this.phoneJid);
-                }
-            } catch (Exception e) {
-                XposedBridge.log("UserJid ctor error: " + e.getMessage());
+
+public UserJid(@Nullable Object lidOrJid) {
+    if (lidOrJid == null) return;
+
+    String raw = null;
+    try {
+        raw = (String) XposedHelpers.callMethod(lidOrJid, "getRawString");
+    } catch (Exception e) {
+        XposedBridge.log("UserJid ctor error: " + e.getMessage());
+    }
+
+    // If we cannot obtain a raw string or it is not a valid JID, just leave both null
+    if (raw == null || isNonValidJid(raw)) return;
+
+    if (checkValidLID(raw)) {
+        // lidOrJid is a LID-style user JID
+        this.userJid = lidOrJid;
+        this.phoneJid = WppCore.getPhoneJidFromUserJid(this.userJid);
+    } else {
+        // lidOrJid is a phone JID
+        this.phoneJid = lidOrJid;
+        this.userJid = WppCore.getUserJidFromPhoneJid(this.phoneJid);
+    }
+}
+
             }
         }
 
@@ -473,6 +488,20 @@ public class FMessageWpp {
             } catch (Exception e) {
                 return str;
             }
+        }
+
+        private boolean isNonValidJid(String rawjid) {
+            if (rawjid == null) {
+                return false;
+            }
+            if (!rawjid.contains("@")) {
+                return false;
+            }
+            String[] split = rawjid.split("@");
+            if (split.length != 2) {
+                return false;
+            }
+            return split[1].equals("s.whatsapp.net") || split[1].equals("lid") || split[1].equals("g.us");
         }
 
         public boolean isStatus() {
