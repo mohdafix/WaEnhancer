@@ -7,14 +7,28 @@
         app:title="@string/general">
 
         <rikka.material.preference.MaterialSwitchPreference
-            app:key="changecolor"
-            app:summary="@string/colors_customization_sum"
-            app:title="@string/colors_customization" />
-
-        <rikka.material.preference.MaterialSwitchPreference
             app:key="monet_theme"
             app:summary="@string/monet_theme_sum"
             app:title="@string/monet_theme" />
+
+        <ListPreference
+            android:defaultValue="green"
+            android:entries="@array/app_color_entries"
+            android:entryValues="@array/app_color_values"
+            app:key="app_theme_color"
+            app:summary="%s"
+            app:title="App Theme Color" />
+
+        <com.jaredrummler.android.colorpicker.ColorPreferenceCompat
+            app:cpv_showAlphaSlider="false"
+            app:key="app_custom_color"
+            app:summary="Select custom color for the app"
+            app:title="Custom App Color" />
+
+        <rikka.material.preference.MaterialSwitchPreference
+            app:key="changecolor"
+            app:summary="@string/colors_customization_sum"
+            app:title="@string/colors_customization" />
 
         <com.jaredrummler.android.colorpicker.ColorPreferenceCompat
             app:cpv_showAlphaSlider="true"

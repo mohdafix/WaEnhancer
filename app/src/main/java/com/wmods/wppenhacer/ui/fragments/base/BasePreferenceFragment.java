@@ -63,8 +63,10 @@ public abstract class BasePreferenceFragment extends PreferenceFragmentCompat im
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, @Nullable String s) {
-        Intent intent = new Intent(BuildConfig.APPLICATION_ID + ".MANUAL_RESTART");
-        App.getInstance().sendBroadcast(intent);
+        if (!"app_theme_color".equals(s) && !"app_custom_color".equals(s)) {
+            Intent intent = new Intent(BuildConfig.APPLICATION_ID + ".MANUAL_RESTART");
+            App.getInstance().sendBroadcast(intent);
+        }
         chanceStates(s);
     }
 
@@ -110,6 +112,9 @@ public abstract class BasePreferenceFragment extends PreferenceFragmentCompat im
             setPreferenceState("wallpaper", false);
             setPreferenceState("custom_filters", false);
         }
+
+        var appThemeColor = mPrefs.getString("app_theme_color", "green");
+        setPreferenceState("app_custom_color", "custom".equals(appThemeColor));
 
         if (Objects.equals(key, "thememode")) {
             var mode = Integer.parseInt(mPrefs.getString("thememode", "0"));

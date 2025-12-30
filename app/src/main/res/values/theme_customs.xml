@@ -1,4 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="ThemeOverlay.MaterialGreen" parent="ThemeOverlay.Light.MaterialGreen"/>
+    <style name="ThemeOverlay.MaterialGreen" parent="">
+        <item name="colorPrimary">#4CAF50</item>
+        <item name="colorSecondary">#1B5E20</item>
+        <item name="android:statusBarColor">#1B5E20</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+    <style name="ThemeOverlay.MaterialBlue" parent="">
+        <item name="colorPrimary">#2196F3</item>
+        <item name="colorSecondary">#0D47A1</item>
+        <item name="android:statusBarColor">#0D47A1</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+    <style name="ThemeOverlay.MaterialRed" parent="">
+        <item name="colorPrimary">#F44336</item>
+        <item name="colorSecondary">#B71C1C</item>
+        <item name="android:statusBarColor">#B71C1C</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+    <style name="ThemeOverlay.MaterialYellow" parent="">
+        <item name="colorPrimary">#FBC02D</item>
+        <item name="colorSecondary">#F57F17</item>
+        <item name="android:statusBarColor">#F57F17</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+    <style name="ThemeOverlay.MaterialPurple" parent="">
+        <item name="colorPrimary">#9C27B0</item>
+        <item name="colorSecondary">#4A148C</item>
+        <item name="android:statusBarColor">#4A148C</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
 </resources>

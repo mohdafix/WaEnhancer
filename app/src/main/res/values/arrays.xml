@@ -190,4 +190,21 @@
         <item>2</item>
     </string-array>
 
+    <string-array name="app_color_entries">
+        <item>Green (Default)</item>
+        <item>Blue</item>
+        <item>Red</item>
+        <item>Yellow</item>
+        <item>Purple</item>
+        <item>Custom Color Picker</item>
+    </string-array>
+    <string-array name="app_color_values">
+        <item>green</item>
+        <item>blue</item>
+        <item>red</item>
+        <item>yellow</item>
+        <item>purple</item>
+        <item>custom</item>
+    </string-array>
+
 </resources>
