@@ -3,12 +3,17 @@ package com.wmods.wppenhacer.xposed.features.general;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -307,11 +312,11 @@ public class ShowEditMessage extends Feature {
         time.setTypeface(Typeface.MONOSPACE);
 
         int base = DesignUtils.getPrimaryTextColor();
-        time.setTextColor(android.graphics.Color.argb(
+        time.setTextColor(Color.argb(
                 160,
-                android.graphics.Color.red(base),
-                android.graphics.Color.green(base),
-                android.graphics.Color.blue(base)
+                Color.red(base),
+                Color.green(base),
+                Color.blue(base)
         ));
 
         if (item.timestamp == 0) {
