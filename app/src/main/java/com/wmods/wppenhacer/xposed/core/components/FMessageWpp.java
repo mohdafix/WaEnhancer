@@ -406,6 +406,9 @@ public class FMessageWpp {
         }
     }
 
+    // ==========================================
+    // SINGLE UserJid CLASS (Corrected)
+    // ==========================================
     public static class UserJid {
 
         public Object phoneJid;
@@ -415,7 +418,7 @@ public class FMessageWpp {
         }
 
         public UserJid(@Nullable String rawjid) {
-            if (isNonValidJid(rawjid)) return;
+            if (isInvalidJid(rawjid)) return;
             if (checkValidLID(rawjid)) {
                 this.userJid = WppCore.createUserJid(rawjid);
                 this.phoneJid = WppCore.getPhoneJidFromUserJid(this.userJid);
@@ -436,7 +439,7 @@ public class FMessageWpp {
             }
 
             // If we cannot obtain a raw string or it is not a valid JID, just leave both null
-            if (raw == null || isNonValidJid(raw)) return;
+            if (raw == null || isInvalidJid(raw)) return;
 
             if (checkValidLID(raw)) {
                 // lidOrJid is a LID-style user JID
@@ -495,8 +498,10 @@ public class FMessageWpp {
             }
         }
 
-        private boolean isNonValidJid(String rawjid) {
-            if (rawjid == null) {
+        private boolean isInvalidJid(String rawjid) {
+            if (rawjid == null) return false;
+            int atIndex = rawjid.indexOf('@');
+            if (atIndex == -1 || atIndex == rawjid.length() - 1) {
                 return false;
             }
             if (!rawjid.contains("@")) {
@@ -565,143 +570,5 @@ public class FMessageWpp {
         public String toString() {
             return "UserJid{" + "PhoneJid=" + phoneJid + ", UserJid=" + userJid + '}';
         }
-    }
-}
-
-    public UserJid(@Nullable Object lidOrJid) {
-        if (lidOrJid == null) return;
-
-        String raw = null;
-        try {
-            raw = (String) XposedHelpers.callMethod(lidOrJid, "getRawString");
-        } catch (Exception e) {
-            XposedBridge.log("UserJid ctor error: " + e.getMessage());
-        }
-
-        // If we cannot obtain a raw string or it is not a valid JID, just leave both null
-        if (raw == null || isNonValidJid(raw)) return;
-
-        if (checkValidLID(raw)) {
-            // lidOrJid is a LID-style user JID
-            this.userJid = lidOrJid;
-            this.phoneJid = WppCore.getPhoneJidFromUserJid(this.userJid);
-        } else {
-            // lidOrJid is a phone JID
-            this.phoneJid = lidOrJid;
-            this.userJid = WppCore.getUserJidFromPhoneJid(this.phoneJid);
-        }
-    }
-
-    public UserJid(@Nullable Object userJid, Object phoneJid) {
-        this.userJid = userJid;
-        this.phoneJid = phoneJid;
-    }
-
-    @Nullable
-    public String getPhoneRawString() {
-        if (this.phoneJid == null) return null;
-        try {
-            String raw = (String) XposedHelpers.callMethod(this.phoneJid, "getRawString");
-            if (raw == null) return null;
-            return raw.replaceFirst("\\.[\\d:]+@", "@");
-        } catch (Exception e) { return null; }
-    }
-
-    @Nullable
-    public String getUserRawString() {
-        if (this.userJid == null) return null;
-        try {
-            String raw = (String) XposedHelpers.callMethod(this.userJid, "getRawString");
-            if (raw == null) return null;
-            return raw.replaceFirst("\\.[\\d:]+@", "@");
-        } catch (Exception e) { return null; }
-    }
-
-    @Nullable
-    public String getPhoneNumber() {
-        var str = getPhoneRawString();
-        try {
-            if (str == null) return null;
-            if (str.contains(".") && str.contains("@") && str.indexOf(".") < str.indexOf("@")) {
-                return str.substring(0, str.indexOf("."));
-            } else if (str.contains("@g.us") || str.contains("@s.whatsapp.net")
-                    || str.contains("@broadcast") || str.contains("@lid")) {
-                return str.substring(0, str.indexOf("@"));
-            }
-            return str;
-        } catch (Exception e) {
-            return str;
-        }
-    }
-
-    private boolean isNonValidJid(String rawjid) {
-        if (rawjid == null) {
-            return false;
-        }
-        if (!rawjid.contains("@")) {
-            return false;
-        }
-        String[] split = rawjid.split("@");
-        if (split.length != 2) {
-            return false;
-        }
-        XposedBridge.log(split[1]);
-        // valid JIDs: s.whatsapp.net, lid, g.us, broadcast, status
-        return !split[1].equals("s.whatsapp.net")
-                && !split[1].equals("lid")
-                && !split[1].equals("g.us")
-                && !split[1].equals("broadcast")
-                && !split[1].equals("status");
-    }
-
-    public boolean isStatus() {
-        return Objects.equals(getPhoneNumber(), "status");
-    }
-
-    public boolean isNewsletter() {
-        String raw = getPhoneRawString();
-        if (raw == null) return false;
-        return raw.contains("@newsletter");
-    }
-
-    public boolean isBroadcast() {
-        String raw = getPhoneRawString();
-        if (raw == null) return false;
-        return raw.contains("@broadcast");
-    }
-
-    public boolean isGroup() {
-        if (this.phoneJid == null) return false;
-        String str = getPhoneRawString();
-        if (str == null) return false;
-        return str.contains("-") || str.contains("@g.us")
-                || (!str.contains("@") && str.length() > 16);
-    }
-
-    public boolean isContact() {
-        if (this.userJid != null) {
-            var raw = getUserRawString();
-            return raw != null && raw.contains("@lid");
-        }
-        String str = getPhoneRawString();
-        return str != null && str.contains("@s.whatsapp.net");
-    }
-
-    public boolean isNull() {
-        return this.phoneJid == null && this.userJid == null;
-    }
-
-    private static boolean checkValidLID(String lid) {
-        if (lid != null && lid.contains("@lid")) {
-            String id = lid.split("@")[0];
-            return lid.length() > 14;
-        }
-        return false;
-    }
-
-    @NonNull
-    @Override
-    public String toString() {
-        return "UserJid{" + "PhoneJid=" + phoneJid + ", UserJid=" + userJid + '}';
     }
 }
