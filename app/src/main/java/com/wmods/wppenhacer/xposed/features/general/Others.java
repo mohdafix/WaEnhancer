@@ -237,6 +237,7 @@ public class Others extends Feature {
             disableExpirationVersion(classLoader);
         }
     }
+
     // ==========================================
     // OPTIMIZED SEARCH BAR HOOKING LOGIC
     // ==========================================
@@ -280,13 +281,12 @@ public class Others extends Feature {
         }
 
         // 3. Hook the method that controls search options/icon (page ID manipulation)
-        // THIS IS THE FIXED BLOCK
         try {
             Method m2 = Unobfuscator.loadAddOptionSearchBarMethod(classLoader);
             XposedBridge.hookMethod(m2, new XC_MethodHook() {
                 private int originalPageId = 0;
                 private boolean pageIdChanged = false;
-                private Object currentActivityInstance; // Store the instance for the afterHook
+                private Object currentActivityInstance;
 
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -297,7 +297,7 @@ public class Others extends Feature {
                         return;
                     }
 
-                    // Determine the activity instance from either static or instance method
+                    // Determine activity instance
                     currentActivityInstance = Modifier.isStatic(param.method.getModifiers()) && param.args.length > 0
                             ? param.args[0]
                             : param.thisObject;
@@ -305,7 +305,6 @@ public class Others extends Feature {
                     if (currentActivityInstance == null) return;
 
                     try {
-                        // Find the field directly on the current instance's class
                         Field pageIdField = XposedHelpers.findField(currentActivityInstance.getClass(), "A01");
                         if (pageIdField.getType() == int.class) {
                             originalPageId = pageIdField.getInt(currentActivityInstance);
@@ -313,24 +312,21 @@ public class Others extends Feature {
                             pageIdChanged = true;
                         }
                     } catch (Throwable t) {
-                        logDebug("Error setting page ID in beforeHook: " + t);
-                        pageIdChanged = false; // Don't try to reset if setting failed
+                        logDebug("Error setting page ID: " + t);
+                        pageIdChanged = false;
                     }
                 }
 
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    // Only try to reset if we successfully changed it in the beforeHook
                     if (pageIdChanged && currentActivityInstance != null) {
                         try {
-                            // Find the field again on the SAME instance and reset its value
                             Field pageIdField = XposedHelpers.findField(currentActivityInstance.getClass(), "A01");
                             pageIdField.setInt(currentActivityInstance, originalPageId);
                         } catch (Throwable t) {
-                            logDebug("Error resetting page ID in afterHook: " + t);
+                            logDebug("Error resetting page ID: " + t);
                         }
                     }
-                    // Reset flags for the next call
                     pageIdChanged = false;
                     currentActivityInstance = null;
                 }
@@ -340,14 +336,13 @@ public class Others extends Feature {
             logDebug("Error hooking AddOptionSearchBarMethod: " + t);
         }
 
-        // 4. Unified Hook for Menu Preparations (onPrepareOptionsMenu + onCreateOptionsMenu)
+        // 4. Unified Hook for Menu Preparations
         XC_MethodHook menuHook = new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 Menu menu = (Menu) param.args[0];
                 int searchItemId = Utils.getID("menuitem_search", "id");
 
-                // Optimization: Don't touch menu if ID is invalid
                 if (searchItemId == 0 || searchItemId == -1) return;
 
                 var item = menu.findItem(searchItemId);
@@ -355,7 +350,6 @@ public class Others extends Feature {
                     modifyMenuItem(item, mode);
                 }
 
-                // If header is disabled, ensure it's visually gone in the Activity
                 if (mode != ChatFilterMode.SHOW_HEADER) {
                     hideSearchBarFromActivity(param.thisObject);
                 }
@@ -376,7 +370,6 @@ public class Others extends Feature {
         } else if (raw.equals("1") || raw.equals("options")) {
             return ChatFilterMode.ICON_ONLY;
         }
-        // Default/2/Header/Show
         return ChatFilterMode.SHOW_HEADER;
     }
 
@@ -390,13 +383,11 @@ public class Others extends Feature {
                     searchBar.setLayoutParams(params);
                 }
 
-                // Adjust padding for siblings
                 if (searchBar.getParent() instanceof ViewGroup) {
                     ViewGroup parent = (ViewGroup) searchBar.getParent();
                     for (int i = 0; i < parent.getChildCount(); i++) {
                         View child = parent.getChildAt(i);
                         if (child != searchBar && child.getVisibility() == View.VISIBLE && child instanceof ViewGroup) {
-                            // Pass true to indicate we are in "Header Off" mode
                             adjustPaddingForContent(child, true);
                         }
                     }
@@ -420,7 +411,6 @@ public class Others extends Feature {
                 item.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER);
                 break;
             case SHOW_HEADER:
-                // Default behavior
                 item.setVisible(true);
                 break;
         }
@@ -441,12 +431,10 @@ public class Others extends Feature {
                     searchBar.setLayoutParams(params);
                 }
 
-                // Adjust pager padding
                 int pagerId = Utils.getID("pager", "id");
                 if (pagerId != -1) {
                     View content = activity.findViewById(pagerId);
                     if (content != null) {
-                        // Pass true to indicate we are in "Header Off" mode
                         adjustPaddingForContent(content, true);
                     }
                 }
@@ -454,27 +442,12 @@ public class Others extends Feature {
         } catch (Throwable ignored) {}
     }
 
-    /**
-     * Legacy wrapper for compatibility
-     */
-    private void adjustPaddingForContent(View view) {
-        adjustPaddingForContent(view, false);
-    }
-
-    /**
-     * Adjusts padding. If 'headerOff' is true, it adds extra top padding
-     * to push content down and prevent overlap with IGStatus.
-     */
     private void adjustPaddingForContent(View view, boolean headerOff) {
         if (view == null) return;
         try {
             int density = (int) Utils.getApplication().getResources().getDisplayMetrics().density;
-
-            // Base padding (original logic: 55dp)
             int topPadding = 55 * density;
 
-            // FIX: If header is OFF (Icon Only or Hide All), add extra space
-            // 30dp should be enough to separate IGStatus from the content
             if (headerOff) {
                 topPadding += (30 * density);
             }
