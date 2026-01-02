@@ -2140,4 +2140,12 @@ public class Unobfuscator {
             return method;
         });
     }
+
+    public synchronized static Method loadHomeFiltersMethod(ClassLoader classLoader) throws Exception {
+        return UnobfuscatorCache.getInstance().getMethod(classLoader, () -> {
+            var method = findFirstMethodUsingStrings(classLoader, StringMatchType.Contains, "ConversationsFragment/updateHeadersVisibility");
+            if (method == null) throw new RuntimeException("HomeFilters method not found");
+            return method;
+        });
+    }
 }
