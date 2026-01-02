@@ -237,7 +237,6 @@ public class Others extends Feature {
             disableExpirationVersion(classLoader);
         }
     }
-
     // ==========================================
     // OPTIMIZED SEARCH BAR HOOKING LOGIC
     // ==========================================
@@ -281,51 +280,59 @@ public class Others extends Feature {
         }
 
         // 3. Hook the method that controls search options/icon (page ID manipulation)
+        // THIS IS THE FIXED BLOCK
         try {
             Method m2 = Unobfuscator.loadAddOptionSearchBarMethod(classLoader);
             XposedBridge.hookMethod(m2, new XC_MethodHook() {
-                private Object homeActivity;
-                private Field pageIdField;
                 private int originalPageId = 0;
                 private boolean pageIdChanged = false;
+                private Object currentActivityInstance; // Store the instance for the afterHook
 
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    if (mode == ChatFilterMode.ICON_ONLY) {
-                        homeActivity = param.thisObject;
-                        // Handle static methods or instance methods
-                        if (Modifier.isStatic(param.method.getModifiers()) && param.args.length > 0) {
-                            homeActivity = param.args[0];
+                    if (mode != ChatFilterMode.ICON_ONLY) {
+                        if (mode == ChatFilterMode.HIDE_ALL) {
+                            param.setResult(null);
                         }
+                        return;
+                    }
 
-                        adjustPageId(homeActivity);
-                    } else if (mode == ChatFilterMode.HIDE_ALL) {
-                        param.setResult(null);
+                    // Determine the activity instance from either static or instance method
+                    currentActivityInstance = Modifier.isStatic(param.method.getModifiers()) && param.args.length > 0
+                            ? param.args[0]
+                            : param.thisObject;
+
+                    if (currentActivityInstance == null) return;
+
+                    try {
+                        // Find the field directly on the current instance's class
+                        Field pageIdField = XposedHelpers.findField(currentActivityInstance.getClass(), "A01");
+                        if (pageIdField.getType() == int.class) {
+                            originalPageId = pageIdField.getInt(currentActivityInstance);
+                            pageIdField.setInt(currentActivityInstance, 1); // Force icon mode
+                            pageIdChanged = true;
+                        }
+                    } catch (Throwable t) {
+                        logDebug("Error setting page ID in beforeHook: " + t);
+                        pageIdChanged = false; // Don't try to reset if setting failed
                     }
                 }
 
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if (pageIdChanged && pageIdField != null) {
+                    // Only try to reset if we successfully changed it in the beforeHook
+                    if (pageIdChanged && currentActivityInstance != null) {
                         try {
-                            pageIdField.setInt(homeActivity, originalPageId);
-                        } catch (Throwable ignored) {}
-                    }
-                    pageIdChanged = false;
-                }
-
-                private void adjustPageId(Object activity) {
-                    if (activity == null) return;
-                    try {
-                        pageIdField = XposedHelpers.findField(activity.getClass(), "A01");
-                        if (pageIdField != null && pageIdField.getType() == int.class) {
-                            originalPageId = pageIdField.getInt(activity);
-                            pageIdField.setInt(activity, 1); // Force icon mode
-                            pageIdChanged = true;
+                            // Find the field again on the SAME instance and reset its value
+                            Field pageIdField = XposedHelpers.findField(currentActivityInstance.getClass(), "A01");
+                            pageIdField.setInt(currentActivityInstance, originalPageId);
+                        } catch (Throwable t) {
+                            logDebug("Error resetting page ID in afterHook: " + t);
                         }
-                    } catch (Throwable t) {
-                        logDebug("Error setting page ID: " + t);
                     }
+                    // Reset flags for the next call
+                    pageIdChanged = false;
+                    currentActivityInstance = null;
                 }
             });
             log("Hooked AddOptionSearchBarMethod");
