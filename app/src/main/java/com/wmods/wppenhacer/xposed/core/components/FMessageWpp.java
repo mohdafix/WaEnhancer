@@ -511,7 +511,7 @@ public class FMessageWpp {
             if (split.length != 2) {
                 return false;
             }
-            XposedBridge.log(split[1]);
+
             // valid JIDs: s.whatsapp.net, lid, g.us, broadcast, status
             return !split[1].equals("s.whatsapp.net")
                     && !split[1].equals("lid")
