@@ -242,8 +242,6 @@ public class Others extends Feature {
         if (disableExpiration) {
             disableExpirationVersion(classLoader);
         }
-<<<<<<< HEAD
-=======
 
         if (disableAd) {
             disableAds();
@@ -264,7 +262,6 @@ public class Others extends Feature {
         propsBoolean.put(22904, true);
         var loadAd = Unobfuscator.loadAdVerifyMethod(classLoader);
         XposedBridge.hookMethod(loadAd, XC_MethodReplacement.returnConstant(false));
->>>>>>> aada1650 (Add feature to disable ads)
     }
 
     // ==========================================
