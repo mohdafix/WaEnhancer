@@ -18,7 +18,7 @@ import com.wmods.wppenhacer.xposed.features.listeners.ConversationItemListener;
 import com.wmods.wppenhacer.xposed.utils.Utils;
 
 import de.robv.android.xposed.XSharedPreferences;
-
+import de.robv.android.xposed.XposedBridge; // Add this for logging if you need it
 
 public class HideSeenView extends Feature {
 
@@ -41,7 +41,22 @@ public class HideSeenView extends Feature {
         ConversationItemListener.conversationListeners.add(new ConversationItemListener.OnConversationItemListener() {
             @Override
             public void onItemBind(FMessageWpp fMessage, ViewGroup viewGroup) {
-                if (fMessage.getKey().isFromMe) return;
+                // --- THE FIX IS HERE ---
+                // 1. First, check if the FMessageWpp object was constructed successfully.
+                // If it's invalid (due to being an unexpected type), we must stop immediately.
+                if (fMessage == null || !fMessage.isValid()) {
+                    return;
+                }
+
+                // 2. Now it's safe to call getKey(). Check the key as well for safety.
+                FMessageWpp.Key key = fMessage.getKey();
+                if (key == null) {
+                    return;
+                }
+
+                // 3. Now you can safely access key.isFromMe without risk of a crash
+                if (key.isFromMe) return;
+
                 updateBubbleView(fMessage, viewGroup);
             }
         });
@@ -49,9 +64,13 @@ public class HideSeenView extends Feature {
 
     @SuppressLint("ResourceType")
     private static void updateBubbleView(FMessageWpp fmessage, View viewGroup) {
+        // This method is now safe because it's only called after isValid() and getKey() checks.
         var userJid = fmessage.getKey().remoteJid;
         var messageId = fmessage.getKey().messageID;
+
         if (userJid.isNull()) return;
+
+        // ... the rest of your updateBubbleView method remains unchanged ...
         ImageView view = viewGroup.findViewById(Utils.getID("view_once_control_icon", "id"));
         if (view != null) {
             var messageOnce = MessageHistory.getInstance().getHideSeenMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.VIEW_ONCE_TYPE);
@@ -79,7 +98,6 @@ public class HideSeenView extends Feature {
             }
         }
     }
-
 
     @NonNull
     @Override
