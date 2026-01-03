@@ -86,9 +86,13 @@ public class Others extends Feature {
         var disableExpiration = prefs.getBoolean("disable_expiration", false);
         var disableAd = prefs.getBoolean("disable_ads", false);
 
+
         // --- POPULATE PROPS MAPS ---
-        propsInteger.put(3877, oldStatus ? igstatus ? 2 : 0 : 2);  //        propsBoolean.put(5171, filterSeen);  //        propsBoolean.put(18250, false);
-        propsBoolean.put(11528, filterSeen);
+
+        propsInteger.put(3877, oldStatus ? igstatus ? 2 : 0 : 2);
+
+        propsBoolean.put(18250, false);
+        propsBoolean.put(11528, false);
 
         propsBoolean.put(4497, menuWIcons);
         propsBoolean.put(4023, false);
@@ -254,8 +258,27 @@ public class Others extends Feature {
     }
 
     private void disableHomeFilters() throws Exception {
-        Method homeFilters = Unobfuscator.loadHomeFiltersMethod(classLoader);
-        XposedBridge.hookMethod(homeFilters, XC_MethodReplacement.DO_NOTHING);
+
+        propsBoolean.put(15345, true);
+        propsBoolean.put(13546, false);
+        propsBoolean.put(13408, true);
+
+        Class<?> filterView = Unobfuscator.loadChatFilterView(classLoader);
+        XposedBridge.hookAllConstructors(filterView, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                var view = (View) param.thisObject;
+                view.setVisibility(View.GONE);
+                XposedHelpers.findAndHookMethod(View.class, "setVisibility", int.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        if (view == param.thisObject && (int) param.args[0] != View.GONE) {
+                            param.setResult(View.GONE);
+                        }
+                    }
+                });
+            }
+        });
     }
 
     private void disableAds() throws Exception {
