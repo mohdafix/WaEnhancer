@@ -89,10 +89,10 @@ public class Others extends Feature {
         // --- POPULATE PROPS MAPS ---
         propsInteger.put(3877, oldStatus ? igstatus ? 2 : 0 : 2);
 
-        propsBoolean.put(5171, filterSeen);
+//        propsBoolean.put(5171, filterSeen);
 
-        propsBoolean.put(18250, false);
-        propsBoolean.put(11528, false);
+//        propsBoolean.put(18250, false);
+        propsBoolean.put(11528, filterSeen);
 
         propsBoolean.put(4497, menuWIcons);
         propsBoolean.put(4023, false);
