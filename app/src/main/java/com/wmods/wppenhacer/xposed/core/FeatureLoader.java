@@ -366,7 +366,7 @@ public class FeatureLoader {
                 GoogleTranslate.class,
                 ContactBlockedVerify.class,
                 CallRecording.class,
-                VideoCallRecording.class
+                VideoCallRecording.class,
                 LockedChatsEnhancer.class
 
         };
