@@ -57,6 +57,7 @@ import com.wmods.wppenhacer.xposed.features.media.DownloadViewOnce;
 import com.wmods.wppenhacer.xposed.features.media.MediaPreview;
 import com.wmods.wppenhacer.xposed.features.media.MediaQuality;
 import com.wmods.wppenhacer.xposed.features.media.StatusDownload;
+import com.wmods.wppenhacer.xposed.features.media.VideoCallRecording;
 import com.wmods.wppenhacer.xposed.features.others.ActivityController;
 import com.wmods.wppenhacer.xposed.features.others.AudioTranscript;
 import com.wmods.wppenhacer.xposed.features.others.Channels;
@@ -103,6 +104,7 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -116,7 +118,14 @@ public class FeatureLoader {
     private static List<String> supportedVersions;
     private static String currentVersion;
 
-    public static void start(@NonNull ClassLoader loader, @NonNull XSharedPreferences pref, String sourceDir) {
+    public static void start(@NonNull ClassLoader loader, @NonNull XSharedPreferences pref, String sourceDir, XC_LoadPackage.LoadPackageParam lpparam) {
+
+        if (lpparam != null && "android".equals(lpparam.packageName)) {
+            XposedBridge.log("WaEnhancer: System process detected, applying system hooks.");
+            CallRecording.hookSystemServer(lpparam);
+            VideoCallRecording.hookSystemServer(lpparam);
+            return;
+        }
 
         if (!Unobfuscator.initWithPath(sourceDir)) {
             XposedBridge.log("Can't init dexkit");
@@ -163,8 +172,6 @@ public class FeatureLoader {
                     initComponents(loader, pref);
                     plugins(loader, pref, packageInfo.versionName);
                     sendEnabledBroadcast(mApp);
-//                    XposedHelpers.setStaticIntField(XposedHelpers.findClass("com.whatsapp.util.Log", loader), "level", 5);
-//                    XposedHelpers.setStaticIntField(XposedHelpers.findClass("com.whatsapp.infra.logging.Log", loader), "level", 5);
                     var timemillis2 = System.currentTimeMillis() - timemillis;
                     XposedBridge.log("Loaded Hooks in " + timemillis2 + "ms");
                 } catch (Throwable e) {
@@ -231,8 +238,6 @@ public class FeatureLoader {
                 checkUpdate(activity);
             }
 
-            // Check for WAE Update
-            //noinspection ConstantValue
             if (App.isOriginalPackage() && pref.getBoolean("update_check", true)) {
                 if (activity.getClass().getSimpleName().equals("HomeActivity") && state == WppCore.ActivityChangeState.ChangeType.CREATED) {
                     CompletableFuture.runAsync(new UpdateChecker(activity));
@@ -259,7 +264,6 @@ public class FeatureLoader {
     }
 
     private static void registerReceivers() {
-        // Reboot receiver
         BroadcastReceiver restartReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -273,7 +277,6 @@ public class FeatureLoader {
         };
         ContextCompat.registerReceiver(mApp, restartReceiver, new IntentFilter(BuildConfig.APPLICATION_ID + ".WHATSAPP.RESTART"), ContextCompat.RECEIVER_EXPORTED);
 
-        /// Wpp receiver
         BroadcastReceiver wppReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -282,7 +285,6 @@ public class FeatureLoader {
         };
         ContextCompat.registerReceiver(mApp, wppReceiver, new IntentFilter(BuildConfig.APPLICATION_ID + ".CHECK_WPP"), ContextCompat.RECEIVER_EXPORTED);
 
-        // Dialog receiver restart
         BroadcastReceiver restartManualReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -362,7 +364,8 @@ public class FeatureLoader {
                 AudioTranscript.class,
                 GoogleTranslate.class,
                 ContactBlockedVerify.class,
-                CallRecording.class
+                CallRecording.class,
+                VideoCallRecording.class
         };
         XposedBridge.log("Loading Plugins");
         var executorService = Executors.newWorkStealingPool(Math.min(Runtime.getRuntime().availableProcessors(), 4));

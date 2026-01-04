@@ -95,9 +95,9 @@
             app:title="@string/call_recording_settings" />
 
         <rikka.material.preference.MaterialSwitchPreference
-            android:enabled="false"
+            android:enabled="true"
             app:key="video_call_screen_rec"
-            app:summary="@string/video_call_screen_rec_locked"
+            app:summary="@string/video_call_screen_rec_sum"
             app:title="@string/video_call_screen_rec" />
     </PreferenceCategory>
 

@@ -1,0 +1,17 @@
+<resources>
+    <string name="video_call_screen_recording">Video Call Screen Recording</string>
+    <string name="video_call_recording_settings">Video Recording Settings</string>
+    <string name="select_video_recording_mode">Select Video Recording Mode</string>
+    <string name="video_recording_mode_description">Choose how video call screen is captured. Root mode bypasses the permission dialog.</string>
+    <string name="root_mode_video">🔓 Root Mode (Auto-Grant)</string>
+    <string name="root_mode_video_description">Automatically starts recording without showing the system permission dialog.</string>
+    <string name="non_root_mode_video">📱 Non-Root Mode</string>
+    <string name="non_root_mode_video_description">Shows the standard Android screen recording permission dialog when a call starts.</string>
+    
+    <string name="recording_service_notification_title">Recording Video Call</string>
+    <string name="recording_service_notification_text">Screen recording is active</string>
+    <string name="recording_service_stop">Stop</string>
+    <string name="recording_started">Recording started</string>
+    <string name="recording_saved">Recording saved to %s</string>
+    <string name="recording_error">Error starting recording</string>
+</resources>

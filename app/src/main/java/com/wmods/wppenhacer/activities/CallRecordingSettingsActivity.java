@@ -6,6 +6,7 @@ import android.util.Log;
 import android.view.MenuItem;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -25,28 +26,40 @@ public class CallRecordingSettingsActivity extends AppCompatActivity {
     private RadioGroup radioGroupMode;
     private RadioButton radioRoot;
     private RadioButton radioNonRoot;
+    
+    private String mode = "AUDIO"; // DEFAULT
+    private String prefKey = "call_recording_use_root";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_call_recording_settings);
 
+        if (getIntent().hasExtra("EXTRA_MODE")) {
+            mode = getIntent().getStringExtra("EXTRA_MODE");
+        }
+
         MaterialToolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setTitle(R.string.call_recording_settings);
+            getSupportActionBar().setTitle(mode.equals("SCREEN") ? R.string.video_call_recording_settings : R.string.call_recording_settings);
         }
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        prefKey = mode.equals("SCREEN") ? "screen_recording_use_root" : "call_recording_use_root";
         
         radioGroupMode = findViewById(R.id.radio_group_mode);
         radioRoot = findViewById(R.id.radio_root);
         radioNonRoot = findViewById(R.id.radio_non_root);
 
+        if (mode.equals("SCREEN")) {
+            updateUIForScreenRecording();
+        }
+
         // Load saved preference
-        boolean useRoot = prefs.getBoolean("call_recording_use_root", false);
-        Log.d(TAG, "Loaded call_recording_use_root: " + useRoot);
+        boolean useRoot = prefs.getBoolean(prefKey, false);
+        Log.d(TAG, "Loaded " + prefKey + ": " + useRoot);
         
         if (useRoot) {
             radioRoot.setChecked(true);
@@ -56,7 +69,7 @@ public class CallRecordingSettingsActivity extends AppCompatActivity {
 
         // Direct click listeners on radio buttons
         radioRoot.setOnClickListener(v -> {
-            Log.d(TAG, "Root mode clicked");
+            Log.d(TAG, "Root mode clicked for " + mode);
             radioRoot.setChecked(true);
             radioNonRoot.setChecked(false);
             Toast.makeText(this, "Checking root access...", Toast.LENGTH_SHORT).show();
@@ -64,13 +77,18 @@ public class CallRecordingSettingsActivity extends AppCompatActivity {
         });
         
         radioNonRoot.setOnClickListener(v -> {
-            Log.d(TAG, "Non-root mode clicked");
+            Log.d(TAG, "Non-root mode clicked for " + mode);
             radioNonRoot.setChecked(true);
             radioRoot.setChecked(false);
-            boolean saved = prefs.edit().putBoolean("call_recording_use_root", false).commit();
-            Log.d(TAG, "Saved non-root preference: " + saved);
+            boolean saved = prefs.edit().putBoolean(prefKey, false).commit();
+            Log.d(TAG, "Saved non-root preference for " + mode + ": " + saved);
             Toast.makeText(this, R.string.non_root_mode_enabled, Toast.LENGTH_SHORT).show();
         });
+    }
+
+    private void updateUIForScreenRecording() {
+        ((TextView) findViewById(R.id.radio_root)).setText(R.string.root_mode_video);
+        ((TextView) findViewById(R.id.radio_non_root)).setText(R.string.non_root_mode_video);
     }
 
     private void checkRootAccess() {
@@ -88,7 +106,6 @@ public class CallRecordingSettingsActivity extends AppCompatActivity {
                 os.writeBytes("exit\n");
                 os.flush();
                 
-                // Read output
                 StringBuilder sb = new StringBuilder();
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -97,8 +114,6 @@ public class CallRecordingSettingsActivity extends AppCompatActivity {
                 rootOutput = sb.toString();
                 
                 int exitCode = process.waitFor();
-                Log.d(TAG, "Root check exit code: " + exitCode + ", output: " + rootOutput);
-                
                 hasRoot = (exitCode == 0 && rootOutput.contains("uid=0"));
             } catch (Exception e) {
                 Log.e(TAG, "Root check exception: " + e.getMessage());
@@ -106,16 +121,13 @@ public class CallRecordingSettingsActivity extends AppCompatActivity {
             }
 
             final boolean rootGranted = hasRoot;
-            final String output = rootOutput;
             
             runOnUiThread(() -> {
                 if (rootGranted) {
-                    boolean saved = prefs.edit().putBoolean("call_recording_use_root", true).commit();
-                    Log.d(TAG, "Root granted, saved preference: " + saved);
+                    prefs.edit().putBoolean(prefKey, true).apply();
                     Toast.makeText(this, R.string.root_access_granted, Toast.LENGTH_SHORT).show();
                 } else {
-                    boolean saved = prefs.edit().putBoolean("call_recording_use_root", false).commit();
-                    Log.d(TAG, "Root denied, saved preference: " + saved + ", output: " + output);
+                    prefs.edit().putBoolean(prefKey, false).apply();
                     radioNonRoot.setChecked(true);
                     Toast.makeText(this, R.string.root_access_denied, Toast.LENGTH_LONG).show();
                 }
@@ -132,4 +144,3 @@ public class CallRecordingSettingsActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 }
-

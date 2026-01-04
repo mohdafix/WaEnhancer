@@ -435,7 +435,7 @@
     <string name="call_recording_enable_sum">Record incoming and outgoing calls (Voice &amp; Video) as audio.</string>
     <string name="call_recording_path">Recordings Output Folder</string>
     <string name="video_call_screen_rec">Record Video Calls (Screen)</string>
-    <string name="video_call_screen_rec_locked">Upcoming feature! Requires 1k+ followers on GitHub (@mubashardev).</string>
+    <string name="video_call_screen_rec_sum">Record the screen during video calls. Select between Root and Non-Root mode for better compatibility.</string>
     <string name="disable_ads">Disable Ads</string>
     <string name="disable_ads_sum">Blocks ads from appearing in WhatsApp</string>
 </resources>

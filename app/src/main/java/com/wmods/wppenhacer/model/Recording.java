@@ -1,13 +1,10 @@
 package com.wmods.wppenhacer.model;
 
-import android.content.ContentResolver;
 import android.content.Context;
-import android.database.Cursor;
+import android.media.MediaMetadataRetriever;
 import android.net.Uri;
-import android.provider.ContactsContract;
 
 import java.io.File;
-import java.io.RandomAccessFile;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,157 +12,129 @@ import java.util.regex.Pattern;
  * Model class representing a call recording with metadata.
  */
 public class Recording {
-    
+
     private final File file;
     private String phoneNumber;
     private String contactName;
     private long duration; // in milliseconds
     private final long date;
     private final long size;
-    
-    // Pattern to extract phone number from filename: Call_+1234567890_20261226_164651.wav
-    private static final Pattern PHONE_PATTERN = Pattern.compile("Call_([+\\d]+)_\\d{8}_\\d{6}\\.wav");
-    
+
+    // UPDATED PATTERN: Now includes .m4a
+    // Matches: Call_NameOrNumber_YYYYMMDD_HHMMSS.(wav|m4a)
+    private static final Pattern FILENAME_PATTERN = Pattern.compile("Call_(.+)_\\d{8}_\\d{6}\\.(wav|m4a)");
+
     public Recording(File file, Context context) {
         this.file = file;
         this.date = file.lastModified();
         this.size = file.length();
-        
-        // Extract phone number from filename
-        extractPhoneNumber();
-        
-        // Resolve contact name
-        if (context != null && phoneNumber != null) {
-            resolveContactName(context);
-        }
-        
-        // Parse duration from WAV header
-        parseDuration();
+
+        extractInfoFromFilename();
+        // UPDATED: Pass context to parse duration for M4A files
+        parseDuration(context);
     }
-    
-    private void extractPhoneNumber() {
+
+    private void extractInfoFromFilename() {
         String filename = file.getName();
-        Matcher matcher = PHONE_PATTERN.matcher(filename);
+        Matcher matcher = FILENAME_PATTERN.matcher(filename);
         if (matcher.matches()) {
-            phoneNumber = matcher.group(1);
+            String extracted = matcher.group(1);
+            // If it's a phone number, keep it as phone, otherwise it's the contact name
+            if (extracted.matches("[+\\d]+")) {
+                phoneNumber = extracted;
+                contactName = extracted;
+            } else {
+                contactName = extracted.replace("_", " ");
+                phoneNumber = "";
+            }
         } else {
-            // Fallback: try to find any phone number pattern
-            Pattern fallbackPattern = Pattern.compile("([+]?\\d{10,15})");
-            Matcher fallbackMatcher = fallbackPattern.matcher(filename);
-            if (fallbackMatcher.find()) {
-                phoneNumber = fallbackMatcher.group(1);
-            }
-        }
-        
-        // Default contact name to phone number
-        contactName = phoneNumber != null ? phoneNumber : "Unknown";
-    }
-    
-    private void resolveContactName(Context context) {
-        if (phoneNumber == null || phoneNumber.isEmpty()) return;
-        
-        try {
-            ContentResolver resolver = context.getContentResolver();
-            Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber));
-            
-            try (Cursor cursor = resolver.query(uri, 
-                    new String[]{ContactsContract.PhoneLookup.DISPLAY_NAME}, 
-                    null, null, null)) {
-                if (cursor != null && cursor.moveToFirst()) {
-                    String name = cursor.getString(0);
-                    if (name != null && !name.isEmpty()) {
-                        contactName = name;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Keep phone number as name if lookup fails
+            // Fallback for old files or unknown formats
+            contactName = filename;
+            phoneNumber = "";
         }
     }
-    
-    private void parseDuration() {
-        if (!file.exists() || file.length() < 44) {
+
+    /**
+     * UPDATED: Now handles both WAV and M4A formats.
+     * For M4A, it uses MediaMetadataRetriever.
+     * For WAV, it reads the header.
+     */
+    private void parseDuration(Context context) {
+        if (!file.exists() || file.length() < 100) { // M4A headers are larger
             duration = 0;
             return;
         }
-        
-        try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
-            // Read WAV header
-            byte[] header = new byte[44];
-            raf.read(header);
-            
-            // Verify RIFF header
-            if (header[0] != 'R' || header[1] != 'I' || header[2] != 'F' || header[3] != 'F') {
-                duration = estimateDuration();
-                return;
+
+        String filename = file.getName();
+        if (filename.endsWith(".m4a") || filename.endsWith(".mp4")) {
+            // Use MediaMetadataRetriever for M4A/MP4 files
+            try (MediaMetadataRetriever retriever = new MediaMetadataRetriever()) {
+                // Use URI for better compatibility, especially with FileProvider
+                retriever.setDataSource(context, Uri.fromFile(file));
+                String durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+                if (durationStr != null) {
+                    duration = Long.parseLong(durationStr);
+                }
+            } catch (Exception e) {
+                // Fallback to a simple estimation if it fails
+                duration = estimateDurationForM4A();
             }
-            
-            // Get sample rate (bytes 24-27, little endian)
-            int sampleRate = (header[24] & 0xFF) | 
-                            ((header[25] & 0xFF) << 8) |
-                            ((header[26] & 0xFF) << 16) | 
-                            ((header[27] & 0xFF) << 24);
-            
-            // Get byte rate (bytes 28-31, little endian)
-            int byteRate = (header[28] & 0xFF) | 
-                          ((header[29] & 0xFF) << 8) |
-                          ((header[30] & 0xFF) << 16) | 
-                          ((header[31] & 0xFF) << 24);
-            
-            // Get data size (bytes 40-43, little endian)
-            long dataSize = (header[40] & 0xFF) | 
-                           ((header[41] & 0xFF) << 8) |
-                           ((header[42] & 0xFF) << 16) | 
-                           ((long)(header[43] & 0xFF) << 24);
-            
-            if (byteRate > 0) {
-                duration = (dataSize * 1000L) / byteRate;
-            } else if (sampleRate > 0) {
-                // Assume 16-bit mono
-                duration = (dataSize * 1000L) / (sampleRate * 2);
+            return;
+        }
+
+        // Original logic for WAV files
+        if (filename.endsWith(".wav")) {
+            // The rest of your original parseDuration logic for WAV
+            // ... (I'll paste it here for completeness)
+            try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r")) {
+                byte[] header = new byte[44];
+                raf.read(header);
+
+                if (header[0] != 'R' || header[1] != 'I' || header[2] != 'F' || header[3] != 'F') {
+                    duration = estimateDurationForWav();
+                    return;
+                }
+
+                int byteRate = (header[28] & 0xFF) | ((header[29] & 0xFF) << 8) | ((header[30] & 0xFF) << 16) | ((header[31] & 0xFF) << 24);
+                long dataSize = (header[40] & 0xFF) | ((header[41] & 0xFF) << 8) | ((header[42] & 0xFF) << 16) | ((long)(header[43] & 0xFF) << 24);
+
+                if (byteRate > 0) {
+                    duration = (dataSize * 1000L) / byteRate;
+                } else {
+                    duration = estimateDurationForWav();
+                }
+            } catch (Exception e) {
+                duration = estimateDurationForWav();
             }
-            
-        } catch (Exception e) {
-            duration = estimateDuration();
         }
     }
-    
-    private long estimateDuration() {
-        // Estimate based on file size (assume 48kHz, 16-bit, mono = 96000 bytes/sec)
-        return (file.length() - 44) * 1000L / 96000;
+
+    // Fallback estimation for WAV
+    private long estimateDurationForWav() {
+        // (file.length() - 44) for WAV header, 176400 is a common byte rate for CD quality (44100Hz, 16bit, Stereo)
+        // For mono, it's half. Let's assume a safe average.
+        long dataSize = file.length() - 44;
+        return (dataSize * 1000L) / 88200; // Approximation for 44.1kHz, 16-bit, stereo
     }
-    
-    // Getters
-    
-    public File getFile() {
-        return file;
+
+    // Fallback estimation for M4A
+    private long estimateDurationForM4A() {
+        // A very rough estimate, not reliable
+        return 0;
     }
-    
-    public String getPhoneNumber() {
-        return phoneNumber;
-    }
-    
-    public String getContactName() {
-        return contactName;
-    }
-    
-    public long getDuration() {
-        return duration;
-    }
-    
-    public long getDate() {
-        return date;
-    }
-    
-    public long getSize() {
-        return size;
-    }
-    
+
+
+    public File getFile() { return file; }
+    public String getPhoneNumber() { return phoneNumber; }
+    public String getContactName() { return contactName; }
+    public long getDuration() { return duration; }
+    public long getDate() { return date; }
+    public long getSize() { return size; }
+
     public String getFormattedDuration() {
         long seconds = duration / 1000;
         long minutes = seconds / 60;
         seconds = seconds % 60;
-        
         if (minutes >= 60) {
             long hours = minutes / 60;
             minutes = minutes % 60;
@@ -173,20 +142,17 @@ public class Recording {
         }
         return String.format("%d:%02d", minutes, seconds);
     }
-    
+
     public String getFormattedSize() {
         if (size < 1024) return size + " B";
         if (size < 1024 * 1024) return String.format("%.1f KB", size / 1024.0);
         return String.format("%.1f MB", size / (1024.0 * 1024.0));
     }
-    
-    /**
-     * Returns a grouping key for this recording (phone number or "Unknown")
-     */
+
     public String getGroupKey() {
-        return phoneNumber != null ? phoneNumber : "unknown";
+        return (contactName != null && !contactName.isEmpty()) ? contactName : "unknown";
     }
-    
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -194,9 +160,7 @@ public class Recording {
         Recording recording = (Recording) o;
         return file.equals(recording.file);
     }
-    
+
     @Override
-    public int hashCode() {
-        return file.hashCode();
-    }
+    public int hashCode() { return file.hashCode(); }
 }

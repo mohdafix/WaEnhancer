@@ -14,6 +14,8 @@ import com.wmods.wppenhacer.xposed.AntiUpdater;
 import com.wmods.wppenhacer.xposed.bridge.ScopeHook;
 import com.wmods.wppenhacer.xposed.core.FeatureLoader;
 import com.wmods.wppenhacer.xposed.downgrade.Patch;
+import com.wmods.wppenhacer.xposed.features.media.CallRecording;
+import com.wmods.wppenhacer.xposed.features.media.VideoCallRecording;
 import com.wmods.wppenhacer.xposed.spoofer.HookBL;
 import com.wmods.wppenhacer.xposed.utils.ResId;
 
@@ -50,6 +52,11 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
         var packageName = lpparam.packageName;
         var classLoader = lpparam.classLoader;
 
+        if (packageName.equals("android")) {
+            FeatureLoader.start(classLoader, getPref(), null, lpparam);
+            return;
+        }
+
         if (packageName.equals(BuildConfig.APPLICATION_ID)) {
             try {
                 XposedHelpers.findAndHookMethod(MainActivity.class.getName(), lpparam.classLoader, "isXposedEnabled", XC_MethodReplacement.returnConstant(true));
@@ -85,7 +92,7 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
             XposedBridge.log("[•] This package: " + lpparam.packageName);
 
             // Load features
-            FeatureLoader.start(classLoader, getPref(), lpparam.appInfo.sourceDir);
+            FeatureLoader.start(classLoader, getPref(), lpparam.appInfo.sourceDir, lpparam);
 
             disableSecureFlag();
         }

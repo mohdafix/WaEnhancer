@@ -1,8 +1,10 @@
 package com.wmods.wppenhacer.ui.fragments;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.LayoutInflater;
@@ -13,6 +15,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.preference.PreferenceManager;
@@ -48,6 +51,7 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
         return binding.getRoot();
     }
 
+    @SuppressLint("NewApi")
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -92,6 +96,7 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
         loadRecordings();
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.R)
     private void initializeBaseDirs() {
         var prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
         String path = prefs.getString("call_recording_path", null);
