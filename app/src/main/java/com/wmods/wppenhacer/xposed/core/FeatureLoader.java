@@ -307,6 +307,7 @@ public class FeatureLoader {
 
         var classes = new Class<?>[]{
                 DebugFeature.class,
+                MenuStatus.class,
                 ContactItemListener.class,
                 ConversationItemListener.class,
                 MenuStatusListener.class,
