@@ -40,13 +40,9 @@ public class MediaFragment extends BasePreferenceFragment {
 
         var videoCallScreenRec = findPreference("video_call_screen_rec");
         if (videoCallScreenRec != null) {
-            videoCallScreenRec.setEnabled(true);
-            videoCallScreenRec.setOnPreferenceClickListener(preference -> {
-                Intent intent = new Intent(requireContext(), CallRecordingSettingsActivity.class);
-                intent.putExtra("EXTRA_MODE", "SCREEN");
-                startActivity(intent);
-                return true;
-            });
+            // Disabled for now - WIP
+            videoCallScreenRec.setEnabled(false);
+            videoCallScreenRec.setSelectable(false);
         }
     }
 }

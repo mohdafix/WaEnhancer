@@ -78,7 +78,6 @@ import com.wmods.wppenhacer.xposed.features.privacy.FreezeLastSeen;
 import com.wmods.wppenhacer.xposed.features.privacy.HideChat;
 import com.wmods.wppenhacer.xposed.features.privacy.HideReceipt;
 import com.wmods.wppenhacer.xposed.features.privacy.HideSeen;
-import com.wmods.wppenhacer.xposed.features.privacy.LockedChatsEnhancer;
 import com.wmods.wppenhacer.xposed.features.privacy.TagMessage;
 import com.wmods.wppenhacer.xposed.features.privacy.TypingPrivacy;
 import com.wmods.wppenhacer.xposed.features.privacy.ViewOnce;
@@ -173,6 +172,8 @@ public class FeatureLoader {
                     initComponents(loader, pref);
                     plugins(loader, pref, packageInfo.versionName);
                     sendEnabledBroadcast(mApp);
+//                    XposedHelpers.setStaticIntField(XposedHelpers.findClass("com.whatsapp.util.Log", loader), "level", 5);
+//                    XposedHelpers.setStaticIntField(XposedHelpers.findClass("com.whatsapp.infra.logging.Log", loader), "level", 5);
                     var timemillis2 = System.currentTimeMillis() - timemillis;
                     XposedBridge.log("Loaded Hooks in " + timemillis2 + "ms");
                 } catch (Throwable e) {
@@ -239,6 +240,8 @@ public class FeatureLoader {
                 checkUpdate(activity);
             }
 
+            // Check for WAE Update
+            //noinspection ConstantValue
             if (App.isOriginalPackage() && pref.getBoolean("update_check", true)) {
                 if (activity.getClass().getSimpleName().equals("HomeActivity") && state == WppCore.ActivityChangeState.ChangeType.CREATED) {
                     CompletableFuture.runAsync(new UpdateChecker(activity));
@@ -265,6 +268,7 @@ public class FeatureLoader {
     }
 
     private static void registerReceivers() {
+        // Reboot receiver
         BroadcastReceiver restartReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -278,6 +282,7 @@ public class FeatureLoader {
         };
         ContextCompat.registerReceiver(mApp, restartReceiver, new IntentFilter(BuildConfig.APPLICATION_ID + ".WHATSAPP.RESTART"), ContextCompat.RECEIVER_EXPORTED);
 
+        /// Wpp receiver
         BroadcastReceiver wppReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -286,6 +291,7 @@ public class FeatureLoader {
         };
         ContextCompat.registerReceiver(mApp, wppReceiver, new IntentFilter(BuildConfig.APPLICATION_ID + ".CHECK_WPP"), ContextCompat.RECEIVER_EXPORTED);
 
+        // Dialog receiver restart
         BroadcastReceiver restartManualReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -366,9 +372,7 @@ public class FeatureLoader {
                 GoogleTranslate.class,
                 ContactBlockedVerify.class,
                 CallRecording.class,
-                VideoCallRecording.class,
-                LockedChatsEnhancer.class
-
+                VideoCallRecording.class
         };
         XposedBridge.log("Loading Plugins");
         var executorService = Executors.newWorkStealingPool(Math.min(Runtime.getRuntime().availableProcessors(), 4));

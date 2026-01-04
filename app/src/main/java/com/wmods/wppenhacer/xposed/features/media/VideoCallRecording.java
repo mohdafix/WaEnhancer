@@ -8,11 +8,9 @@ import android.content.IntentFilter;
 import android.media.projection.MediaProjection;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Parcelable;
 import android.os.ResultReceiver;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
 
 import com.wmods.wppenhacer.BuildConfig;
 import com.wmods.wppenhacer.services.VideoRecordingService;
@@ -40,7 +38,6 @@ public class VideoCallRecording extends Feature {
     @Override
     public void doHook() throws Throwable {
         if (!prefs.getBoolean("video_call_screen_rec", false)) {
-            XposedBridge.log("WaEnhancer: Video Call Recording is disabled");
             return;
         }
         
@@ -55,7 +52,7 @@ public class VideoCallRecording extends Feature {
                 @Override
                 public void onReceive(Context context, Intent intent) {
                     if (rootMediaProjection != null) {
-                        XposedBridge.log("WaEnhancer: Internal receiver triggered for Root Mode");
+                        XposedBridge.log("WaEnhancer: Root bridge received, starting service");
                         VideoRecordingService.startServiceRoot(context);
                     }
                 }
@@ -66,9 +63,8 @@ public class VideoCallRecording extends Feature {
             } else {
                 FeatureLoader.mApp.registerReceiver(receiver, filter);
             }
-            XposedBridge.log("WaEnhancer: Internal root receiver registered");
         } catch (Exception e) {
-            XposedBridge.log("WaEnhancer: Failed to register internal root receiver: " + e.getMessage());
+            XposedBridge.log("WaEnhancer: Root receiver error: " + e.getMessage());
         }
     }
 
@@ -76,26 +72,37 @@ public class VideoCallRecording extends Feature {
         try {
             var clsCallEventCallback = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "VoiceServiceEventCallback");
             if (clsCallEventCallback != null) {
-                XposedBridge.log("WaEnhancer: Video hook found VoiceServiceEventCallback");
-
                 XposedBridge.hookAllMethods(clsCallEventCallback, "soundPortCreated", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log("WaEnhancer: Video hook - Call started");
-                        startRecordingOrRequest(FeatureLoader.mApp);
+                        Object callInfo = XposedHelpers.callMethod(param.thisObject, "getCallInfo");
+                        if (callInfo != null) {
+                            boolean isVideoCall = false;
+                            try {
+                                isVideoCall = (boolean) XposedHelpers.callMethod(callInfo, "isVideoCall");
+                            } catch (Throwable t) {
+                                try {
+                                    isVideoCall = XposedHelpers.getBooleanField(callInfo, "isVideoCall");
+                                } catch (Throwable ignored) {}
+                            }
+                            if (isVideoCall) {
+                                XposedBridge.log("WaEnhancer: Video call started, triggering recorder");
+                                startVideoRecorder(FeatureLoader.mApp);
+                            }
+                        }
                     }
                 });
 
                 XposedBridge.hookAllMethods(clsCallEventCallback, "fieldstatsReady", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log("WaEnhancer: Video hook - Call ended");
+                        // Stop recording safely
                         VideoRecordingService.stopService(FeatureLoader.mApp);
                     }
                 });
             }
         } catch (Exception e) {
-            XposedBridge.log("WaEnhancer: Error hooking video call events: " + e.getMessage());
+            XposedBridge.log("WaEnhancer: Video hooks failed: " + e.getMessage());
         }
 
         try {
@@ -111,13 +118,14 @@ public class VideoCallRecording extends Feature {
         } catch (Exception ignored) {}
     }
 
-    private void startRecordingOrRequest(Context context) {
+    private void startVideoRecorder(Context context) {
+        prefs.reload();
         boolean isRootMode = prefs.getBoolean("screen_recording_use_root", false);
 
         if (isRootMode) {
-            XposedBridge.log("WaEnhancer: Video - Waiting for system_server bypass...");
+            XposedBridge.log("WaEnhancer: Video - Root Mode flow active");
         } else {
-            XposedBridge.log("WaEnhancer: Video - Non-Root Mode Starting activity");
+            XposedBridge.log("WaEnhancer: Video - Non-Root Mode launching permission activity");
             Intent intent = new Intent();
             intent.setClassName(BuildConfig.APPLICATION_ID, "com.wmods.wppenhacer.activities.ScreenRecordingStarterActivity");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -132,18 +140,16 @@ public class VideoCallRecording extends Feature {
     }
 
     public static void hookSystemServer(XC_LoadPackage.LoadPackageParam lpparam) {
-        if (lpparam != null && !lpparam.packageName.equals("android")) return;
+        if (lpparam == null || !lpparam.packageName.equals("android")) return;
 
         try {
-            ClassLoader classLoader = (lpparam != null) ? lpparam.classLoader : VideoCallRecording.class.getClassLoader();
-            
-            XposedHelpers.findAndHookMethod("com.android.server.media.projection.MediaProjectionManagerService", classLoader,
+            XposedHelpers.findAndHookMethod("com.android.server.media.projection.MediaProjectionManagerService", lpparam.classLoader,
                     "createScreenCaptureIntent", String.class, int.class, ResultReceiver.class, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                             String callingPackage = (String) param.args[0];
                             if (callingPackage != null && (callingPackage.equals("com.whatsapp") || callingPackage.equals("com.whatsapp.w4b"))) {
-                                XposedBridge.log("VideoCallRecording: Bypassing MediaProjection permission for " + callingPackage);
+                                XposedBridge.log("VideoCallRecording: Bypassing permission for " + callingPackage);
                                 
                                 ResultReceiver callback = (ResultReceiver) param.args[2];
                                 param.setResult(null);
@@ -170,13 +176,13 @@ public class VideoCallRecording extends Feature {
                                     Context systemContext = (Context) XposedHelpers.getObjectField(service, "mContext");
                                     systemContext.sendBroadcast(broadcast);
                                 } catch (Exception e) {
-                                    XposedBridge.log("VideoCallRecording: Error triggering root service: " + e.getMessage());
+                                    XposedBridge.log("VideoCallRecording: System bridge error: " + e.getMessage());
                                 }
                             }
                         }
                     });
         } catch (Throwable t) {
-            XposedBridge.log("VideoCallRecording: Failed to hook system_server: " + t.getMessage());
+            XposedBridge.log("VideoCallRecording: system_server hook failed: " + t.getMessage());
         }
     }
 }

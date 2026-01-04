@@ -47,7 +47,6 @@ public class VideoRecordingService extends Service {
     public static final String ACTION_STOP = "ACTION_STOP";
     public static final String EXTRA_RESULT_CODE = "EXTRA_RESULT_CODE";
     public static final String EXTRA_DATA = "EXTRA_DATA";
-    public static final String EXTRA_AUDIO_SOURCE = "EXTRA_AUDIO_SOURCE";
 
     private MediaProjectionManager mProjectionManager;
     private MediaProjection mMediaProjection;
@@ -57,8 +56,6 @@ public class VideoRecordingService extends Service {
     private int mScreenWidth;
     private int mScreenHeight;
     private int mScreenDensity;
-
-    private String mOutputPath;
     private Uri mVideoUri;
 
     public static void startService(Context context, int resultCode, Intent data) {
@@ -93,7 +90,7 @@ public class VideoRecordingService extends Service {
     public void onCreate() {
         super.onCreate();
         mProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-
+        
         WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         DisplayMetrics metrics = new DisplayMetrics();
         wm.getDefaultDisplay().getRealMetrics(metrics);
@@ -101,6 +98,7 @@ public class VideoRecordingService extends Service {
         mScreenHeight = metrics.heightPixels;
         mScreenDensity = metrics.densityDpi;
 
+        // MediaRecorder requires even dimensions
         if (mScreenWidth % 2 != 0) mScreenWidth--;
         if (mScreenHeight % 2 != 0) mScreenHeight--;
     }
@@ -117,20 +115,18 @@ public class VideoRecordingService extends Service {
                     if (VideoCallRecording.rootMediaProjection != null) {
                         mMediaProjection = VideoCallRecording.rootMediaProjection;
                         VideoCallRecording.rootMediaProjection = null;
-                        proceedToStart(MediaRecorder.AudioSource.MIC);
+                        proceedToStart();
                     } else {
-                        Log.e(TAG, "Root MediaProjection is null");
                         stopSelf();
                     }
                 } else {
                     int resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0);
                     Intent data = intent.getParcelableExtra(EXTRA_DATA);
-                    int audioSource = intent.getIntExtra(EXTRA_AUDIO_SOURCE, MediaRecorder.AudioSource.MIC);
-                    startRecording(resultCode, data, audioSource);
+                    mMediaProjection = mProjectionManager.getMediaProjection(resultCode, data);
+                    proceedToStart();
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Failed to start recording", e);
-                showToast("Error: " + e.getMessage());
+                Log.e(TAG, "Recording start failed", e);
                 stopSelf();
             }
         } else if (action.equals(ACTION_STOP)) {
@@ -142,60 +138,27 @@ public class VideoRecordingService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void startRecording(int resultCode, Intent data, int audioSource) throws IOException {
-        if (data != null && data.hasExtra("android.media.projection.extra.EXTRA_MEDIA_PROJECTION")) {
-             mMediaProjection = mProjectionManager.getMediaProjection(resultCode, data);
-        } else if (resultCode != 0 && data != null) {
-             mMediaProjection = mProjectionManager.getMediaProjection(resultCode, data);
-        }
+    private void proceedToStart() throws IOException {
+        if (mMediaProjection == null) throw new IOException("No MediaProjection token");
 
-        if (mMediaProjection == null) {
-            throw new IOException("MediaProjection is null. Permission denied or root bypass failed.");
-        }
-
-        proceedToStart(audioSource);
-    }
-
-    private void proceedToStart(int audioSource) throws IOException {
-        initRecorder(audioSource);
-
-        try {
-            mMediaRecorder.prepare();
-        } catch (SecurityException e) {
-            throw new IOException("SecurityException: Mic permission might be missing in WhatsApp.", e);
-        }
-
-        mVirtualDisplay = mMediaProjection.createVirtualDisplay(TAG,
-                mScreenWidth, mScreenHeight, mScreenDensity,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                mMediaRecorder.getSurface(), null, null);
-
-        mMediaRecorder.start();
-        Log.d(TAG, "Recording started");
-        showToast(getString(R.string.recording_started));
-    }
-
-    private void initRecorder(int audioSource) throws IOException {
         mMediaRecorder = new MediaRecorder();
-        mMediaRecorder.setAudioSource(audioSource);
+        mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
 
         String fileName = "VideoCall_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date()) + ".mp4";
-
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ContentValues values = new ContentValues();
             values.put(MediaStore.Video.Media.DISPLAY_NAME, fileName);
             values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
             values.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/WhatsAppEnhancer");
-
             mVideoUri = getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
             mMediaRecorder.setOutputFile(getContentResolver().openFileDescriptor(mVideoUri, "rw").getFileDescriptor());
         } else {
             File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "WhatsAppEnhancer");
             if (!dir.exists()) dir.mkdirs();
-            mOutputPath = new File(dir, fileName).getAbsolutePath();
-            mMediaRecorder.setOutputFile(mOutputPath);
+            mMediaRecorder.setOutputFile(new File(dir, fileName).getAbsolutePath());
         }
 
         mMediaRecorder.setVideoSize(mScreenWidth, mScreenHeight);
@@ -203,22 +166,26 @@ public class VideoRecordingService extends Service {
         mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
         mMediaRecorder.setVideoEncodingBitRate(5 * 1024 * 1024);
         mMediaRecorder.setVideoFrameRate(30);
-        mMediaRecorder.setAudioSamplingRate(44100);
-        mMediaRecorder.setAudioEncodingBitRate(128000);
+
+        mMediaRecorder.prepare();
+
+        // THIS IS THE CRITICAL LINE: It connects the screen capture to the recorder
+        mVirtualDisplay = mMediaProjection.createVirtualDisplay(TAG,
+                mScreenWidth, mScreenHeight, mScreenDensity,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                mMediaRecorder.getSurface(), null, null);
+
+        mMediaRecorder.start();
+        showToast("Video Recording started");
     }
 
     private void stopRecording() {
         if (mMediaRecorder != null) {
             try {
                 mMediaRecorder.stop();
-                mMediaRecorder.reset();
                 mMediaRecorder.release();
-
-                String savedPath = (mVideoUri != null) ? mVideoUri.toString() : mOutputPath;
-                showToast(getString(R.string.recording_saved, savedPath));
-            } catch (Exception e) {
-                Log.e(TAG, "Error stopping recorder", e);
-            }
+                showToast("Video Recording saved to Movies/WhatsAppEnhancer");
+            } catch (Exception ignored) {}
             mMediaRecorder = null;
         }
         if (mVirtualDisplay != null) {
@@ -232,42 +199,35 @@ public class VideoRecordingService extends Service {
     }
 
     private void showToast(String message) {
-        new Handler(Looper.getMainLooper()).post(() ->
+        new Handler(Looper.getMainLooper()).post(() -> 
             Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show()
         );
     }
 
     private Notification createNotification() {
         createNotificationChannel();
-
         Intent stopIntent = new Intent(this, VideoRecordingService.class);
         stopIntent.setAction(ACTION_STOP);
         PendingIntent stopPendingIntent = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE);
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle(getString(R.string.recording_service_notification_title))
-                .setContentText(getString(R.string.recording_service_notification_text))
+                .setContentTitle("Video Recording Active")
+                .setContentText("Recording WhatsApp Video Call...")
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
-                .addAction(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.recording_service_stop), stopPendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
                 .setOngoing(true)
                 .build();
     }
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                    "Video Call Recording", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Video Recording", NotificationManager.IMPORTANCE_LOW);
             NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
+            if (manager != null) manager.createNotificationChannel(channel);
         }
     }
 
     @Nullable
     @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
+    public IBinder onBind(Intent intent) { return null; }
 }
