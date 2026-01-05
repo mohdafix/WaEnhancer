@@ -136,8 +136,8 @@ public class CallRecording extends Feature {
 
         // Re-ordered sources: 4=VOICE_CALL, 9=UNPROCESSED (Cleaner), 7=VOICE_COMMUNICATION, 6=VOICE_RECOGNITION, 1=MIC
         int[] sources = prefs.getBoolean("call_recording_use_root", false)
-                ? new int[]{7, 6, 9, 1}
-                : new int[]{7, 9, 1};
+                ? new int[]{6, 9, 4, 1}
+                : new int[]{9, 1};
 
         for (int source : sources) {
             try {
