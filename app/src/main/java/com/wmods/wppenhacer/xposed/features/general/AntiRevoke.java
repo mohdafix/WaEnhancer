@@ -83,7 +83,6 @@ public class AntiRevoke extends Feature {
             }
         });
 
-
         XposedBridge.hookMethod(bubbleMethod, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
@@ -140,7 +139,6 @@ public class AntiRevoke extends Feature {
         var field1 = ReflectionUtils.findFieldUsingFilter(param.args[0].getClass(), f -> f.getType() == FMessageWpp.Key.TYPE);
         var key = field1.get(param.args[0]);
         return WppCore.getFMessageFromKey(key);
-
     }
 
     @NonNull
@@ -168,7 +166,6 @@ public class AntiRevoke extends Feature {
         return messages;
     }
 
-
     private void isMRevoked(Object objMessage, TextView dateTextView, String antirevokeType) {
         if (dateTextView == null) return;
 
@@ -177,7 +174,10 @@ public class AntiRevoke extends Feature {
         var messageRevokedList = getRevokedMessages(fMessage);
         var id = fMessage.getRowId();
         String keyOrig = null;
-        if (messageRevokedList.contains(key.messageID) || ((keyOrig = MessageStore.getInstance().getOriginalMessageKey(id)) != null && messageRevokedList.contains(keyOrig))) {
+
+        // FIX: Added null check for key.messageID before checking list
+        if ((key.messageID != null && messageRevokedList.contains(key.messageID)) ||
+                ((keyOrig = MessageStore.getInstance().getOriginalMessageKey(id)) != null && messageRevokedList.contains(keyOrig))) {
             var timestamp = DelMessageStore.getInstance(Utils.getApplication()).getTimestampByMessageId(keyOrig == null ? key.messageID : keyOrig);
             if (timestamp > 0) {
                 Locale locale = Utils.getApplication().getResources().getConfiguration().getLocales().get(0);
@@ -209,19 +209,34 @@ public class AntiRevoke extends Feature {
         }
     }
 
-
     private int antiRevoke(FMessageWpp fMessage) {
         try {
             showToast(fMessage);
         } catch (Exception e) {
             log(e);
         }
+
+        // FIX: Added null checks to prevent NPE
         String messageKey = (String) XposedHelpers.getObjectField(fMessage.getObject(), "A01");
         String stripJID = fMessage.getKey().remoteJid.getPhoneNumber();
+
+        if (messageKey == null || stripJID == null) return 0;
+
         int revokeboolean = stripJID.equals("status") ? Integer.parseInt(prefs.getString("antirevokestatus", "0")) : Integer.parseInt(prefs.getString("antirevoke", "0"));
         if (revokeboolean == 0) return revokeboolean;
+
         var messageRevokedList = getRevokedMessages(fMessage);
-        if (!messageRevokedList.contains(messageKey)) {
+
+        // FIX: Use Objects.equals to avoid NullPointerException if list contains null or key is null
+        boolean contains = false;
+        for (String msg : messageRevokedList) {
+            if (Objects.equals(msg, messageKey)) {
+                contains = true;
+                break;
+            }
+        }
+
+        if (!contains) {
             try {
                 CompletableFuture.runAsync(() -> {
                     saveRevokedMessage(fMessage);
