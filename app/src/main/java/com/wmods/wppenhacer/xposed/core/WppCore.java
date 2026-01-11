@@ -36,12 +36,8 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XSharedPreferences;
@@ -53,7 +49,6 @@ public class WppCore {
     static final HashSet<ActivityChangeState> listenerAcitivity = new HashSet<>();
     @SuppressLint("StaticFieldLeak")
     static Activity mCurrentActivity;
-    static LinkedHashSet<Activity> activities = new LinkedHashSet<>();
     private static Class<?> mGenJidClass;
     private static Method mGenJidMethod;
     private static Class bottomDialog;
@@ -72,20 +67,6 @@ public class WppCore {
     private static Method convertJidToLid;
     private static Class actionUser;
     private static Method cachedMessageStoreKey;
-
-    private static final Map<FMessageWpp.UserJid, String> contactNameCache = new LinkedHashMap<>(16, 0.75f, true) {
-        protected boolean removeEldestEntry(Map.Entry<FMessageWpp.UserJid, String> eldest) {
-            return size() > 100;
-        }
-    };
-    private static final AtomicReference<Class<?>> homeActivityClassRef = new AtomicReference<>();
-    private static final AtomicReference<Class<?>> tabsPagerClassRef = new AtomicReference<>();
-    private static final AtomicReference<Class<?>> viewOnceViewerActivityClassRef = new AtomicReference<>();
-    private static final AtomicReference<Class<?>> aboutActivityClassRef = new AtomicReference<>();
-    private static final AtomicReference<Class<?>> dataUsageActivityClassRef = new AtomicReference<>();
-    private static final AtomicReference<Class<?>> textStatusComposerFragmentClassRef = new AtomicReference<>();
-    private static final AtomicReference<Class<?>> voipManagerClassRef = new AtomicReference<>();
-    private static final AtomicReference<Class<?>> voipCallInfoClassRef = new AtomicReference<>();
 
 
     public static void Initialize(ClassLoader loader, XSharedPreferences pref) throws Exception {
@@ -287,48 +268,62 @@ public class WppCore {
         return mCurrentActivity;
     }
 
-    public static Class getHomeActivityClass(@NonNull ClassLoader loader) {
-        if (homeActivityClassRef.get() != null) return homeActivityClassRef.get();
-        synchronized (homeActivityClassRef) {
-            if (homeActivityClassRef.get() != null) return homeActivityClassRef.get();
-            Class oldHomeClass = XposedHelpers.findClassIfExists("com.whatsapp.HomeActivity", loader);
-            Class result = oldHomeClass != null ? oldHomeClass : XposedHelpers.findClass("com.whatsapp.home.ui.HomeActivity", loader);
-            homeActivityClassRef.set(result);
-            return result;
-        }
+    public static ActivityChangeState.ChangeType getActivityState(Activity activity) {
+        return ActivityStateRegistry.getState(activity);
     }
 
-    public static Class getTabsPagerClass(@NonNull ClassLoader loader) {
-        if (tabsPagerClassRef.get() != null) return tabsPagerClassRef.get();
-        synchronized (tabsPagerClassRef) {
-            if (tabsPagerClassRef.get() != null) return tabsPagerClassRef.get();
-            Class oldHomeClass = XposedHelpers.findClassIfExists("com.whatsapp.TabsPager", loader);
-            Class result = oldHomeClass != null ? oldHomeClass : XposedHelpers.findClass("com.whatsapp.home.ui.TabsPager", loader);
-            tabsPagerClassRef.set(result);
-            return result;
-        }
+    public static ActivityChangeState.ChangeType getActivityStateBySimpleName(String simpleName) {
+        return ActivityStateRegistry.getStateBySimpleName(simpleName);
     }
 
-    public static Class getViewOnceViewerActivityClass(@NonNull ClassLoader loader) {
-        if (viewOnceViewerActivityClassRef.get() != null) return viewOnceViewerActivityClassRef.get();
-        synchronized (viewOnceViewerActivityClassRef) {
-            if (viewOnceViewerActivityClassRef.get() != null) return viewOnceViewerActivityClassRef.get();
-            Class oldClass = XposedHelpers.findClassIfExists("com.whatsapp.messaging.ViewOnceViewerActivity", loader);
-            Class result = oldClass != null ? oldClass : XposedHelpers.findClass("com.whatsapp.viewonce.ui.messaging.ViewOnceViewerActivity", loader);
-            viewOnceViewerActivityClassRef.set(result);
-            return result;
-        }
+    public static boolean isConversationResumed() {
+        var state = ActivityStateRegistry.getStateBySimpleName("Conversation");
+        return state == ActivityChangeState.ChangeType.RESUMED;
     }
 
-    public static Class getAboutActivityClass(@NonNull ClassLoader loader) {
-        if (aboutActivityClassRef.get() != null) return aboutActivityClassRef.get();
-        synchronized (aboutActivityClassRef) {
-            if (aboutActivityClassRef.get() != null) return aboutActivityClassRef.get();
-            Class oldClass = XposedHelpers.findClassIfExists("com.whatsapp.settings.About", loader);
-            Class result = oldClass != null ? oldClass : XposedHelpers.findClass("com.whatsapp.settings.ui.About", loader);
-            aboutActivityClassRef.set(result);
-            return result;
-        }
+    public static boolean isHomeActivityResumed() {
+        var state = ActivityStateRegistry.getStateBySimpleName("HomeActivity");
+        return state == ActivityChangeState.ChangeType.RESUMED;
+    }
+
+    public static ActivityChangeState.ChangeType getCurrentActivityState() {
+        return ActivityStateRegistry.getState(mCurrentActivity);
+    }
+
+    public static Activity getActivityBySimpleName(String simpleName) {
+        return ActivityStateRegistry.getActivityBySimpleName(simpleName);
+    }
+
+    public synchronized static Class getHomeActivityClass(@NonNull ClassLoader loader) {
+        Class oldHomeClass = XposedHelpers.findClassIfExists("com.whatsapp.HomeActivity", loader);
+
+        return oldHomeClass != null
+                ? oldHomeClass
+                : XposedHelpers.findClass("com.whatsapp.home.ui.HomeActivity", loader);
+    }
+
+    public synchronized static Class getTabsPagerClass(@NonNull ClassLoader loader) {
+        Class oldHomeClass = XposedHelpers.findClassIfExists("com.whatsapp.TabsPager", loader);
+
+        return oldHomeClass != null
+                ? oldHomeClass
+                : XposedHelpers.findClass("com.whatsapp.home.ui.TabsPager", loader);
+    }
+
+    public synchronized static Class getViewOnceViewerActivityClass(@NonNull ClassLoader loader) {
+        Class oldClass = XposedHelpers.findClassIfExists("com.whatsapp.messaging.ViewOnceViewerActivity", loader);
+
+        return oldClass != null
+                ? oldClass
+                : XposedHelpers.findClass("com.whatsapp.viewonce.ui.messaging.ViewOnceViewerActivity", loader);
+    }
+
+    public synchronized static Class getAboutActivityClass(@NonNull ClassLoader loader) {
+        Class oldClass = XposedHelpers.findClassIfExists("com.whatsapp.settings.About", loader);
+
+        return oldClass != null
+                ? oldClass
+                : XposedHelpers.findClass("com.whatsapp.settings.ui.About", loader);
     }
 
     public synchronized static Class getSettingsNotificationsActivityClass(@NonNull ClassLoader loader) {
@@ -342,72 +337,51 @@ public class WppCore {
                 : XposedHelpers.findClass("com.whatsapp.settings.ui.SettingsNotifications", loader);
     }
 
-    public static Class getDataUsageActivityClass(@NonNull ClassLoader loader) {
-        if (dataUsageActivityClassRef.get() != null) return dataUsageActivityClassRef.get();
-        synchronized (dataUsageActivityClassRef) {
-            if (dataUsageActivityClassRef.get() != null) return dataUsageActivityClassRef.get();
-            Class oldClass = XposedHelpers.findClassIfExists("com.whatsapp.settings.SettingsDataUsageActivity", loader);
-            Class result = oldClass != null ? oldClass : XposedHelpers.findClass("com.whatsapp.settings.ui.SettingsDataUsageActivity", loader);
-            dataUsageActivityClassRef.set(result);
-            return result;
-        }
+    public synchronized static Class getDataUsageActivityClass(@NonNull ClassLoader loader) {
+        Class oldClass = XposedHelpers.findClassIfExists("com.whatsapp.settings.SettingsDataUsageActivity", loader);
+
+        return oldClass != null
+                ? oldClass
+                : XposedHelpers.findClass("com.whatsapp.settings.ui.SettingsDataUsageActivity", loader);
     }
 
-    public static Class getTextStatusComposerFragmentClass(@NonNull ClassLoader loader) throws Exception {
-        if (textStatusComposerFragmentClassRef.get() != null) return textStatusComposerFragmentClassRef.get();
-        synchronized (textStatusComposerFragmentClassRef) {
-            if (textStatusComposerFragmentClassRef.get() != null) return textStatusComposerFragmentClassRef.get();
-            var classes = new String[]{
-                    "com.whatsapp.status.composer.TextStatusComposerFragment",
-                    "com.whatsapp.statuscomposer.composer.TextStatusComposerFragment"
-            };
-            Class<?> result = null;
-            for (var clazz : classes) {
-                if ((result = XposedHelpers.findClassIfExists(clazz, loader)) != null) {
-                    textStatusComposerFragmentClassRef.set(result);
-                    return result;
-                }
-            }
-            throw new Exception("TextStatusComposerFragmentClass not found");
+    public synchronized static Class getTextStatusComposerFragmentClass(@NonNull ClassLoader loader) throws Exception {
+        var classes = new String[]{
+                "com.whatsapp.status.composer.TextStatusComposerFragment",
+                "com.whatsapp.statuscomposer.composer.TextStatusComposerFragment"
+        };
+        Class<?> result = null;
+        for (var clazz : classes) {
+            if ((result = XposedHelpers.findClassIfExists(clazz, loader)) != null)
+                return result;
         }
+        throw new Exception("TextStatusComposerFragmentClass not found");
     }
 
-    public static Class getVoipManagerClass(@NonNull ClassLoader loader) throws Exception {
-        if (voipManagerClassRef.get() != null) return voipManagerClassRef.get();
-        synchronized (voipManagerClassRef) {
-            if (voipManagerClassRef.get() != null) return voipManagerClassRef.get();
-            var classes = new String[]{
-                    "com.whatsapp.voipcalling.Voip",
-                    "com.whatsapp.calling.voipcalling.Voip"
-            };
-            Class<?> result = null;
-            for (var clazz : classes) {
-                if ((result = XposedHelpers.findClassIfExists(clazz, loader)) != null) {
-                    voipManagerClassRef.set(result);
-                    return result;
-                }
-            }
-            throw new Exception("VoipManagerClass not found");
+    public synchronized static Class getVoipManagerClass(@NonNull ClassLoader loader) throws Exception {
+        var classes = new String[]{
+                "com.whatsapp.voipcalling.Voip",
+                "com.whatsapp.calling.voipcalling.Voip"
+        };
+        Class<?> result = null;
+        for (var clazz : classes) {
+            if ((result = XposedHelpers.findClassIfExists(clazz, loader)) != null)
+                return result;
         }
+        throw new Exception("VoipManagerClass not found");
     }
 
-    public static Class getVoipCallInfoClass(@NonNull ClassLoader loader) throws Exception {
-        if (voipCallInfoClassRef.get() != null) return voipCallInfoClassRef.get();
-        synchronized (voipCallInfoClassRef) {
-            if (voipCallInfoClassRef.get() != null) return voipCallInfoClassRef.get();
-            var classes = new String[]{
-                    "com.whatsapp.voipcalling.CallInfo",
-                    "com.whatsapp.calling.infra.voipcalling.CallInfo"
-            };
-            Class<?> result = null;
-            for (var clazz : classes) {
-                if ((result = XposedHelpers.findClassIfExists(clazz, loader)) != null) {
-                    voipCallInfoClassRef.set(result);
-                    return result;
-                }
-            }
-            throw new Exception("VoipCallInfoClass not found");
+    public synchronized static Class getVoipCallInfoClass(@NonNull ClassLoader loader) throws Exception {
+        var classes = new String[]{
+                "com.whatsapp.voipcalling.CallInfo",
+                "com.whatsapp.calling.infra.voipcalling.CallInfo"
+        };
+        Class<?> result = null;
+        for (var clazz : classes) {
+            if ((result = XposedHelpers.findClassIfExists(clazz, loader)) != null)
+                return result;
         }
+        throw new Exception("VoipCallInfoClass not found");
     }
 
 //    public static Activity getActivityBySimpleName(String name) {
@@ -434,24 +408,11 @@ public class WppCore {
 
     @NonNull
     public static String getContactName(FMessageWpp.UserJid userJid) {
-        synchronized (contactNameCache) {
-            String cached = contactNameCache.get(userJid);
-            if (cached != null) return cached;
-        }
         loadWADatabase();
         if (mWaDatabase == null || userJid.isNull()) return "Whatsapp Contact";
         String name = getSContactName(userJid, false);
-        if (!TextUtils.isEmpty(name)) {
-            synchronized (contactNameCache) {
-                contactNameCache.put(userJid, name);
-            }
-            return name;
-        }
-        name = getWppContactName(userJid);
-        synchronized (contactNameCache) {
-            contactNameCache.put(userJid, name);
-        }
-        return name;
+        if (!TextUtils.isEmpty(name)) return name;
+        return getWppContactName(userJid);
     }
 
     @NonNull
@@ -534,7 +495,7 @@ public class WppCore {
             return new FMessageWpp.UserJid(chatJidObj);
         } catch (Exception e) {
             XposedBridge.log(e);
-            return null;
+            return new FMessageWpp.UserJid();
         }
     }
 
@@ -621,7 +582,7 @@ public class WppCore {
 
     @SuppressLint("ApplySharedPref")
     public static void setPrivString(String key, String value) {
-        privPrefs.edit().putString(key, value).apply();
+        privPrefs.edit().putString(key, value).commit();
     }
 
     public static String getPrivString(String key, String defaultValue) {
@@ -640,19 +601,19 @@ public class WppCore {
 
     @SuppressLint("ApplySharedPref")
     public static void setPrivJSON(String key, JSONObject value) {
-        privPrefs.edit().putString(key, value == null ? null : value.toString()).apply();
+        privPrefs.edit().putString(key, value == null ? null : value.toString()).commit();
     }
 
     @SuppressLint("ApplySharedPref")
     public static void removePrivKey(String s) {
         if (s != null && privPrefs.contains(s))
-            privPrefs.edit().remove(s).apply();
+            privPrefs.edit().remove(s).commit();
     }
 
 
     @SuppressLint("ApplySharedPref")
     public static void setPrivBoolean(String key, boolean value) {
-        privPrefs.edit().putBoolean(key, value).apply();
+        privPrefs.edit().putBoolean(key, value).commit();
     }
 
     public static boolean getPrivBoolean(String key, boolean defaultValue) {
