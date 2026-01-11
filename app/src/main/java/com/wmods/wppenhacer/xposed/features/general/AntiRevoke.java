@@ -61,6 +61,7 @@ public class AntiRevoke extends Feature {
             protected void beforeHookedMethod(MethodHookParam param) throws Exception {
                 var fMessage = new FMessageWpp(param.args[0]);
                 var messageKey = fMessage.getKey();
+                if (messageKey == null) return;
                 var deviceJid = fMessage.getDeviceJid();
                 var messageID = (String) XposedHelpers.getObjectField(fMessage.getObject(), "A01");
                 // Caso o proprio usuario tenha deletado o status
@@ -73,7 +74,7 @@ public class AntiRevoke extends Feature {
                     }
                     return;
                 }
-                if (messageKey.remoteJid.isGroup()) {
+                if (messageKey.remoteJid != null && messageKey.remoteJid.isGroup()) {
                     if (deviceJid != null && antiRevoke(fMessage) != 0) {
                         param.setResult(true);
                     }
@@ -149,14 +150,18 @@ public class AntiRevoke extends Feature {
 
     private static void saveRevokedMessage(FMessageWpp fMessage) {
         var messageKey = (String) XposedHelpers.getObjectField(fMessage.getObject(), "A01");
-        var stripJID = fMessage.getKey().remoteJid.getPhoneNumber();
+        var key = fMessage.getKey();
+        if (key == null || key.remoteJid == null) return;
+        var stripJID = key.remoteJid.getPhoneNumber();
         HashSet<String> messages = getRevokedMessages(fMessage);
         messages.add(messageKey);
         DelMessageStore.getInstance(Utils.getApplication()).insertMessage(stripJID, messageKey, System.currentTimeMillis());
     }
 
     private static HashSet<String> getRevokedMessages(FMessageWpp fMessage) {
-        String stripJID = fMessage.getKey().remoteJid.getPhoneNumber();
+        var key = fMessage.getKey();
+        if (key == null || key.remoteJid == null) return new HashSet<>();
+        String stripJID = key.remoteJid.getPhoneNumber();
         if (messageRevokedMap.containsKey(stripJID)) {
             return messageRevokedMap.get(stripJID);
         }
@@ -171,11 +176,11 @@ public class AntiRevoke extends Feature {
 
         var fMessage = new FMessageWpp(objMessage);
         var key = fMessage.getKey();
+        if (key == null) return;
         var messageRevokedList = getRevokedMessages(fMessage);
         var id = fMessage.getRowId();
         String keyOrig = null;
 
-        // FIX: Added null check for key.messageID before checking list
         if ((key.messageID != null && messageRevokedList.contains(key.messageID)) ||
                 ((keyOrig = MessageStore.getInstance().getOriginalMessageKey(id)) != null && messageRevokedList.contains(keyOrig))) {
             var timestamp = DelMessageStore.getInstance(Utils.getApplication()).getTimestampByMessageId(keyOrig == null ? key.messageID : keyOrig);
@@ -216,9 +221,10 @@ public class AntiRevoke extends Feature {
             log(e);
         }
 
-        // FIX: Added null checks to prevent NPE
         String messageKey = (String) XposedHelpers.getObjectField(fMessage.getObject(), "A01");
-        String stripJID = fMessage.getKey().remoteJid.getPhoneNumber();
+        var key = fMessage.getKey();
+        if (key == null || key.remoteJid == null) return 0;
+        String stripJID = key.remoteJid.getPhoneNumber();
 
         if (messageKey == null || stripJID == null) return 0;
 
@@ -227,7 +233,6 @@ public class AntiRevoke extends Feature {
 
         var messageRevokedList = getRevokedMessages(fMessage);
 
-        // FIX: Use Objects.equals to avoid NullPointerException if list contains null or key is null
         boolean contains = false;
         for (String msg : messageRevokedList) {
             if (Objects.equals(msg, messageKey)) {
@@ -265,23 +270,28 @@ public class AntiRevoke extends Feature {
     }
 
     private void showToast(FMessageWpp fMessage) {
-        var jidAuthor = fMessage.getKey().remoteJid;
+        var key = fMessage.getKey();
+        if (key == null || key.remoteJid == null) return;
+        var jidAuthor = key.remoteJid;
         var messageSuffix = Utils.getApplication().getString(ResId.string.deleted_message);
         if (jidAuthor.isStatus()) {
             messageSuffix = Utils.getApplication().getString(ResId.string.deleted_status);
-            jidAuthor = fMessage.getUserJid();
+            var userJid = fMessage.getUserJid();
+            if (userJid != null) {
+                jidAuthor = userJid;
+            }
         }
-        if (jidAuthor.userJid == null) return;
+        if (jidAuthor.isNull()) return;
         String name = WppCore.getContactName(jidAuthor);
         if (TextUtils.isEmpty(name)) {
             name = jidAuthor.getPhoneNumber();
         }
         String message;
-        if (jidAuthor.isGroup() && fMessage.getUserJid().isNull()) {
-            var participantJid = fMessage.getUserJid();
-            String participantName = WppCore.getContactName(participantJid);
+        var fUserJid = fMessage.getUserJid();
+        if (jidAuthor.isGroup() && fUserJid != null && !fUserJid.isNull()) {
+            String participantName = WppCore.getContactName(fUserJid);
             if (TextUtils.isEmpty(participantName)) {
-                participantName = participantJid.getPhoneNumber();
+                participantName = fUserJid.getPhoneNumber();
             }
             message = Utils.getApplication().getString(ResId.string.deleted_a_message_in_group, participantName, name);
         } else {

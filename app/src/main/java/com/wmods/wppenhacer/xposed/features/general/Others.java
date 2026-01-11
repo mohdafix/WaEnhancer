@@ -86,6 +86,18 @@ public class Others extends Feature {
         var disableExpiration = prefs.getBoolean("disable_expiration", false);
         var disableAd = prefs.getBoolean("disable_ads", false);
 
+        // ==========================================
+        // GIF PROVIDER LOGIC (Option 2)
+        // ==========================================
+        // XML Mapping (Swapped):
+        // 0 = Giphy
+        // 1 = Klipy
+        // 2 = Tenor
+        // We default to "2" (Tenor) which is the WhatsApp default.
+        var gif_provider = Integer.parseInt(prefs.getString("gif_provider", "2"));
+
+        log("GIF Provider value sent: " + gif_provider);
+        propsInteger.put(1116, gif_provider);
 
         // --- POPULATE PROPS MAPS ---
 
@@ -254,7 +266,6 @@ public class Others extends Feature {
         if (!filterSeen) {
             disableHomeFilters();
         }
-
     }
 
     private void disableHomeFilters() throws Exception {
@@ -871,6 +882,12 @@ public class Others extends Feature {
                 int i = (int) list.get(0).second;
                 var propValue = propsInteger.get(i);
                 if (propValue == null) return;
+
+                // Debug log for GIF prop specifically
+                if (i == 1116) {
+                    log("HookProps: Request for Prop 1116, returning: " + propValue);
+                }
+
                 param.setResult(propValue);
             }
         });
