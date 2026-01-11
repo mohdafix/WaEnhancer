@@ -1,13 +1,9 @@
 package com.wmods.wppenhacer.xposed.features.general;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.app.AlertDialog;
+import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.os.Handler;
-import android.os.Looper;
-import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -15,27 +11,26 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.widget.NestedScrollView;
 
+import com.wmods.wppenhacer.adapter.MessageAdapter;
+import com.wmods.wppenhacer.views.NoScrollListView;
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
 import com.wmods.wppenhacer.xposed.core.db.MessageHistory;
 import com.wmods.wppenhacer.xposed.core.db.MessageStore;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
+import com.wmods.wppenhacer.xposed.features.listeners.ConversationItemListener;
 import com.wmods.wppenhacer.xposed.utils.DesignUtils;
 import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
+import com.wmods.wppenhacer.xposed.utils.ResId;
 import com.wmods.wppenhacer.xposed.utils.Utils;
 
-import java.lang.reflect.Method;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.Locale;
+import java.util.Objects;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XSharedPreferences;
@@ -44,14 +39,155 @@ import de.robv.android.xposed.XposedHelpers;
 
 public class ShowEditMessage extends Feature {
 
-    private static final Handler MAIN = new Handler(Looper.getMainLooper());
-
-    public ShowEditMessage(
-            @NonNull ClassLoader loader,
-            @NonNull XSharedPreferences preferences
-    ) {
+    public ShowEditMessage(@NonNull ClassLoader loader, @NonNull XSharedPreferences preferences) {
         super(loader, preferences);
     }
+
+    @Override
+    public void doHook() throws Throwable {
+
+        if (!prefs.getBoolean("antieditmessages", false)) return;
+
+        var onMessageEdit = Unobfuscator.loadMessageEditMethod(classLoader);
+        logDebug(Unobfuscator.getMethodDescriptor(onMessageEdit));
+
+        var callerMessageEditMethod = Unobfuscator.loadCallerMessageEditMethod(classLoader);
+        logDebug(Unobfuscator.getMethodDescriptor(callerMessageEditMethod));
+
+        var getEditMessage = Unobfuscator.loadGetEditMessageMethod(classLoader);
+        logDebug(Unobfuscator.getMethodDescriptor(getEditMessage));
+
+        XposedBridge.hookMethod(onMessageEdit, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                var editMessage = getEditMessage.invoke(null, param.args[0]);
+                if (editMessage == null) return;
+                var invoked = callerMessageEditMethod.invoke(null, param.args[0]);
+                long timestamp = XposedHelpers.getLongField(invoked, "A00");
+                var fMessage = new FMessageWpp(param.args[0]);
+                long id = fMessage.getRowId();
+                var origMessage = MessageStore.getInstance().getCurrentMessageByID(id);
+                String newMessage = fMessage.getMessageStr();
+                if (newMessage == null) {
+                    var methods = ReflectionUtils.findAllMethodsUsingFilter(param.args[0].getClass(), method -> method.getReturnType() == String.class && ReflectionUtils.isOverridden(method));
+                    for (var method : methods) {
+                        newMessage = (String) method.invoke(param.args[0]);
+                        if (newMessage != null) break;
+                    }
+                    if (newMessage == null) return;
+                }
+                try {
+                    var message = MessageHistory.getInstance().getMessages(id);
+                    if (message == null) {
+                        MessageHistory.getInstance().insertMessage(id, origMessage, 0);
+                    }
+                    MessageHistory.getInstance().insertMessage(id, newMessage, timestamp);
+                } catch (Exception e) {
+                    logDebug(e);
+                }
+            }
+        });
+
+        var strEmoji = "\uD83D\uDCDD";
+
+        ConversationItemListener.conversationListeners.add(
+                new ConversationItemListener.OnConversationItemListener() {
+
+                    @Override
+                    public void onItemBind(FMessageWpp fMessage, ViewGroup viewGroup) {
+                        var textView = (TextView) viewGroup.findViewById(Utils.getID("edit_label", "id"));
+                        if (textView != null && !textView.getText().toString().contains(strEmoji)) {
+                            textView.getPaint().setUnderlineText(true);
+                            textView.append(strEmoji);
+                            textView.setOnClickListener((v) -> {
+                                try {
+                                    long id = fMessage.getRowId();
+                                    var messages = MessageHistory.getInstance().getMessages(id);
+                                    if (messages == null) {
+                                        messages = new ArrayList<>();
+                                    }
+                                    showBottomDialog(messages);
+                                } catch (Exception exception0) {
+                                    logDebug(exception0);
+                                }
+                            });
+                        }
+                    }
+                }
+        );
+
+    }
+
+    @SuppressLint("SetTextI18n")
+    private void showBottomDialog(ArrayList<MessageHistory.MessageItem> messages) {
+        Objects.requireNonNull(WppCore.getCurrentConversation()).runOnUiThread(() -> {
+            var ctx = (Context) WppCore.getCurrentConversation();
+
+            var dialog = WppCore.createBottomDialog(ctx);
+            // NestedScrollView
+            NestedScrollView nestedScrollView0 = new NestedScrollView(ctx, null);
+            nestedScrollView0.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            nestedScrollView0.setFillViewport(true);
+            nestedScrollView0.setFitsSystemWindows(true);
+            // Main Layout
+            LinearLayout linearLayout = new LinearLayout(ctx);
+            linearLayout.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
+            linearLayout.setFitsSystemWindows(true);
+            linearLayout.setMinimumHeight(layoutParams.height = Utils.getApplication().getResources().getDisplayMetrics().heightPixels / 4);
+            linearLayout.setLayoutParams(layoutParams);
+            int dip = Utils.dipToPixels(20);
+            linearLayout.setPadding(dip, dip, dip, 0);
+            var bg = DesignUtils.createDrawable("rc_dialog_bg", DesignUtils.getPrimarySurfaceColor());
+            linearLayout.setBackground(bg);
+
+            // Title View
+            TextView titleView = new TextView(ctx);
+            LinearLayout.LayoutParams layoutParams1 = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            layoutParams1.weight = 1.0f;
+            layoutParams1.setMargins(0, 0, 0, Utils.dipToPixels(10));
+            titleView.setLayoutParams(layoutParams1);
+            titleView.setTextSize(16.0f);
+            titleView.setTextColor(DesignUtils.getPrimaryTextColor());
+            titleView.setTypeface(null, Typeface.BOLD);
+            titleView.setText(ResId.string.edited_history);
+
+            // List View
+            var adapter = new MessageAdapter(ctx, messages);
+            ListView listView = new NoScrollListView(ctx);
+            LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
+            layoutParams2.weight = 1.0f;
+            listView.setLayoutParams(layoutParams2);
+            listView.setAdapter(adapter);
+            ImageView imageView0 = new ImageView(ctx);
+            LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(Utils.dipToPixels(70), Utils.dipToPixels(8));
+            layoutParams4.gravity = 17;
+            layoutParams4.setMargins(0, Utils.dipToPixels(5), 0, Utils.dipToPixels(5));
+            var bg2 = DesignUtils.createDrawable("rc_dotline_dialog", Color.BLACK);
+            imageView0.setBackground(DesignUtils.alphaDrawable(bg2, DesignUtils.getPrimaryTextColor(), 33));
+            imageView0.setLayoutParams(layoutParams4);
+            // Button View
+            Button okButton = new Button(ctx);
+            LinearLayout.LayoutParams layoutParams3 = new LinearLayout.LayoutParams(-1, -2);
+            layoutParams3.setMargins(0, Utils.dipToPixels(10), 0, Utils.dipToPixels(10));
+            layoutParams3.gravity = 80;
+            okButton.setLayoutParams(layoutParams3);
+            okButton.setGravity(17);
+            var drawable = DesignUtils.createDrawable("selector_bg", Color.BLACK);
+            okButton.setBackground(DesignUtils.alphaDrawable(drawable, DesignUtils.getPrimaryTextColor(), 25));
+            okButton.setText("OK");
+            okButton.setOnClickListener((View view) -> dialog.dismissDialog());
+            linearLayout.addView(imageView0);
+            linearLayout.addView(titleView);
+            linearLayout.addView(listView);
+            linearLayout.addView(okButton);
+            nestedScrollView0.addView(linearLayout);
+            dialog.setContentView(nestedScrollView0);
+            dialog.setCanceledOnTouchOutside(true);
+            dialog.showDialog();
+        });
+    }
+
 
     @NonNull
     @Override
@@ -59,313 +195,4 @@ public class ShowEditMessage extends Feature {
         return "Show Edit Message";
     }
 
-    @Override
-    public void doHook() throws Throwable {
-        if (!prefs.getBoolean("antieditmessages", false)) return;
-
-        hookEditCapture();
-        hookConversationRow();
-    }
-
-    /* ============================================================
-     * PART 1 — Capture edit history (RESTART SAFE + DEDUPED)
-     * ============================================================ */
-
-    private void hookEditCapture() throws Throwable {
-        Method onEdit = Unobfuscator.loadMessageEditMethod(classLoader);
-        Method caller = Unobfuscator.loadCallerMessageEditMethod(classLoader);
-        Method getEdit = Unobfuscator.loadGetEditMessageMethod(classLoader);
-
-        if (onEdit == null || caller == null || getEdit == null) return;
-
-        XposedBridge.hookMethod(onEdit, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) {
-                try {
-                    Object rawMsg = param.args[0];
-                    if (rawMsg == null) return;
-
-                    // Only edits
-                    if (getEdit.invoke(null, rawMsg) == null) return;
-
-                    FMessageWpp fMsg = new FMessageWpp(rawMsg);
-                    long rowId = fMsg.getRowId();
-                    if (rowId <= 0) return;
-
-                    String newText = fMsg.getMessageStr();
-
-                    if (TextUtils.isEmpty(newText)) {
-                        for (Method m : ReflectionUtils.findAllMethodsUsingFilter(
-                                rawMsg.getClass(),
-                                mm -> mm.getReturnType() == String.class
-                        )) {
-                            newText = (String) m.invoke(rawMsg);
-                            if (!TextUtils.isEmpty(newText)) break;
-                        }
-                    }
-
-                    if (TextUtils.isEmpty(newText)) return;
-
-                    Object invoked = caller.invoke(null, rawMsg);
-                    long timestamp = XposedHelpers.getLongField(invoked, "A00");
-
-                    if (timestamp <= 0) return;
-
-                    MessageHistory db = MessageHistory.getInstance();
-                    ArrayList<MessageHistory.MessageItem> history =
-                            db.getMessages(rowId);
-
-                    /* ---------- Insert ORIGINAL once ---------- */
-                    if (history == null || history.isEmpty()) {
-                        String original = MessageStore.getInstance()
-                                .getCurrentMessageByID(rowId);
-
-                        if (!TextUtils.isEmpty(original)) {
-                            db.insertMessage(rowId, original, 0);
-                        }
-                    }
-
-                    /* ---------- Strong dedupe ---------- */
-                    history = db.getMessages(rowId);
-                    if (history != null && !history.isEmpty()) {
-                        MessageHistory.MessageItem last =
-                                history.get(history.size() - 1);
-
-                        if (newText.equals(last.message)) {
-                            if (Math.abs(timestamp - last.timestamp) <= 2000) {
-                                return; // duplicate edit
-                            }
-                        }
-                    }
-
-                    db.insertMessage(rowId, newText, timestamp);
-
-                } catch (Throwable ignored) {}
-            }
-        });
-    }
-
-    /* ============================================================
-     * PART 2 — Conversation row indicator
-     * ============================================================ */
-
-    private void hookConversationRow() throws Throwable {
-        Method bindMethod = Unobfuscator.loadConversationRowBindMethod(classLoader);
-        if (bindMethod == null) return;
-
-        XposedBridge.hookMethod(bindMethod, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) {
-                try {
-                    if (param.args == null || param.args.length < 3) return;
-                    if (!(param.args[1] instanceof TextView)) return;
-
-                    TextView metaView = (TextView) param.args[1];
-                    Object msgObj = param.args[2];
-
-                    long rowId = new FMessageWpp(msgObj).getRowId();
-                    if (rowId <= 0) return;
-
-                    ArrayList<MessageHistory.MessageItem> history =
-                            MessageHistory.getInstance().getMessages(rowId);
-
-                    if (history == null || history.size() <= 1) return;
-
-                    metaView.post(() -> {
-                        String txt = metaView.getText() != null
-                                ? metaView.getText().toString()
-                                : "";
-
-                        if (txt.contains("📝")) return;
-
-                        metaView.setClickable(true);
-                        metaView.getPaint().setUnderlineText(true);
-                        metaView.append(" 📝");
-                        metaView.setOnClickListener(v ->
-                                showHistoryDialog(rowId)
-                        );
-                    });
-
-                } catch (Throwable ignored) {}
-            }
-        });
-    }
-
-    /* ============================================================
-     * PART 3 — Dialog loader
-     * ============================================================ */
-
-    private void showHistoryDialog(long rowId) {
-        Activity activity = WppCore.getCurrentActivity();
-        if (activity == null) return;
-
-        new Thread(() -> {
-            ArrayList<MessageHistory.MessageItem> list =
-                    MessageHistory.getInstance().getMessages(rowId);
-
-            if (list == null || list.size() <= 1) return;
-
-            Collections.sort(list, (a, b) ->
-                    Long.compare(a.timestamp, b.timestamp));
-
-            MAIN.post(() -> showBottomDialog(activity, list));
-        }).start();
-    }
-
-    /* ============================================================
-     * PART 4 — UI
-     * ============================================================ */
-
-    @SuppressLint("SetTextI18n")
-    private void showBottomDialog(
-            Activity activity,
-            ArrayList<MessageHistory.MessageItem> messages
-    ) {
-        try {
-            var dialog = WppCore.createBottomDialog(activity);
-
-            LinearLayout root = new LinearLayout(activity);
-            root.setOrientation(LinearLayout.VERTICAL);
-            int pad = Utils.dipToPixels(16);
-            root.setPadding(pad, pad, pad, pad);
-            root.setBackground(
-                    DesignUtils.createDrawable(
-                            "rc_dialog_bg",
-                            DesignUtils.getPrimarySurfaceColor()
-                    )
-            );
-
-            View handle = new View(activity);
-            LinearLayout.LayoutParams hlp =
-                    new LinearLayout.LayoutParams(
-                            Utils.dipToPixels(48),
-                            Utils.dipToPixels(5)
-                    );
-            hlp.bottomMargin = Utils.dipToPixels(12);
-            hlp.gravity = 17;
-            handle.setLayoutParams(hlp);
-            handle.setBackground(
-                    DesignUtils.alphaDrawable(
-                            DesignUtils.createDrawable("rc_dotline_dialog", 0),
-                            DesignUtils.getPrimaryTextColor(),
-                            35
-                    )
-            );
-            root.addView(handle);
-
-            TextView title = new TextView(activity);
-            title.setText("✏️ Edit history (" + messages.size() + ")");
-            title.setTextSize(16f);
-            title.setTypeface(Typeface.DEFAULT_BOLD);
-            title.setTextColor(DesignUtils.getPrimaryTextColor());
-            title.setPadding(0, 0, 0, Utils.dipToPixels(12));
-            root.addView(title);
-
-            NestedScrollView scroll = new NestedScrollView(activity);
-            LinearLayout list = new LinearLayout(activity);
-            list.setOrientation(LinearLayout.VERTICAL);
-            scroll.addView(list);
-
-            for (int i = messages.size() - 1; i >= 0; i--) {
-                list.addView(createHistoryItem(activity, messages.get(i)));
-            }
-
-            root.addView(scroll);
-            dialog.setContentView(root);
-            dialog.setCanceledOnTouchOutside(true);
-            dialog.showDialog();
-
-        } catch (Throwable t) {
-            Toast.makeText(activity,
-                    "Failed to show edit history",
-                    Toast.LENGTH_SHORT
-            ).show();
-        }
-    }
-
-    private View createHistoryItem(
-            Activity ctx,
-            MessageHistory.MessageItem item
-    ) {
-        LinearLayout card = new LinearLayout(ctx);
-        card.setOrientation(LinearLayout.VERTICAL);
-        int pad = Utils.dipToPixels(12);
-        card.setPadding(pad, pad, pad, pad);
-
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        lp.bottomMargin = Utils.dipToPixels(10);
-        card.setLayoutParams(lp);
-
-        card.setBackground(
-                DesignUtils.alphaDrawable(
-                        DesignUtils.createDrawable("selector_bg", 0),
-                        DesignUtils.getPrimaryTextColor(),
-                        8
-                )
-        );
-
-        TextView time = new TextView(ctx);
-        time.setTextSize(12f);
-        time.setTypeface(Typeface.MONOSPACE);
-
-        int base = DesignUtils.getPrimaryTextColor();
-        time.setTextColor(Color.argb(
-                160,
-                Color.red(base),
-                Color.green(base),
-                Color.blue(base)
-        ));
-
-        if (item.timestamp == 0) {
-            time.setText("Original");
-        } else {
-            time.setText(
-                    new SimpleDateFormat(
-                            "dd MMM · HH:mm",
-                            Locale.getDefault()
-                    ).format(new Date(item.timestamp))
-            );
-        }
-
-        TextView msg = new TextView(ctx);
-        msg.setTextSize(14f);
-        msg.setTextColor(DesignUtils.getPrimaryTextColor());
-        msg.setMaxLines(3);
-        msg.setEllipsize(TextUtils.TruncateAt.END);
-        msg.setText(item.message != null
-                ? item.message
-                : "[No text]"
-        );
-        msg.setPadding(0, Utils.dipToPixels(6), 0, 0);
-
-        card.addView(time);
-        card.addView(msg);
-
-        card.setOnClickListener(v ->
-                showFullTextMessage(ctx, item)
-        );
-
-        return card;
-    }
-
-    private void showFullTextMessage(
-            Activity activity,
-            MessageHistory.MessageItem item
-    ) {
-        new AlertDialog.Builder(activity)
-                .setTitle("Full message")
-                .setMessage(item.message)
-                .setPositiveButton("Copy", (d, w) -> {
-                    Utils.setToClipboard(item.message);
-                    Toast.makeText(activity,
-                            "Copied",
-                            Toast.LENGTH_SHORT
-                    ).show();
-                })
-                .setNegativeButton("Close", null)
-                .show();
-    }
 }
