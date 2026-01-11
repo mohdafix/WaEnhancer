@@ -16,6 +16,8 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -51,9 +53,9 @@ public class FMessageWpp {
     private final Object userJid;
     private final boolean valid;
     private Key key;
-    private static final Set<String> VALID_DOMAINS = Set.of(
+    private static final Set<String> VALID_DOMAINS = new HashSet<>(Arrays.asList(
             "s.whatsapp.net", "newsletter", "lid", "g.us", "broadcast", "status"
-    );
+    ));
 
     public FMessageWpp(Object rawMsg) {
         this.fmessage = rawMsg;
@@ -106,8 +108,15 @@ public class FMessageWpp {
             } catch (Exception ignored) {}
 
             // 3. Load methods/fields using the main TYPE
-            var userJidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.UserJid");
-            userJidMethod = ReflectionUtils.findMethodUsingFilter(TYPE, method -> method.getParameterCount() == 0 && method.getReturnType() == userJidClass);
+            // FIX: Replaced Java 8 stream/lambdas with loops for compatibility
+            Class<?> userJidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.UserJid");
+            for (Method m : TYPE.getDeclaredMethods()) {
+                if (m.getParameterTypes().length == 0 && m.getReturnType().equals(userJidClass)) {
+                    userJidMethod = m;
+                    userJidMethod.setAccessible(true);
+                    break;
+                }
+            }
 
             keyMessage = Unobfuscator.loadMessageKeyField(classLoader);
             if (keyMessage != null) Key.TYPE = keyMessage.getType();
@@ -116,8 +125,14 @@ public class FMessageWpp {
             messageWithMediaMethod = Unobfuscator.loadNewMessageWithMediaMethod(classLoader);
             getFieldIdMessage = Unobfuscator.loadSetEditMessageField(classLoader);
 
-            var deviceJidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.DeviceJid");
-            deviceJidField = ReflectionUtils.findFieldUsingFilter(TYPE, field -> field.getType() == deviceJidClass);
+            Class<?> deviceJidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.DeviceJid");
+            for (Field f : TYPE.getDeclaredFields()) {
+                if (f.getType().equals(deviceJidClass)) {
+                    deviceJidField = f;
+                    deviceJidField.setAccessible(true);
+                    break;
+                }
+            }
 
             mediaTypeField = Unobfuscator.loadMediaTypeField(classLoader);
             getOriginalMessageKey = Unobfuscator.loadOriginalMessageKey(classLoader);
@@ -192,18 +207,28 @@ public class FMessageWpp {
     }
 
     public Key getKey() {
-        if (keyMessage == null) return null;
+        // FIX 1: Ensure we don't return null if keyMessage is missing or reflection fails
+        if (keyMessage == null && fmessage != null) {
+            try {
+                keyMessage = XposedHelpers.findField(fmessage.getClass(), "key");
+                keyMessage.setAccessible(true);
+            } catch (Exception ignored) {}
+        }
+
+        if (keyMessage == null) {
+            if (fmessage != null) return new Key(null, this);
+            return null;
+        }
+
         try {
             if (this.key == null) {
                 Object rawKey = keyMessage.get(fmessage);
-                if (rawKey != null) {
-                    this.key = new Key(rawKey, this);
-                }
+                this.key = new Key(rawKey, this);
             }
             return this.key;
         } catch (Exception e) {
             XposedBridge.log("FMessageWpp getKey error: " + e.getMessage());
-            return null;
+            return new Key(null, this);
         }
     }
 
@@ -315,56 +340,78 @@ public class FMessageWpp {
             this.thisObject = key;
             this.fmessage = fmessage;
 
+            // FIX: Explicit defaults to prevent NullPointerExceptions in consumers
+            this.messageID = "";
+            this.isFromMe = false;
+
             if (key == null) return;
 
-            // Dynamic field resolution
             try {
                 // 1. Find MessageID (String)
-                String foundId = null;
+                boolean foundId = false;
                 for (Field f : key.getClass().getDeclaredFields()) {
                     if (f.getType() == String.class) {
                         f.setAccessible(true);
-                        foundId = (String) f.get(key);
-                        if (foundId != null && foundId.length() > 5) {
-                            this.messageID = foundId;
-                            break;
-                        }
+                        try {
+                            String val = (String) f.get(key);
+                            if (val != null && val.length() > 5) {
+                                this.messageID = val;
+                                foundId = true;
+                                break;
+                            }
+                        } catch (Exception ignored) {}
                     }
-                }
-                if (foundId == null) {
-                    // Safe fallback
-                    this.messageID = (String) XposedHelpers.getObjectField(key, "A01");
                 }
 
                 // 2. Find isFromMe (boolean)
+                // We scan for the first boolean field. In WhatsApp key objects,
+                // the order is usually: Jid, String, boolean, boolean.
                 boolean foundFromMe = false;
                 for (Field f : key.getClass().getDeclaredFields()) {
                     if (f.getType() == boolean.class) {
                         f.setAccessible(true);
-                        foundFromMe = f.getBoolean(key);
-                        this.isFromMe = foundFromMe;
-                        break; // Take the first one
+                        try {
+                            this.isFromMe = f.getBoolean(key);
+                            foundFromMe = true;
+                            break;
+                        } catch (Exception ignored) {}
                     }
-                }
-                if (this.messageID == null) {
-                    // Fallback if loop failed
-                    this.isFromMe = XposedHelpers.getBooleanField(key, "A02");
                 }
 
                 // 3. Find RemoteJid
-                Object foundJid = null;
+                boolean foundJid = false;
                 for (Field f : key.getClass().getDeclaredFields()) {
                     if (f.getType().getName().contains("Jid")) {
                         f.setAccessible(true);
-                        foundJid = f.get(key);
-                        if (foundJid != null) {
-                            this.remoteJid = new UserJid(foundJid);
-                            break;
-                        }
+                        try {
+                            Object val = f.get(key);
+                            if (val != null) {
+                                this.remoteJid = new UserJid(val);
+                                foundJid = true;
+                                break;
+                            }
+                        } catch (Exception ignored) {}
                     }
                 }
-                if (foundJid == null) {
-                    this.remoteJid = new UserJid(XposedHelpers.getObjectField(key, "A00"));
+
+                // Fallbacks using known patterns if direct scan failed (Safety Net)
+                if (!foundId) {
+                    try {
+                        Object val = XposedHelpers.getObjectField(key, "A01"); // Common obfuscated name
+                        if (val instanceof String) this.messageID = (String) val;
+                    } catch (Exception ignored) {}
+                }
+                if (!foundFromMe) {
+                    try {
+                        // Check common names A02 or A00 (sometimes boolean shifts)
+                        this.isFromMe = XposedHelpers.getBooleanField(key, "A02");
+                    } catch (Exception ignored) {}
+                }
+                if (!foundJid) {
+                    try {
+                        Object val = XposedHelpers.getObjectField(key, "A00");
+                        if (val != null) this.remoteJid = new UserJid(val);
+                    } catch (Exception ignored) {}
                 }
 
             } catch (Exception e) {
@@ -483,7 +530,7 @@ public class FMessageWpp {
 
         @Nullable
         public String getPhoneNumber() {
-            var str = getPhoneRawString();
+            String str = getPhoneRawString();
             try {
                 if (str == null) return null;
                 if (str.contains(".") && str.contains("@") && str.indexOf(".") < str.indexOf("@")) {
