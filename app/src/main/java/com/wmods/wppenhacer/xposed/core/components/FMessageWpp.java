@@ -555,8 +555,8 @@ public class FMessageWpp {
                 } else {
                     raw = (String) XposedHelpers.callMethod(lidOrJid, "getRawString");
                 }
-            } catch (Exception e) {
-                // XposedBridge.log("UserJid ctor error: " + e.getMessage());
+            } catch (Throwable ignored) {
+                // XposedBridge.log("UserJid ctor error: " + ignored.getMessage());
             }
 
             if (raw == null || isInvalidJid(raw)) return;
