@@ -14,9 +14,6 @@ import com.wmods.wppenhacer.xposed.AntiUpdater;
 import com.wmods.wppenhacer.xposed.bridge.ScopeHook;
 import com.wmods.wppenhacer.xposed.core.FeatureLoader;
 import com.wmods.wppenhacer.xposed.downgrade.Patch;
-import com.wmods.wppenhacer.xposed.features.media.CallRecording;
-import com.wmods.wppenhacer.xposed.features.media.VideoCallRecording;
-import com.wmods.wppenhacer.xposed.spoofer.HookBL;
 import com.wmods.wppenhacer.xposed.utils.ResId;
 
 import de.robv.android.xposed.IXposedHookInitPackageResources;
@@ -52,32 +49,9 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
         var packageName = lpparam.packageName;
         var classLoader = lpparam.classLoader;
 
-        if (packageName.equals("android")) {
-            FeatureLoader.start(classLoader, getPref(), null, lpparam);
-            return;
-        }
-
         if (packageName.equals(BuildConfig.APPLICATION_ID)) {
-            try {
-                XposedHelpers.findAndHookMethod(MainActivity.class.getName(), lpparam.classLoader, "isXposedEnabled", XC_MethodReplacement.returnConstant(true));
-            } catch (Throwable t) {
-                XposedBridge.log("WppXposed: Failed to hook isXposedEnabled: " + t);
-            }
-            try {
-                // Safely hook getDefaultSharedPreferencesMode if it exists
-                Class<?> prefsManagerClass = XposedHelpers.findClassIfExists(PreferenceManager.class.getName(), lpparam.classLoader);
-                if (prefsManagerClass != null) {
-                   try {
-                       XposedHelpers.findAndHookMethod(prefsManagerClass, "getDefaultSharedPreferencesMode", XC_MethodReplacement.returnConstant(ContextWrapper.MODE_WORLD_READABLE));
-                   } catch (NoSuchMethodError | Exception e) {
-                       XposedBridge.log("WppXposed: getDefaultSharedPreferencesMode method not found, skipping hook");
-                   }
-                } else {
-                   XposedBridge.log("WppXposed: PreferenceManager class not found");
-                }
-            } catch (Throwable t) {
-                XposedBridge.log("WppXposed: Error hooking PreferenceManager: " + t);
-            }
+            XposedHelpers.findAndHookMethod(MainActivity.class.getName(), lpparam.classLoader, "isXposedEnabled", XC_MethodReplacement.returnConstant(true));
+            XposedHelpers.findAndHookMethod(PreferenceManager.class.getName(), lpparam.classLoader, "getDefaultSharedPreferencesMode", XC_MethodReplacement.returnConstant(ContextWrapper.MODE_WORLD_READABLE));
             return;
         }
 
@@ -92,7 +66,7 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
             XposedBridge.log("[•] This package: " + lpparam.packageName);
 
             // Load features
-            FeatureLoader.start(classLoader, getPref(), lpparam.appInfo.sourceDir, lpparam);
+            FeatureLoader.start(classLoader, getPref(), lpparam.appInfo.sourceDir);
 
             disableSecureFlag();
         }
