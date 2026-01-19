@@ -150,19 +150,9 @@ val fixAidlGeneratedJava = tasks.register("fixAidlGeneratedJava") {
             val text = f.readText(StandardCharsets.UTF_8)
             var newText = text
 
-            // 1) Escape backslashes on lines that contain "Using:" (aidl header) or "aidl.exe"
-            newText = newText.replace(Regex("(?m)^(\\s*\\*.*Using:.*)$")) { m ->
+            // Escape backslashes on all comment lines
+            newText = newText.replace(Regex("(?m)^(\\s*\\*.*)$")) { m ->
                 m.value.replace("\\", "\\\\")
-            }
-            newText = newText.replace(Regex("(?m)^(\\s*\\*.*aidl\\.exe.*)$")) { m ->
-                m.value.replace("\\", "\\\\")
-            }
-
-            // 2) Fallback: if file still contains suspicious "\u" sequences inside comments
-            if (newText.contains("\\u")) {
-                newText = newText.replace(Regex("(?m)^(\\s*\\*.*)$")) { m ->
-                    m.value.replace("\\", "\\\\")
-                }
             }
 
             if (newText != text) {
@@ -175,10 +165,12 @@ val fixAidlGeneratedJava = tasks.register("fixAidlGeneratedJava") {
     }
 }
 
-// Ensure fix runs before Java compilation reads sources:
+// Ensure fix runs after AIDL generation and before Java compilation:
 tasks.withType(JavaCompile::class.java).configureEach {
     dependsOn(fixAidlGeneratedJava)
-    options.encoding = "UTF-8"
+}
+fixAidlGeneratedJava.configure {
+    dependsOn("compileBusinessReleaseAidl", "compileWhatsappReleaseAidl")
 }
 
 dependencies {

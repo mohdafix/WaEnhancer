@@ -66,7 +66,7 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
             XposedBridge.log("[•] This package: " + lpparam.packageName);
 
             // Load features
-            FeatureLoader.start(classLoader, getPref(), lpparam.appInfo.sourceDir);
+            FeatureLoader.start(classLoader, getPref(), lpparam.appInfo.sourceDir, lpparam);
 
             disableSecureFlag();
         }
