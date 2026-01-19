@@ -61,7 +61,7 @@ public class DownloadProfile extends Feature {
                         item.setIcon(ResId.drawable.download);
 
                         item.setOnMenuItemClickListener(menuItem -> {
-                            new Thread(() -> performDownload(param)).start();
+                            Utils.getExecutor().execute(() -> performDownload(param));
                             return true;
                         });
                     }

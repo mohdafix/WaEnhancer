@@ -80,6 +80,8 @@
             app:summary="@string/enable_confirmation_to_send_sticker_sum"
             app:title="@string/enable_confirmation_to_send_sticker" />
 
+
+
         <rikka.material.preference.MaterialSwitchPreference
             app:key="calltype"
             app:summary="@string/selection_of_call_type_sum"

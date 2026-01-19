@@ -222,17 +222,13 @@ public class Utils {
             try (FileInputStream in = new FileInputStream(srcFile);
                  var parcelFileDescriptor = WppCore.getClientBridge().openFile(destFile.getAbsolutePath(), true)) {
                 var out = new FileOutputStream(parcelFileDescriptor.getFileDescriptor());
-                byte[] bArr = new byte[1024];
-                while (true) {
-                    int read = in.read(bArr);
-                    if (read <= 0) {
-                        in.close();
-                        out.close();
-                        Utils.scanFile(destFile);
-                        return "";
-                    }
+                byte[] bArr = new byte[8192];
+                int read;
+                while ((read = in.read(bArr)) != -1) {
                     out.write(bArr, 0, read);
                 }
+                Utils.scanFile(destFile);
+                return "";
             } catch (Exception e) {
                 XposedBridge.log(e);
                 return e.getMessage();

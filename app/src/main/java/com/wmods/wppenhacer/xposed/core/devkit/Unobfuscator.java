@@ -1395,7 +1395,7 @@ public class Unobfuscator {
 
     public synchronized static Class loadImageVewContainerClass(ClassLoader loader) throws Exception {
         return UnobfuscatorCache.getInstance().getClass(loader, () -> {
-            var clazzList = dexkit.findClass(new FindClass().matcher(new ClassMatcher().addMethod(new MethodMatcher().addUsingNumber(Utils.getID("hd_invisible_touch", "id")).addUsingNumber(Utils.getID("control_btn", "id")))));
+            var clazzList = dexkit.findClass(new FindClass().matcher(new ClassMatcher().addMethod(new MethodMatcher().addUsingNumber(Utils.getID("media_container", "id")))));
             if (clazzList.isEmpty())
                 throw new RuntimeException("ImageViewContainer class not found");
             return clazzList.get(0).getInstance(loader);

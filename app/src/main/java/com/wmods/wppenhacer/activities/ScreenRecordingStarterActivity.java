@@ -18,6 +18,7 @@ public class ScreenRecordingStarterActivity extends Activity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+        // Start the system dialog to request screen capture permission
         startActivityForResult(mProjectionManager.createScreenCaptureIntent(), REQUEST_CODE);
     }
 
@@ -25,6 +26,7 @@ public class ScreenRecordingStarterActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_CODE) {
             if (resultCode == RESULT_OK) {
+                // Permission granted, start the service with the token
                 VideoRecordingService.startService(this, resultCode, data);
             }
             finish();

@@ -283,7 +283,7 @@
     <string name="developer" translatable="false">Developer: Dev4Mod</string>
     <string name="about_info">Wa Enhancer is an Xposed module that enhances your WhatsApp experience by offering advanced privacy features, home screen customization, general tweaks, and media improvements.</string>
     <string name="installation">Installation</string>
-    <string name="installation_desc">1. Ensure that your device is rooted.\n2. Install the Xposed Framework on your device.\n3. Download the Wa Enhancer from the Actions section.\n4. Install the Wa Enhancer APK.\n5. Enable the Wa Enhancer module in the Xposed Installer app.</string>
+    <string name="installation_desc">1. Ensure that your device is rooted.\n2. Install the Xposed Framework on your device.\n3. Download the Wa Enhancer from the Actions section.\n4. Install the Wa Enhancer APK.\n5. Enable the Wa Enhancer module in the Xposed Installer app.\n6. Restart WhatsApp to apply changes.</string>
     <string name="go_to_telegram">Go to Telegram</string>
     <string name="go_to_github">Go to GitHub</string>
     <string name="donate">Donate</string>
@@ -435,9 +435,10 @@
     <string name="call_recording_enable_sum">Record incoming and outgoing calls (Voice &amp; Video) as audio.</string>
     <string name="call_recording_path">Recordings Output Folder</string>
     <string name="video_call_screen_rec">Record Video Calls (Screen)</string>
-    <string name="video_call_screen_rec_sum">WIP to be added soon</string>
+    <string name="video_call_screen_rec_sum">Record video calls by capturing screen (requires root and system framework hook)</string>
     <string name="disable_ads">Disable Ads</string>
     <string name="disable_ads_sum">Blocks ads from appearing in WhatsApp</string>
     <string name="lockedchats_enhancer">Enhanced Locked Chats</string>
     <string name="lockedchats_enhancer_sum">Improve locked chats by hiding notifications and contacts from the contact list</string>
+
 </resources>

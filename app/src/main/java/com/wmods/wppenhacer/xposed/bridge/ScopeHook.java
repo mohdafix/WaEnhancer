@@ -88,7 +88,7 @@ public class ScopeHook {
                     if (hookedService.get() != null) {
                         hookedService.get().unhook();
                     }
-                    new Thread(() -> hookScope(param.args[1], lpparam.classLoader)).start();
+                    Utils.getExecutor().execute(() -> hookScope(param.args[1], lpparam.classLoader));
                 }
             }
         });

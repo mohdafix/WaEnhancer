@@ -116,56 +116,7 @@ public class MediaPreview extends Feature {
             }
         });
 
-        var imageViewContainerClass = Unobfuscator.loadImageVewContainerClass(classLoader);
-        XposedBridge.hookAllConstructors(imageViewContainerClass, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                if (param.args.length < 2) return;
-                var view = (View) param.thisObject;
-                var context = view.getContext();
 
-
-                ViewGroup mediaContainer = view.findViewById(Utils.getID("media_container", "id"));
-                ViewGroup controlFrame = view.findViewById(Utils.getID("control_frame", "id"));
-
-                LinearLayout linearLayout = new LinearLayout(context);
-                linearLayout.setLayoutParams(new FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.WRAP_CONTENT,
-                        FrameLayout.LayoutParams.WRAP_CONTENT,
-                        Gravity.CENTER
-                ));
-                linearLayout.setOrientation(LinearLayout.VERTICAL);
-                linearLayout.setBackground(DesignUtils.getDrawableByName("fragment_transparent_divider"));
-                mediaContainer.removeView(controlFrame);
-                linearLayout.addView(controlFrame);
-                mediaContainer.addView(linearLayout);
-                var prevBtn = new ImageView(context);
-                var layoutParams2 = new LinearLayout.LayoutParams(Utils.dipToPixels(42), Utils.dipToPixels(32));
-                layoutParams2.gravity = Gravity.CENTER;
-                layoutParams2.topMargin = Utils.dipToPixels(8);
-                prevBtn.setLayoutParams(layoutParams2);
-                var drawable = context.getDrawable(ResId.drawable.preview_eye);
-                drawable.setTint(Color.WHITE);
-                prevBtn.setImageDrawable(drawable);
-                prevBtn.setPadding(Utils.dipToPixels(4), Utils.dipToPixels(4), Utils.dipToPixels(4), Utils.dipToPixels(4));
-                prevBtn.setBackground(DesignUtils.getDrawableByName("download_background"));
-                prevBtn.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                linearLayout.addView(prevBtn);
-                prevBtn.setVisibility(controlFrame.getVisibility());
-                controlFrame.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-                    if (prevBtn.getVisibility() != controlFrame.getVisibility())
-                        prevBtn.setVisibility(controlFrame.getVisibility());
-                });
-
-                prevBtn.setOnClickListener((v) -> {
-                    var objmessage = XposedHelpers.callMethod(param.thisObject, "getFMessage");
-                    var id = new FMessageWpp(objmessage).getRowId();
-                    var userJid = WppCore.getCurrentUserJid();
-                    startPlayer(id, context, userJid != null && userJid.isNewsletter());
-                });
-
-            }
-        });
 
 
     }
@@ -185,7 +136,7 @@ public class MediaPreview extends Feature {
                 String media_key = cursor0.getString(2);
                 String direct_path = cursor0.getString(3);
                 cursor0.close();
-                if (isNewsletter) {
+                if (isNewsletter || url.get() == null || url.get().isEmpty()) {
                     url.set("https://mmg.whatsapp.net" + direct_path);
                 }
                 var alertDialog = new AlertDialog.Builder(context);

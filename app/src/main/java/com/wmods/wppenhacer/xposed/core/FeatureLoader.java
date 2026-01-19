@@ -42,6 +42,7 @@ import com.wmods.wppenhacer.xposed.features.general.AntiRevoke;
 import com.wmods.wppenhacer.xposed.features.general.CallType;
 import com.wmods.wppenhacer.xposed.features.general.ChatLimit;
 import com.wmods.wppenhacer.xposed.features.general.DeleteStatus;
+
 import com.wmods.wppenhacer.xposed.features.general.LiteMode;
 import com.wmods.wppenhacer.xposed.features.general.MenuStatus;
 import com.wmods.wppenhacer.xposed.features.general.NewChat;
@@ -119,11 +120,13 @@ public class FeatureLoader {
     private static String currentVersion;
 
     public static void start(@NonNull ClassLoader loader, @NonNull XSharedPreferences pref, String sourceDir, XC_LoadPackage.LoadPackageParam lpparam) {
+        XposedBridge.log("WaEnhancer: FeatureLoader.start called for package: " + (lpparam != null ? lpparam.packageName : "null"));
 
         if (lpparam != null && "android".equals(lpparam.packageName)) {
             XposedBridge.log("WaEnhancer: System process detected, applying system hooks.");
             CallRecording.hookSystemServer(lpparam);
             VideoCallRecording.hookSystemServer(lpparam);
+            XposedBridge.log("WaEnhancer: System hooks applied.");
             return;
         }
 
@@ -345,8 +348,8 @@ public class FeatureLoader {
                 LiteMode.class,
                 MediaQuality.class,
                 NewChat.class,
-                Others.class,
-                PinnedLimit.class,
+                 Others.class,
+                 PinnedLimit.class,
                 CustomTime.class,
                 ShareLimit.class,
                 StatusDownload.class,
@@ -399,7 +402,7 @@ public class FeatureLoader {
             }, executorService);
         }
         executorService.shutdown();
-        executorService.awaitTermination(15, TimeUnit.SECONDS);
+        executorService.awaitTermination(10, TimeUnit.SECONDS);
         if (DebugFeature.DEBUG) {
             for (var time : times) {
                 if (time != null)

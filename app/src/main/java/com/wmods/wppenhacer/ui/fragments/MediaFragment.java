@@ -31,18 +31,15 @@ public class MediaFragment extends BasePreferenceFragment {
         // Call Recording Settings preference
         var callRecordingSettings = findPreference("call_recording_settings");
         if (callRecordingSettings != null) {
+            callRecordingSettings.setEnabled(true);
+            callRecordingSettings.setSelectable(true);
+            callRecordingSettings.setSummary("");
             callRecordingSettings.setOnPreferenceClickListener(preference -> {
                 Intent intent = new Intent(requireContext(), CallRecordingSettingsActivity.class);
+                intent.putExtra("EXTRA_MODE", "AUDIO");
                 startActivity(intent);
                 return true;
             });
-        }
-
-        var videoCallScreenRec = findPreference("video_call_screen_rec");
-        if (videoCallScreenRec != null) {
-            // Disabled for now - WIP
-            videoCallScreenRec.setEnabled(false);
-            videoCallScreenRec.setSelectable(false);
         }
     }
 }

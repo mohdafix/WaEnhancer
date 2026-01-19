@@ -21,12 +21,12 @@ import androidx.fragment.app.Fragment;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
-import com.google.android.material.chip.Chip;
 import com.wmods.wppenhacer.R;
 import com.wmods.wppenhacer.adapter.RecordingsAdapter;
 import com.wmods.wppenhacer.databinding.FragmentRecordingsBinding;
 import com.wmods.wppenhacer.model.Recording;
 import com.wmods.wppenhacer.ui.dialogs.AudioPlayerDialog;
+import com.wmods.wppenhacer.ui.dialogs.VideoPlayerDialog;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -34,6 +34,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class RecordingsFragment extends Fragment implements RecordingsAdapter.OnRecordingActionListener {
 
@@ -42,6 +43,7 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
     private List<Recording> allRecordings = new ArrayList<>();
     private List<File> baseDirs = new ArrayList<>();
     private boolean isGroupByContact = false;
+    private String currentContactFilter = null;
     private int currentSortType = 1; // 1=date, 2=name, 3=duration, 4=contact
 
     @Nullable
@@ -76,11 +78,13 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
         // View mode toggle
         binding.chipList.setOnClickListener(v -> {
             isGroupByContact = false;
+            currentContactFilter = null;
             loadRecordings();
         });
         
         binding.chipGroupByContact.setOnClickListener(v -> {
             isGroupByContact = true;
+            currentContactFilter = null;
             loadRecordings();
         });
 
@@ -103,21 +107,17 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
         
         baseDirs.clear();
         
-        // 1. Root folder if MANAGE_EXTERNAL_STORAGE
         if (Environment.isExternalStorageManager()) {
             baseDirs.add(new File(Environment.getExternalStorageDirectory(), "WA Call Recordings"));
         }
         
-        // 2. Settings path
         if (path != null && !path.isEmpty()) {
             baseDirs.add(new File(path, "WA Call Recordings"));
         }
         
-        // 3. WhatsApp app external files
         baseDirs.add(new File("/sdcard/Android/data/com.whatsapp/files/Recordings"));
         baseDirs.add(new File("/sdcard/Android/data/com.whatsapp.w4b/files/Recordings"));
         
-        // 4. Legacy fallback
         baseDirs.add(new File(Environment.getExternalStorageDirectory(), "Music/WaEnhancer/Recordings"));
     }
 
@@ -137,16 +137,45 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
             binding.emptyView.setVisibility(View.GONE);
             binding.recyclerView.setVisibility(View.VISIBLE);
             
-            // Apply sorting
             applySort();
+            updateDisplayList();
+        }
+    }
+
+    private void updateDisplayList() {
+        if (isGroupByContact && currentContactFilter == null) {
+            // Show grouped by contact list (pseudo-folders)
+            Map<String, List<Recording>> groups = allRecordings.stream()
+                    .collect(Collectors.groupingBy(Recording::getGroupKey));
             
-            if (isGroupByContact) {
-                // For group by contact, we'll navigate to ContactRecordingsActivity when a contact is clicked
-                // For now, just show sorted list (full group UI needs ContactRecordingsActivity)
-                adapter.setRecordings(allRecordings);
-            } else {
-                adapter.setRecordings(allRecordings);
-            }
+            List<Recording> contactItems = new ArrayList<>();
+            groups.forEach((name, recs) -> {
+                // We create a dummy recording to represent the group
+                Recording groupItem = new Recording(recs.get(0).getFile(), requireContext()) {
+                    @Override
+                    public String getFormattedSize() {
+                        return recs.size() + " recordings";
+                    }
+                    
+                    @Override
+                    public String getFormattedDuration() {
+                        return "";
+                    }
+                };
+                contactItems.add(groupItem);
+            });
+            
+            contactItems.sort(Comparator.comparing(Recording::getContactName));
+            adapter.setRecordings(contactItems);
+        } else if (currentContactFilter != null) {
+            // Show recordings for specific contact
+            List<Recording> filtered = allRecordings.stream()
+                    .filter(r -> r.getGroupKey().equals(currentContactFilter))
+                    .collect(Collectors.toList());
+            adapter.setRecordings(filtered);
+        } else {
+            // Normal list view
+            adapter.setRecordings(allRecordings);
         }
     }
 
@@ -158,7 +187,7 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
                     traverseDirectory(file);
                 } else {
                     String name = file.getName().toLowerCase();
-                    if (name.endsWith(".wav") || name.endsWith(".mp3") || name.endsWith(".aac") || name.endsWith(".m4a")) {
+                    if (name.endsWith(".wav") || name.endsWith(".mp3") || name.endsWith(".aac") || name.endsWith(".m4a") || name.endsWith(".mp4")) {
                         allRecordings.add(new Recording(file, requireContext()));
                     }
                 }
@@ -186,28 +215,41 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
         popup.setOnMenuItemClickListener(item -> {
             currentSortType = item.getItemId();
             applySort();
-            adapter.setRecordings(allRecordings);
+            updateDisplayList();
             return true;
         });
         popup.show();
     }
 
-    // RecordingsAdapter.OnRecordingActionListener implementation
-
     @Override
     public void onPlay(Recording recording) {
-        // Use in-app audio player
-        AudioPlayerDialog dialog = new AudioPlayerDialog(requireContext(), recording.getFile());
-        dialog.show();
+        if (isGroupByContact && currentContactFilter == null) {
+            // Entering a contact's recording list
+            currentContactFilter = recording.getGroupKey();
+            updateDisplayList();
+        } else {
+            String fileName = recording.getFile().getName().toLowerCase();
+            if (fileName.endsWith(".mp4") || fileName.endsWith(".avi") || fileName.endsWith(".mkv")) {
+                // Video recording
+                VideoPlayerDialog dialog = new VideoPlayerDialog(requireContext(), recording.getFile());
+                dialog.show();
+            } else {
+                // Audio recording
+                AudioPlayerDialog dialog = new AudioPlayerDialog(requireContext(), recording.getFile());
+                dialog.show();
+            }
+        }
     }
 
     @Override
     public void onShare(Recording recording) {
+        if (isGroupByContact && currentContactFilter == null) return;
         shareRecording(recording.getFile());
     }
 
     @Override
     public void onDelete(Recording recording) {
+        if (isGroupByContact && currentContactFilter == null) return;
         new AlertDialog.Builder(requireContext())
                 .setTitle(R.string.delete_confirmation)
                 .setMessage(recording.getFile().getName())
@@ -224,7 +266,7 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
 
     @Override
     public void onLongPress(Recording recording, int position) {
-        // Enter selection mode
+        if (isGroupByContact && currentContactFilter == null) return;
         adapter.setSelectionMode(true);
         adapter.toggleSelection(position);
     }

@@ -14,6 +14,7 @@ import androidx.preference.PreferenceManager;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.wmods.wppenhacer.R;
+import com.wmods.wppenhacer.xposed.utils.Utils;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
@@ -92,7 +93,7 @@ public class CallRecordingSettingsActivity extends AppCompatActivity {
     }
 
     private void checkRootAccess() {
-        new Thread(() -> {
+        Utils.getExecutor().execute(() -> {
             boolean hasRoot = false;
             String rootOutput = "";
             
@@ -131,8 +132,8 @@ public class CallRecordingSettingsActivity extends AppCompatActivity {
                     radioNonRoot.setChecked(true);
                     Toast.makeText(this, R.string.root_access_denied, Toast.LENGTH_LONG).show();
                 }
-            });
-        }).start();
+             });
+         });
     }
 
     @Override

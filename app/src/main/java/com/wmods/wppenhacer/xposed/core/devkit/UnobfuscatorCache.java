@@ -65,12 +65,12 @@ public class UnobfuscatorCache {
             }
             if (version != currentVersion || savedUpdateTime != lastUpdateTime || !versionName.equals(savedVersionName)) {
                 Utils.showToast(application.getString(ResId.string.starting_cache), Toast.LENGTH_LONG);
-                sPrefsCacheHooks.edit().clear().commit();
-                sPrefsCacheHooks.edit().putLong("version", currentVersion).commit();
-                sPrefsCacheHooks.edit().putLong("updateTime", lastUpdateTime).commit();
-                sPrefsCacheHooks.edit().putString("wae_version_name", versionName).commit();
+                sPrefsCacheHooks.edit().clear().apply();
+                sPrefsCacheHooks.edit().putLong("version", currentVersion).apply();
+                sPrefsCacheHooks.edit().putLong("updateTime", lastUpdateTime).apply();
+                sPrefsCacheHooks.edit().putString("wae_version_name", versionName).apply();
                 if (version != currentVersion) {
-                    sPrefsCacheStrings.edit().clear().commit();
+                    sPrefsCacheStrings.edit().clear().apply();
                 }
             }
             initCacheStrings();
@@ -130,52 +130,46 @@ public class UnobfuscatorCache {
 
     private void initializeReverseResourceMapBruteForce() {
         var currentTime = System.currentTimeMillis();
-        int numThreads = Runtime.getRuntime().availableProcessors();
-        ExecutorService executor = Executors.newFixedThreadPool(numThreads); // Create a thread pool with 4 threads
-
         try {
             var configuration = new Configuration(mApplication.getResources().getConfiguration());
             configuration.setLocale(Locale.ENGLISH);
             var context = Utils.getApplication().createConfigurationContext(configuration);
             Resources resources = context.getResources();
 
-            int startId = 0x7f120000;
-            int endId = 0x7f12ffff;
-
-            int chunkSize = (endId - startId + 1) / numThreads;
-            CountDownLatch latch = new CountDownLatch(numThreads);
-
-            for (int t = 0; t < numThreads; t++) {
-                int threadStartId = startId + t * chunkSize;
-                int threadEndId = t == numThreads - 1 ? endId : threadStartId + chunkSize - 1;
-
-                executor.submit(() -> {
+            // Try reflection on R$string class first for efficiency
+            try {
+                String packageName = mApplication.getPackageName();
+                Class<?> rStringClass = Class.forName(packageName + ".R$string", false, mApplication.getClassLoader());
+                Field[] fields = rStringClass.getDeclaredFields();
+                for (Field field : fields) {
                     try {
-                        for (int i = threadStartId; i <= threadEndId; i++) {
-                            try {
-                                String resourceString = resources.getString(i);
-                                reverseResourceMap.put(resourceString.toLowerCase().replaceAll("\\s", ""), String.valueOf(i));
-                            } catch (Resources.NotFoundException ignored) {
-                            }
-                        }
-                    } finally {
-                        latch.countDown();
+                        int id = field.getInt(null);
+                        String resourceString = resources.getString(id).toLowerCase().replaceAll("\\s", "");
+                        reverseResourceMap.put(resourceString, String.valueOf(id));
+                    } catch (Exception ignored) {
                     }
-                });
+                }
+            } catch (Exception e) {
+                // Fallback to brute force if reflection fails
+                int startId = 0x7f120000;
+                int endId = 0x7f12ffff;
+                for (int i = startId; i <= endId; i++) {
+                    try {
+                        String resourceString = resources.getString(i).toLowerCase().replaceAll("\\s", "");
+                        reverseResourceMap.put(resourceString, String.valueOf(i));
+                    } catch (Resources.NotFoundException ignored) {
+                    }
+                }
             }
-            latch.await(); // Wait for all threads to finish
             XposedBridge.log("String cache saved in " + (System.currentTimeMillis() - currentTime) + "ms");
         } catch (Exception e) {
             XposedBridge.log(e);
-        } finally {
-            executor.shutdown();
         }
     }
 
     private String getMapIdString(String search) {
         if (reverseResourceMap.isEmpty()) {
             initializeReverseResourceMap();
-            System.gc();
         }
         search = search.toLowerCase().replaceAll("\\s", "");
         XposedBridge.log("need search obsfucate: " + search);
@@ -189,7 +183,7 @@ public class UnobfuscatorCache {
         if (id == null) {
             id = getMapIdString(search);
             if (id != null) {
-                sPrefsCacheStrings.edit().putString(search, id).commit();
+                sPrefsCacheStrings.edit().putString(search, id).apply();
             }
         }
         return id == null ? -1 : Integer.parseInt(id);
@@ -432,7 +426,7 @@ public class UnobfuscatorCache {
     @SuppressWarnings("ApplySharedPref")
     public void saveField(String key, Field field) {
         String value = field.getDeclaringClass().getName() + ":" + field.getName();
-        sPrefsCacheHooks.edit().putString(key, value).commit();
+        sPrefsCacheHooks.edit().putString(key, value).apply();
     }
 
     @SuppressWarnings("ApplySharedPref")
@@ -441,7 +435,7 @@ public class UnobfuscatorCache {
         for (Field field : fields) {
             values.add(field.getDeclaringClass().getName() + ":" + field.getName());
         }
-        sPrefsCacheHooks.edit().putString(key, String.join("&", values)).commit();
+        sPrefsCacheHooks.edit().putString(key, String.join("&", values)).apply();
     }
 
     @SuppressWarnings("ApplySharedPref")
@@ -450,7 +444,7 @@ public class UnobfuscatorCache {
         if (method.getParameterTypes().length > 0) {
             value += ":" + Arrays.stream(method.getParameterTypes()).map(Class::getName).collect(Collectors.joining(","));
         }
-        sPrefsCacheHooks.edit().putString(key, value).commit();
+        sPrefsCacheHooks.edit().putString(key, value).apply();
     }
 
     @SuppressWarnings("ApplySharedPref")
@@ -463,12 +457,12 @@ public class UnobfuscatorCache {
             }
             values.add(value);
         }
-        sPrefsCacheHooks.edit().putString(key, String.join("&", values)).commit();
+        sPrefsCacheHooks.edit().putString(key, String.join("&", values)).apply();
     }
 
     @SuppressWarnings("ApplySharedPref")
     public void saveClass(String message, Class<?> messageClass) {
-        sPrefsCacheHooks.edit().putString(message, messageClass.getName()).commit();
+        sPrefsCacheHooks.edit().putString(message, messageClass.getName()).apply();
     }
 
     @SuppressWarnings("ApplySharedPref")
@@ -477,7 +471,7 @@ public class UnobfuscatorCache {
         for (Class<?> aClass : messageClass) {
             values.add(aClass.getName());
         }
-        sPrefsCacheHooks.edit().putString(message, String.join("&", values)).commit();
+        sPrefsCacheHooks.edit().putString(message, String.join("&", values)).apply();
     }
 
     private String getKeyName() {
@@ -511,7 +505,7 @@ public class UnobfuscatorCache {
         if (constructor.getParameterTypes().length > 0) {
             value += ":" + Arrays.stream(constructor.getParameterTypes()).map(Class::getName).collect(Collectors.joining(","));
         }
-        sPrefsCacheHooks.edit().putString(key, value).commit();
+        sPrefsCacheHooks.edit().putString(key, value).apply();
     }
 
     public interface FunctionCall<T> {

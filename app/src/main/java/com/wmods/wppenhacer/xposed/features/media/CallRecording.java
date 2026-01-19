@@ -10,10 +10,10 @@ import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.ParcelFileDescriptor; // Ensure this import is present
 import android.provider.MediaStore;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
 
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.FeatureLoader;
@@ -25,7 +25,7 @@ import com.wmods.wppenhacer.xposed.utils.Utils;
 import org.luckypray.dexkit.query.enums.StringMatchType;
 
 import java.io.File;
-import java.io.IOException;
+import java.io.IOException; // Required for ParcelFileDescriptor operations
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -43,9 +43,8 @@ public class CallRecording extends Feature {
     private final AtomicBoolean isCallConnected = new AtomicBoolean(false);
     private MediaRecorder mMediaRecorder;
     private Uri mFileUri;
-    private String mOutputPath;
     private volatile String currentContactName = "Unknown";
-    
+
     public CallRecording(@NonNull ClassLoader loader, @NonNull XSharedPreferences preferences) {
         super(loader, preferences);
     }
@@ -88,12 +87,13 @@ public class CallRecording extends Feature {
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         Object callInfo = XposedHelpers.callMethod(param.thisObject, "getCallInfo");
                         if (callInfo != null) {
-                            // Safe check for isVideoCall using dynamic field search
                             boolean isVideo = false;
                             try {
                                 isVideo = (boolean) XposedHelpers.callMethod(callInfo, "isVideoCall");
                             } catch (Throwable t) {
-                                try { isVideo = XposedHelpers.getBooleanField(callInfo, "isVideoCall"); } catch (Throwable ignored) {}
+                                try {
+                                    isVideo = XposedHelpers.getBooleanField(callInfo, "isVideoCall");
+                                } catch (Throwable ignored) {}
                             }
                             if (isVideo) return;
                         }
@@ -124,23 +124,26 @@ public class CallRecording extends Feature {
             if (peerJid != null) {
                 FMessageWpp.UserJid userJid = new FMessageWpp.UserJid(peerJid);
                 String realName = WppCore.getContactName(userJid);
-                currentContactName = (realName != null && !realName.isEmpty() && !realName.equals("Whatsapp Contact")) 
-                    ? realName : userJid.getPhoneNumber();
-                XposedBridge.log("WaEnhancer: Recording contact: " + currentContactName);
+                currentContactName = (realName != null && !realName.isEmpty() && !realName.equals("Whatsapp Contact"))
+                        ? realName : userJid.getPhoneNumber();
             }
         } catch (Throwable ignored) {}
     }
 
     private synchronized void startRecording() {
-        if (isRecording.get()) return;
+        if (isRecording.get() || !isCallConnected.get()) {
+            return;
+        }
 
-        // Re-ordered sources: 4=VOICE_CALL, 9=UNPROCESSED (Cleaner), 7=VOICE_COMMUNICATION, 6=VOICE_RECOGNITION, 1=MIC
         int[] sources = prefs.getBoolean("call_recording_use_root", false)
                 ? new int[]{6, 9, 4, 1}
                 : new int[]{9, 1};
 
         for (int source : sources) {
+            ParcelFileDescriptor pfd = null; // Defined as android.os.ParcelFileDescriptor
             try {
+                if (!isCallConnected.get()) break;
+
                 mMediaRecorder = new MediaRecorder();
                 mMediaRecorder.setAudioSource(source);
                 mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
@@ -156,45 +159,84 @@ public class CallRecording extends Feature {
                     values.put(MediaStore.Audio.Media.DISPLAY_NAME, fileName);
                     values.put(MediaStore.Audio.Media.MIME_TYPE, "audio/mp4");
                     values.put(MediaStore.Audio.Media.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/WaEnhancer/Recordings");
+                    values.put(MediaStore.Audio.Media.IS_PENDING, 1);
+
                     mFileUri = FeatureLoader.mApp.getContentResolver().insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
-                    mMediaRecorder.setOutputFile(FeatureLoader.mApp.getContentResolver().openFileDescriptor(mFileUri, "rw").getFileDescriptor());
+                    if (mFileUri != null) {
+                        // Open the descriptor
+                        pfd = FeatureLoader.mApp.getContentResolver().openFileDescriptor(mFileUri, "rw");
+                        if (pfd != null) {
+                            // Correct method call for ParcelFileDescriptor
+                            mMediaRecorder.setOutputFile(pfd.getFileDescriptor());
+                        }
+                    }
                 } else {
                     File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "WaEnhancer/Recordings");
                     if (!dir.exists()) dir.mkdirs();
-                    mOutputPath = new File(dir, fileName).getAbsolutePath();
-                    mMediaRecorder.setOutputFile(mOutputPath);
+                    mMediaRecorder.setOutputFile(new File(dir, fileName).getAbsolutePath());
                 }
 
                 mMediaRecorder.prepare();
+
+                if (!isCallConnected.get()) {
+                    throw new Exception("Call ended immediately");
+                }
+
                 mMediaRecorder.start();
                 isRecording.set(true);
-                XposedBridge.log("WaEnhancer: M4A Recording started using source: " + source);
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && mFileUri != null) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Audio.Media.IS_PENDING, 0);
+                    FeatureLoader.mApp.getContentResolver().update(mFileUri, values, null, null);
+                }
 
                 if (prefs.getBoolean("call_recording_toast", true)) {
                     Utils.showToast("Call recording started", 0);
                 }
-                return; // Successfully started
+                return;
             } catch (Exception e) {
-                XposedBridge.log("WaEnhancer: Source " + source + " failed: " + e.getMessage());
+                XposedBridge.log("WaEnhancer: Recording source " + source + " failed: " + e.getMessage());
+
                 if (mMediaRecorder != null) {
-                    mMediaRecorder.release();
+                    try { mMediaRecorder.release(); } catch (Exception ignored) {}
                     mMediaRecorder = null;
+                }
+
+                // Close the file descriptor if it was opened
+                if (pfd != null) {
+                    try {
+                        // ParcelFileDescriptor.close() is valid
+                        pfd.close();
+                    } catch (Exception ignored) {}
+                }
+
+                if (!isCallConnected.get()) {
+                    break;
                 }
             }
         }
-        XposedBridge.log("WaEnhancer: All audio sources unavailable");
     }
 
     private synchronized void stopRecording() {
-        if (!isRecording.get() || mMediaRecorder == null) return;
-        isRecording.set(false);
+        if (mMediaRecorder == null || !isRecording.compareAndSet(true, false)) {
+            return;
+        }
+
         try {
             mMediaRecorder.stop();
-            mMediaRecorder.release();
+            XposedBridge.log("WaEnhancer: Call Recording saved");
+        } catch (RuntimeException e) {
+            XposedBridge.log("WaEnhancer: Call recording stopped with no data. Message: " + e.getMessage());
+        } finally {
+            try {
+                mMediaRecorder.release();
+            } catch (Exception e) {
+                XposedBridge.log("WaEnhancer: Error releasing media recorder: " + e.getMessage());
+            }
             mMediaRecorder = null;
-            XposedBridge.log("WaEnhancer: M4A Recording saved");
-        } catch (Exception ignored) {}
-        currentContactName = "Unknown";
+            currentContactName = "Unknown";
+        }
     }
 
     @NonNull
