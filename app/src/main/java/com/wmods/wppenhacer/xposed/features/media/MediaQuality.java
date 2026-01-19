@@ -77,83 +77,21 @@ public class MediaQuality extends Feature {
             });
             jsonPropertyHook.set(unhooked);
 
-            var videoMethod = Unobfuscator.loadMediaQualityVideoMethod2(classLoader);
-            logDebug(Unobfuscator.getMethodDescriptor(videoMethod));
-
-            var mediaFields = Unobfuscator.loadMediaQualityOriginalVideoFields(classLoader);
-            var mediaTranscodeParams = Unobfuscator.loadMediaQualityVideoFields(classLoader);
-
-            XposedBridge.hookMethod(videoMethod, new XC_MethodHook() {
-
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    var resizeVideo = param.getResult();
-                    boolean isHighResolution;
-                    boolean isEnum = false;
-                    var enumObj = ReflectionUtils.getArg(param.args, Enum.class, 0);
-                    var intParams = ReflectionUtils.findInstancesOfType(param.args, Integer.class);
-                    if (enumObj != null) {
-                        isEnum = true;
-                        var hightResolution = Enum.valueOf((Class<Enum>) enumObj.getClass(), "RESOLUTION_1080P");
-                        isHighResolution = hightResolution == enumObj;
-                    } else {
-                        isHighResolution = (int) param.args[1] == 3;
-                    }
-                    if (isHighResolution) {
-
-                        if (realResolution) {
-                            int width;
-                            int height;
-                            int rotationAngle;
-
-                            if (mediaFields.isEmpty()) {
-                                if (isEnum) {
-                                    width = intParams.get(0).second;
-                                    height = intParams.get(1).second;
-                                    rotationAngle = intParams.get(2).second;
-                                } else {
-                                    JSONObject mediaFields = (JSONObject) XposedHelpers.callMethod(param.args[0], "A00");
-                                    width = mediaFields.getInt("widthPx");
-                                    height = mediaFields.getInt("heightPx");
-                                    rotationAngle = mediaFields.getInt("rotationAngle");
-                                }
-                            } else {
-                                width = mediaFields.get("widthPx").getInt(param.args[0]);
-                                height = mediaFields.get("heightPx").getInt(param.args[0]);
-                                rotationAngle = mediaFields.get("rotationAngle").getInt(param.args[0]);
-                            }
-                            var targetWidthField = mediaTranscodeParams.get("targetWidth");
-                            var targetHeightField = mediaTranscodeParams.get("targetHeight");
-
-                            var inverted = rotationAngle == 90 || rotationAngle == 270;
-
-                            targetHeightField.setInt(resizeVideo, inverted ? width : height);
-                            targetWidthField.setInt(resizeVideo, inverted ? height : width);
-
-                        }
-
-                    }
-                    if (prefs.getBoolean("video_maxfps", false)) {
-                        var frameRateField = mediaTranscodeParams.get("frameRate");
-                        frameRateField.setInt(resizeVideo, 60);
-                    }
-                }
-            });
 
             // HD video must be sent in maximum resolution (up to 4K)
             if (realResolution) {
                 Others.propsInteger.put(594, 8000);
                 Others.propsInteger.put(12852, 8000);
             } else {
-                Others.propsInteger.put(594, 1920);
-                Others.propsInteger.put(12852, 1920);
+                Others.propsInteger.put(594, 0);
+                Others.propsInteger.put(12852, 0);
             }
 
-            // Non-HD video must be sent in HD resolution
-            Others.propsInteger.put(4686, 1280);
-            Others.propsInteger.put(3654, 1280);
-            Others.propsInteger.put(3183, 1280); // Stories
-            Others.propsInteger.put(4685, 1280); // Stories
+             // Non-HD video must be sent in HD resolution
+             Others.propsInteger.put(4686, 0);
+             Others.propsInteger.put(3654, 0);
+             Others.propsInteger.put(3183, 0); // Stories
+             Others.propsInteger.put(4685, 0); // Stories
 
             // Max bitrate
             Others.propsInteger.put(3755, 96000);
