@@ -270,8 +270,11 @@ public class AntiRevoke extends Feature {
         } else {
             message = name + " " + messageSuffix;
         }
-        if (prefs.getBoolean("toastdeleted", false)) {
+        var toastDeletedOption = Integer.parseInt(prefs.getString("toastdeleted", "0"));
+        if (toastDeletedOption == 1) {
             Utils.showToast(message, Toast.LENGTH_LONG);
+        } else if (toastDeletedOption == 2) {
+            Utils.showNotification(Utils.getApplication().getString(ResId.string.deleted_message), message);
         }
         Tasker.sendTaskerEvent(name, jidAuthor.getPhoneNumber(), jidAuthor.isStatus() ? "deleted_status" : "deleted_message");
     }

@@ -175,8 +175,11 @@
     <string name="enable_new_chat_button_sum">Add button in Home Screen to start new chat</string>
     <string name="enable_restart_button">Enable Restart Button</string>
     <string name="enable_restart_button_sum">Add button in Home Screen to Restart App</string>
-    <string name="toast_on_delete">Show toast notification on delete message</string>
-    <string name="toast_on_delete_sum">Show toast notification if any contact deletes any message</string>
+    <string name="toast_on_delete">Delete message notification</string>
+    <string name="toast_on_delete_sum">Choose how to be notified when a message is deleted</string>
+    <string name="toastdeleted_option_disabled">Disabled</string>
+    <string name="toastdeleted_option_toast">Show Toast</string>
+    <string name="toastdeleted_option_notification">Show Notification</string>
     <string name="hideread_group">Hide Blue Tick in Groups</string>
     <string name="hideread_group_sum">View messages in groups screen without users knowing</string>
     <string name="show_freezeLastSeen_button">Show Freeze Last Seen Button</string>

@@ -166,33 +166,11 @@ public class UnobfuscatorCache {
             XposedBridge.log(e);
         }
     }
-                }
-            } catch (Exception e) {
-                // Fallback to brute force if reflection fails
-                int startId = 0x7f120000;
-                int endId = 0x7f12ffff;
-                for (int i = startId; i <= endId; i++) {
-                    try {
-                        String resourceString = resources.getString(i).toLowerCase().replaceAll("\\s", "");
-                        reverseResourceMap.put(resourceString, String.valueOf(i));
-                    } catch (Resources.NotFoundException ignored) {
-                    }
-                }
-            }
-            XposedBridge.log("String cache saved in " + (System.currentTimeMillis() - currentTime) + "ms");
-        } catch (Exception e) {
-            XposedBridge.log(e);
-        }
-    }
 
     private String getMapIdString(String search) {
         if (reverseResourceMap.isEmpty()) {
             initializeReverseResourceMap();
         }
-        search = search.toLowerCase().replaceAll("\\s", "");
-        XposedBridge.log("need search obsfucate: " + search);
-        return reverseResourceMap.get(search);
-    }
         search = search.toLowerCase().replaceAll("\\s", "");
         XposedBridge.log("need search obsfucate: " + search);
         return reverseResourceMap.get(search);
