@@ -73,41 +73,44 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
                 oldIndex++;
                 newIndex++;
             } else {
-                // Check if we can find a match later for old word
                 boolean foundMatch = false;
-                for (int i = newIndex; i < newWords.length; i++) {
-                    if (oldWords[oldIndex].equals(newWords[i])) {
-                        // Add remaining new words as additions
-                        for (int j = newIndex; j < i; j++) {
+                if (oldIndex < oldWords.length && newIndex < newWords.length) {
+                    // Check if we can find a match later for old word
+                    for (int i = newIndex; i < newWords.length; i++) {
+                        if (oldWords[oldIndex].equals(newWords[i])) {
+                            // Add remaining new words as additions
+                            for (int j = newIndex; j < i; j++) {
+                                if (builder.length() > 0) builder.append(" ");
+                                int start = builder.length();
+                                builder.append(newWords[j]);
+                                builder.setSpan(new ForegroundColorSpan(Color.GREEN), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            }
+                            // Add the matched word normally
                             if (builder.length() > 0) builder.append(" ");
-                            int start = builder.length();
-                            builder.append(newWords[j]);
-                            builder.setSpan(new ForegroundColorSpan(Color.GREEN), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            builder.append(newWords[i]);
+                            newIndex = i + 1;
+                            foundMatch = true;
+                            break;
                         }
-                        // Add the matched word normally
-                        if (builder.length() > 0) builder.append(" ");
-                        builder.append(newWords[i]);
-                        newIndex = i + 1;
-                        foundMatch = true;
-                        break;
                     }
                 }
-                if (!foundMatch && oldIndex < oldWords.length) {
-                    // Old word deleted
-                    if (builder.length() > 0) builder.append(" ");
-                    int start = builder.length();
-                    builder.append(oldWords[oldIndex]);
-                    builder.setSpan(new ForegroundColorSpan(Color.RED), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                    builder.setSpan(new StrikethroughSpan(), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                    oldIndex++;
-                }
-                if (!foundMatch && newIndex < newWords.length) {
-                    // New word added
-                    if (builder.length() > 0) builder.append(" ");
-                    int start = builder.length();
-                    builder.append(newWords[newIndex]);
-                    builder.setSpan(new ForegroundColorSpan(Color.GREEN), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                    newIndex++;
+                if (!foundMatch) {
+                    if (oldIndex < oldWords.length) {
+                        // Old word deleted
+                        if (builder.length() > 0) builder.append(" ");
+                        int start = builder.length();
+                        builder.append(oldWords[oldIndex]);
+                        builder.setSpan(new ForegroundColorSpan(Color.RED), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        builder.setSpan(new StrikethroughSpan(), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        oldIndex++;
+                    } else if (newIndex < newWords.length) {
+                        // New word added
+                        if (builder.length() > 0) builder.append(" ");
+                        int start = builder.length();
+                        builder.append(newWords[newIndex]);
+                        builder.setSpan(new ForegroundColorSpan(Color.GREEN), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        newIndex++;
+                    }
                 }
             }
         }
