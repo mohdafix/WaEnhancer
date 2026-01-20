@@ -9,7 +9,11 @@
             app:summary="@string/show_toast_on_contact_online_sum"
             app:title="@string/show_toast_on_contact_online" />
 
-        <rikka.material.preference.MaterialSwitchPreference
+        <ListPreference
+            app:defaultValue="0"
+            app:entries="@array/toastdeleted_entries"
+            app:entryValues="@array/toastdeleted_values"
+            app:iconSpaceReserved="false"
             app:key="toastdeleted"
             app:summary="@string/toast_on_delete_sum"
             app:title="@string/toast_on_delete" />
@@ -20,6 +24,7 @@
             app:title="@string/toast_on_viewed_message" />
 
         <ListPreference
+            app:defaultValue="0"
             app:entries="@array/antirevoke_entries"
             app:entryValues="@array/antirevoke_values"
             app:iconSpaceReserved="false"
@@ -28,6 +33,7 @@
             app:title="@string/antirevoke" />
 
         <ListPreference
+            app:defaultValue="0"
             app:entries="@array/antirevoke_entries"
             app:entryValues="@array/antirevoke_values"
             app:iconSpaceReserved="false"

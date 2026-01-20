@@ -6,6 +6,7 @@
         app:title="@string/general">
 
         <ListPreference
+            app:defaultValue="0"
             app:entries="@array/thememode_entries"
             app:entryValues="@array/thememode_values"
             app:key="thememode"

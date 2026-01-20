@@ -107,6 +107,7 @@
             app:title="@string/viewonce" />
 
         <ListPreference
+            app:defaultValue="0"
             app:entries="@array/seentick_buttons"
             app:entryValues="@array/seentick_values"
             app:key="seentick"
@@ -134,6 +135,7 @@
             app:title="@string/additional_call_information" />
 
         <ListPreference
+            app:defaultValue="0"
             app:entries="@array/call_blocker_buttons"
             app:entryValues="@array/call_blocker_values"
             app:key="call_privacy"
@@ -141,6 +143,7 @@
             app:title="@string/call_blocker" />
 
         <ListPreference
+            app:defaultValue="no_internet"
             app:entries="@array/call_type_buttons"
             app:entryValues="@array/call_type_values"
             app:key="call_type"

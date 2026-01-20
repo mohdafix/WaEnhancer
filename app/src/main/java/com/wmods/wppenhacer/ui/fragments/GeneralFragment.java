@@ -60,6 +60,21 @@ public class GeneralFragment extends BaseFragment {
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             super.onCreatePreferences(savedInstanceState, rootKey);
+            // Migrate boolean preferences to string for ListPreferences
+            var editor = mPrefs.edit();
+            boolean changed = false;
+            String[] listPrefKeys = {"toastdeleted", "antirevoke", "antirevokestatus"};
+            for (String key : listPrefKeys) {
+                Object value = mPrefs.getAll().get(key);
+                if (value instanceof Boolean) {
+                    boolean boolValue = (Boolean) value;
+                    editor.putString(key, boolValue ? "1" : "0");
+                    changed = true;
+                }
+            }
+            if (changed) {
+                editor.apply();
+            }
             setPreferencesFromResource(R.xml.preference_general_conversation, rootKey);
             setDisplayHomeAsUpEnabled(true);
         }
