@@ -10,6 +10,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.app.ActivityOptionsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.viewpager2.widget.ViewPager2;
@@ -26,6 +27,10 @@ import com.wmods.wppenhacer.utils.FilePicker;
 import java.io.File;
 
 public class MainActivity extends BaseActivity {
+
+    public static final String EXTRA_SEARCH_TAB_INDEX = "extra_search_tab_index";
+    public static final String EXTRA_SEARCH_SCREEN_CLASS = "extra_search_screen_class";
+    public static final String EXTRA_SEARCH_PREF_KEY = "extra_search_pref_key";
 
     private ActivityMainBinding binding;
     private BatteryPermissionHelper batteryPermissionHelper = BatteryPermissionHelper.Companion.getInstance();
@@ -92,6 +97,110 @@ public class MainActivity extends BaseActivity {
         binding.viewPager.setCurrentItem(2, false);
         createMainDir();
         FilePicker.registerFilePicker(this);
+
+        handleSearchIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleSearchIntent(intent);
+    }
+
+    private void handleSearchIntent(@NonNull Intent intent) {
+        if (!intent.hasExtra(EXTRA_SEARCH_TAB_INDEX)) return;
+
+        int tabIndex = intent.getIntExtra(EXTRA_SEARCH_TAB_INDEX, 2);
+        String screenClass = intent.getStringExtra(EXTRA_SEARCH_SCREEN_CLASS);
+        String prefKey = intent.getStringExtra(EXTRA_SEARCH_PREF_KEY);
+
+        // Prevent re-handling on configuration changes.
+        intent.removeExtra(EXTRA_SEARCH_TAB_INDEX);
+        intent.removeExtra(EXTRA_SEARCH_SCREEN_CLASS);
+        intent.removeExtra(EXTRA_SEARCH_PREF_KEY);
+
+        navigateToPreference(tabIndex, screenClass, prefKey);
+    }
+
+    private void navigateToPreference(int tabIndex, @Nullable String screenClassName, @Nullable String prefKey) {
+        binding.viewPager.setCurrentItem(tabIndex, false);
+        binding.viewPager.postDelayed(() -> tryNavigateToPreference(tabIndex, screenClassName, prefKey, 0), 50);
+    }
+
+    private void tryNavigateToPreference(int tabIndex, @Nullable String screenClassName, @Nullable String prefKey, int attempt) {
+        var tabFragment = findTabFragment(tabIndex);
+        if (tabFragment == null) {
+            if (attempt < 20) {
+                binding.viewPager.postDelayed(() -> tryNavigateToPreference(tabIndex, screenClassName, prefKey, attempt + 1), 50);
+            }
+            return;
+        }
+
+        if (tabIndex == 0 && tabFragment instanceof com.wmods.wppenhacer.ui.fragments.GeneralFragment generalFragment) {
+            openGeneralScreenAndScroll(generalFragment, screenClassName, prefKey);
+            return;
+        }
+
+        if (tabFragment instanceof androidx.preference.PreferenceFragmentCompat prefFragment) {
+            if (prefKey != null) {
+                prefFragment.scrollToPreference(prefKey);
+            }
+        }
+    }
+
+    private void openGeneralScreenAndScroll(
+            @NonNull com.wmods.wppenhacer.ui.fragments.GeneralFragment generalFragment,
+            @Nullable String screenClassName,
+            @Nullable String prefKey
+    ) {
+        String target = screenClassName;
+        if (target == null || target.isBlank()) {
+            target = "com.wmods.wppenhacer.ui.fragments.GeneralFragment$GeneralPreferenceFragment";
+        }
+
+        var fm = generalFragment.getChildFragmentManager();
+        if (fm.isStateSaved()) {
+            // Retry once the state is restored.
+            binding.viewPager.postDelayed(() -> openGeneralScreenAndScroll(generalFragment, screenClassName, prefKey), 50);
+            return;
+        }
+
+        // Reset to a clean stack, then open the target screen.
+        fm.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
+
+        try {
+            Class<?> clazz = Class.forName(target);
+            var fragment = (androidx.fragment.app.Fragment) clazz.getDeclaredConstructor().newInstance();
+
+            boolean isRoot = target.endsWith("$GeneralPreferenceFragment");
+            var tx = fm.beginTransaction().replace(R.id.frag_container, fragment);
+            if (!isRoot) {
+                tx.addToBackStack(null);
+            }
+            tx.commitNow();
+
+            if (prefKey != null && fragment instanceof androidx.preference.PreferenceFragmentCompat pf) {
+                // Ensure preferences are laid out before scrolling.
+                binding.viewPager.post(() -> pf.scrollToPreference(prefKey));
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    @Nullable
+    private Fragment findTabFragment(int tabIndex) {
+        // ViewPager2 fragments are typically tagged as "f0", "f1", ...
+        Fragment byTag = getSupportFragmentManager().findFragmentByTag("f" + tabIndex);
+        if (byTag != null) return byTag;
+
+        for (Fragment f : getSupportFragmentManager().getFragments()) {
+            if (tabIndex == 1 && f instanceof com.wmods.wppenhacer.ui.fragments.PrivacyFragment) return f;
+            if (tabIndex == 3 && f instanceof com.wmods.wppenhacer.ui.fragments.MediaFragment) return f;
+            if (tabIndex == 4 && f instanceof com.wmods.wppenhacer.ui.fragments.CustomizationFragment) return f;
+            if (tabIndex == 0 && f instanceof com.wmods.wppenhacer.ui.fragments.GeneralFragment) return f;
+        }
+        return null;
     }
 
     private void createMainDir() {
@@ -122,7 +231,12 @@ public class MainActivity extends BaseActivity {
     @SuppressLint("BatteryLife")
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == R.id.menu_about) {
+        if (item.getItemId() == R.id.menu_search) {
+            var options = ActivityOptionsCompat.makeCustomAnimation(
+                    this, R.anim.slide_in_right, R.anim.slide_out_left);
+            startActivity(new Intent(this, SettingsSearchActivity.class), options.toBundle());
+            return true;
+        } else if (item.getItemId() == R.id.menu_about) {
             var options = ActivityOptionsCompat.makeCustomAnimation(
                     this, R.anim.slide_in_right, R.anim.slide_out_left);
             startActivity(new Intent(this, AboutActivity.class), options.toBundle());
