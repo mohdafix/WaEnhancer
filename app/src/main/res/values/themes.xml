@@ -90,7 +90,7 @@
 
     <style name="BottomNavStyle" parent="Widget.Material3.BottomNavigationView">
         <item name="itemActiveIndicatorStyle">@style/NavActiveIndicator</item>
-        <item name="labelVisibilityMode">labeled</item>
+        <item name="labelVisibilityMode">selected</item>
         <item name="android:minHeight">@dimen/nav_bar_height</item>
         <item name="elevation">@dimen/card_elevation_high</item>
     </style>

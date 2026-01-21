@@ -72,13 +72,13 @@ public class HideReceipt extends Feature {
                 if (keyMessage == null) return;
 
                 FMessageWpp fMessage = keyMessage.getFMessage();
-                if (isAlreadyHidden(fMessage)) return;
+                if (isAlreadyHidden(keyMessage, fMessage)) return;
 
                 Object userJidObject = extractUserJidObject(param);
                 if (userJidObject == null) return;
 
                 FMessageWpp.UserJid currentUserJid = new FMessageWpp.UserJid(userJidObject);
-                processReceiptHiding(param, fMessage, currentUserJid);
+                processReceiptHiding(param, keyMessage, fMessage, currentUserJid);
             }
         });
     }
@@ -101,19 +101,29 @@ public class HideReceipt extends Feature {
         return getKeyMessage(param, userJidObject, strings);
     }
 
-    private boolean isAlreadyHidden(FMessageWpp fMessage) {
-        if (fMessage == null) return false;
+    private boolean isAlreadyHidden(FMessageWpp.Key keyMessage, FMessageWpp fMessage) {
+        if (keyMessage == null || keyMessage.remoteJid == null) return false;
 
-        FMessageWpp.Key key = fMessage.getKey();
-        MessageHistory.MessageType type = fMessage.isViewOnce()
-                ? MessageHistory.MessageType.VIEW_ONCE_TYPE
-                : MessageHistory.MessageType.MESSAGE_TYPE;
+        String phone = keyMessage.remoteJid.getPhoneRawString();
+        if (phone == null || phone.isEmpty()) return false;
 
-        return MessageHistory.getInstance().getHideSeenMessage(
-                key.remoteJid.getPhoneRawString(), key.messageID, type) != null;
+        String messageId = keyMessage.messageID;
+        if (messageId == null || messageId.isEmpty()) return false;
+
+        if (fMessage != null) {
+            MessageHistory.MessageType type = fMessage.isViewOnce()
+                    ? MessageHistory.MessageType.VIEW_ONCE_TYPE
+                    : MessageHistory.MessageType.MESSAGE_TYPE;
+            return MessageHistory.getInstance().getHideSeenMessage(phone, messageId, type) != null;
+        }
+
+        // If we don't have the message object, we can't reliably infer the type.
+        // Check both to avoid crashing and minimize duplicates.
+        return MessageHistory.getInstance().getHideSeenMessage(phone, messageId, MessageHistory.MessageType.MESSAGE_TYPE) != null
+                || MessageHistory.getInstance().getHideSeenMessage(phone, messageId, MessageHistory.MessageType.VIEW_ONCE_TYPE) != null;
     }
 
-    private void processReceiptHiding(XC_MethodHook.MethodHookParam param, FMessageWpp fMessage,
+    private void processReceiptHiding(XC_MethodHook.MethodHookParam param, FMessageWpp.Key keyMessage, FMessageWpp fMessage,
                                       FMessageWpp.UserJid currentUserJid) {
         JSONObject privacy = CustomPrivacy.getJSON(currentUserJid.getPhoneNumber());
         List<Pair<Integer, Class<? extends String>>> strings = ReflectionUtils.findClassesOfType(
@@ -125,7 +135,7 @@ public class HideReceipt extends Feature {
         }
 
         if (RECEIPT_TYPE_INACTIVE.equals(param.args[msgTypeIdx])) {
-            recordHiddenMessage(fMessage, currentUserJid);
+            recordHiddenMessage(keyMessage, fMessage, currentUserJid);
         }
     }
 
@@ -144,14 +154,20 @@ public class HideReceipt extends Feature {
         return false;
     }
 
-    private void recordHiddenMessage(FMessageWpp fMessage, FMessageWpp.UserJid userJid) {
-        FMessageWpp.Key key = fMessage.getKey();
-        MessageHistory.MessageType type = fMessage.isViewOnce()
+    private void recordHiddenMessage(FMessageWpp.Key keyMessage, FMessageWpp fMessage, FMessageWpp.UserJid userJid) {
+        if (keyMessage == null || userJid == null) return;
+
+        String phone = userJid.getPhoneRawString();
+        if (phone == null || phone.isEmpty()) return;
+
+        String messageId = keyMessage.messageID;
+        if (messageId == null || messageId.isEmpty()) return;
+
+        MessageHistory.MessageType type = (fMessage != null && fMessage.isViewOnce())
                 ? MessageHistory.MessageType.VIEW_ONCE_TYPE
                 : MessageHistory.MessageType.MESSAGE_TYPE;
 
-        MessageHistory.getInstance().insertHideSeenMessage(
-                userJid.getPhoneRawString(), key.messageID, type, false);
+        MessageHistory.getInstance().insertHideSeenMessage(phone, messageId, type, false);
         HideSeenView.updateAllBubbleViews();
     }
 

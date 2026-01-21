@@ -15,7 +15,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.preference.PreferenceManager;
@@ -34,6 +33,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 public class RecordingsFragment extends Fragment implements RecordingsAdapter.OnRecordingActionListener {
@@ -42,9 +44,12 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
     private RecordingsAdapter adapter;
     private List<Recording> allRecordings = new ArrayList<>();
     private List<File> baseDirs = new ArrayList<>();
-    private boolean isGroupByContact = false;
+    private boolean isGroupByContact = true;
     private String currentContactFilter = null;
     private int currentSortType = 1; // 1=date, 2=name, 3=duration, 4=contact
+
+    private final ExecutorService loadExecutor = Executors.newSingleThreadExecutor();
+    private Future<?> loadFuture;
 
     @Nullable
     @Override
@@ -79,13 +84,13 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
         binding.chipList.setOnClickListener(v -> {
             isGroupByContact = false;
             currentContactFilter = null;
-            loadRecordings();
+            updateDisplayList();
         });
         
         binding.chipGroupByContact.setOnClickListener(v -> {
             isGroupByContact = true;
             currentContactFilter = null;
-            loadRecordings();
+            updateDisplayList();
         });
 
         // Selection bar buttons
@@ -100,14 +105,13 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
         loadRecordings();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.R)
     private void initializeBaseDirs() {
         var prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
         String path = prefs.getString("call_recording_path", null);
         
         baseDirs.clear();
         
-        if (Environment.isExternalStorageManager()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
             baseDirs.add(new File(Environment.getExternalStorageDirectory(), "WA Call Recordings"));
         }
         
@@ -122,24 +126,59 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
     }
 
     private void loadRecordings() {
-        allRecordings.clear();
-        
-        for (File baseDir : baseDirs) {
-            if (baseDir.exists() && baseDir.isDirectory()) {
-                traverseDirectory(baseDir);
-            }
+        if (loadFuture != null) {
+            loadFuture.cancel(true);
+            loadFuture = null;
         }
 
-        if (allRecordings.isEmpty()) {
-            binding.emptyView.setVisibility(View.VISIBLE);
-            binding.recyclerView.setVisibility(View.GONE);
-        } else {
+        final var context = getContext();
+        if (context == null) return;
+        final var activity = getActivity();
+        if (activity == null) return;
+        final var appContext = context.getApplicationContext();
+        final var dirsSnapshot = new ArrayList<>(baseDirs);
+
+        showLoading(true);
+
+        loadFuture = loadExecutor.submit(() -> {
+            List<Recording> recordings = new ArrayList<>();
+
+            for (File baseDir : dirsSnapshot) {
+                if (Thread.currentThread().isInterrupted()) return;
+                if (baseDir.exists() && baseDir.isDirectory()) {
+                    traverseDirectory(baseDir, recordings, appContext);
+                }
+            }
+
+            if (Thread.currentThread().isInterrupted()) return;
+
+            activity.runOnUiThread(() -> {
+                if (!isAdded() || binding == null) return;
+
+                allRecordings = recordings;
+                showLoading(false);
+
+                if (allRecordings.isEmpty()) {
+                    binding.emptyView.setVisibility(View.VISIBLE);
+                    binding.recyclerView.setVisibility(View.GONE);
+                } else {
+                    binding.emptyView.setVisibility(View.GONE);
+                    binding.recyclerView.setVisibility(View.VISIBLE);
+                    applySort();
+                    updateDisplayList();
+                }
+            });
+        });
+    }
+
+    private void showLoading(boolean loading) {
+        if (binding == null) return;
+        binding.progress.setVisibility(loading ? View.VISIBLE : View.GONE);
+        if (loading) {
             binding.emptyView.setVisibility(View.GONE);
-            binding.recyclerView.setVisibility(View.VISIBLE);
-            
-            applySort();
-            updateDisplayList();
+            binding.recyclerView.setVisibility(View.GONE);
         }
+        binding.fabSort.setEnabled(!loading);
     }
 
     private void updateDisplayList() {
@@ -147,25 +186,54 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
             // Show grouped by contact list (pseudo-folders)
             Map<String, List<Recording>> groups = allRecordings.stream()
                     .collect(Collectors.groupingBy(Recording::getGroupKey));
-            
+
             List<Recording> contactItems = new ArrayList<>();
             groups.forEach((name, recs) -> {
+                if (recs == null || recs.isEmpty()) return;
+
+                long totalDuration = 0L;
+                long latestDate = 0L;
+                for (Recording r : recs) {
+                    totalDuration += r.getDuration();
+                    if (r.getDate() > latestDate) latestDate = r.getDate();
+                }
+
+                final long totalDurationFinal = totalDuration;
+                final long latestDateFinal = latestDate;
+                final int countFinal = recs.size();
+
                 // We create a dummy recording to represent the group
                 Recording groupItem = new Recording(recs.get(0).getFile(), requireContext()) {
                     @Override
                     public String getFormattedSize() {
-                        return recs.size() + " recordings";
+                        return countFinal + " recordings";
                     }
-                    
+
                     @Override
                     public String getFormattedDuration() {
-                        return "";
+                        return formatDuration(totalDurationFinal);
+                    }
+
+                    @Override
+                    public long getDuration() {
+                        return totalDurationFinal;
+                    }
+
+                    @Override
+                    public long getDate() {
+                        return latestDateFinal;
+                    }
+
+                    @Override
+                    public String getPhoneNumber() {
+                        // In grouped mode we don't want a secondary line (looks like a folder list)
+                        return null;
                     }
                 };
                 contactItems.add(groupItem);
             });
-            
-            contactItems.sort(Comparator.comparing(Recording::getContactName));
+
+            contactItems.sort(getGroupedSortComparator());
             adapter.setRecordings(contactItems);
         } else if (currentContactFilter != null) {
             // Show recordings for specific contact
@@ -179,16 +247,42 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
         }
     }
 
-    private void traverseDirectory(File dir) {
+    private Comparator<Recording> getGroupedSortComparator() {
+        return switch (currentSortType) {
+            case 1 -> Comparator.comparingLong(Recording::getDate).reversed()
+                    .thenComparing(Recording::getContactName, String.CASE_INSENSITIVE_ORDER);
+            case 2 -> Comparator.comparing(Recording::getContactName, String.CASE_INSENSITIVE_ORDER);
+            case 3 -> Comparator.comparingLong(Recording::getDuration).reversed()
+                    .thenComparing(Recording::getContactName, String.CASE_INSENSITIVE_ORDER);
+            case 4 -> Comparator.comparing(Recording::getContactName, String.CASE_INSENSITIVE_ORDER)
+                    .thenComparingLong(Recording::getDate).reversed();
+            default -> Comparator.comparing(Recording::getContactName, String.CASE_INSENSITIVE_ORDER);
+        };
+    }
+
+    private static String formatDuration(long durationMs) {
+        long seconds = durationMs / 1000;
+        long minutes = seconds / 60;
+        seconds = seconds % 60;
+        if (minutes >= 60) {
+            long hours = minutes / 60;
+            minutes = minutes % 60;
+            return String.format("%d:%02d:%02d", hours, minutes, seconds);
+        }
+        return String.format("%d:%02d", minutes, seconds);
+    }
+
+    private void traverseDirectory(File dir, List<Recording> out, android.content.Context context) {
         File[] files = dir.listFiles();
         if (files != null) {
             for (File file : files) {
+                if (Thread.currentThread().isInterrupted()) return;
                 if (file.isDirectory()) {
-                    traverseDirectory(file);
+                    traverseDirectory(file, out, context);
                 } else {
                     String name = file.getName().toLowerCase();
                     if (name.endsWith(".wav") || name.endsWith(".mp3") || name.endsWith(".aac") || name.endsWith(".m4a") || name.endsWith(".mp4")) {
-                        allRecordings.add(new Recording(file, requireContext()));
+                        out.add(new Recording(file, context));
                     }
                 }
             }
@@ -339,6 +433,16 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        if (loadFuture != null) {
+            loadFuture.cancel(true);
+            loadFuture = null;
+        }
         binding = null;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        loadExecutor.shutdownNow();
     }
 }
