@@ -82,11 +82,6 @@
             android:theme="@style/AppTheme" />
 
         <activity
-            android:name=".activities.SearchActivity"
-            android:theme="@style/AppTheme"
-            android:windowSoftInputMode="stateVisible" />
-
-        <activity
             android:name=".activities.TextEditorActivity"
             android:theme="@style/AppTheme" />
 
