@@ -127,6 +127,12 @@
             app:summary="@string/show_contact_blocked_sum"
             app:title="@string/show_contact_blocked" />
 
+        <rikka.material.preference.MaterialSwitchPreference
+            app:defaultValue="true"
+            app:key="schedule_message"
+            app:summary="Enable schedule message option in conversation menu"
+            app:title="Schedule Message" />
+
     </PreferenceCategory>
 
 </PreferenceScreen>

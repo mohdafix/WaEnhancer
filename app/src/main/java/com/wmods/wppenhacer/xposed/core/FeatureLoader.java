@@ -68,6 +68,7 @@ import com.wmods.wppenhacer.xposed.features.others.DebugFeature;
 import com.wmods.wppenhacer.xposed.features.others.GoogleTranslate;
 import com.wmods.wppenhacer.xposed.features.others.GroupAdmin;
 import com.wmods.wppenhacer.xposed.features.others.MenuHome;
+import com.wmods.wppenhacer.xposed.features.others.MessageScheduler;
 import com.wmods.wppenhacer.xposed.features.others.Stickers;
 import com.wmods.wppenhacer.xposed.features.others.TextStatusComposer;
 import com.wmods.wppenhacer.xposed.features.others.ToastViewer;
@@ -369,6 +370,7 @@ public class FeatureLoader {
                 TextStatusComposer.class,
                 ToastViewer.class,
                 MenuHome.class,
+                MessageScheduler.class,
                 AntiWa.class,
                 CustomPrivacy.class,
                 AudioTranscript.class,
