@@ -1,5 +1,6 @@
 package com.wmods.wppenhacer.adapter;
 
+import android.animation.LayoutTransition;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -10,6 +11,8 @@ import android.text.style.StrikethroughSpan;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -19,27 +22,40 @@ import com.wmods.wppenhacer.xposed.utils.DesignUtils;
 import com.wmods.wppenhacer.xposed.utils.ResId;
 import com.wmods.wppenhacer.xposed.utils.Utils;
 
-import java.util.Arrays;
 import java.util.List;
 
 public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
     private final Context context;
     private final List<MessageHistory.MessageItem> items;
 
+    // Only one item expanded at a time. -1 means all collapsed.
+    private int expandedPosition = -1;
+
+    // Requested diff colors
+    // green: rgba(122, 224, 178, 1)
+    // red:   rgba(238, 118, 117, 1)
+    private static final int DIFF_ADDED_COLOR = Color.rgb(122, 224, 178);
+    private static final int DIFF_DELETED_COLOR = Color.rgb(238, 118, 117);
+
+    private static final int EXPANDED_BG_ALPHA = 16;
+
     public MessageAdapter(Context context, List<MessageHistory.MessageItem> items) {
-        super(context, android.R.layout.simple_list_item_2, android.R.id.text1, items);
+        super(context, 0, items);
         this.context = context;
         this.items = items;
     }
 
     @Override
     public int getCount() {
-        return items.size();
+        // Hide the original message (timestamp == 0) and only show diffs for edits.
+        // We still keep the original in the list because it is needed as the base for the first diff.
+        return Math.max(0, items.size() - 1);
     }
 
     @Override
     public MessageHistory.MessageItem getItem(int position) {
-        return items.get(position);
+        // Offset by 1 to skip the original message.
+        return items.get(position + 1);
     }
 
     @Override
@@ -48,8 +64,50 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
     }
 
     static class ViewHolder {
-        TextView text1;
-        TextView text2;
+        TextView time;
+        TextView diff;
+
+        LinearLayout expandedContainer;
+        TextView originalLabel;
+        TextView originalText;
+        TextView editedLabel;
+        TextView editedText;
+    }
+
+    private LinearLayout.LayoutParams lpMatchWrap() {
+        return new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+    }
+
+    private LinearLayout.LayoutParams lpMatchWrapWithTopMargin(int topMarginDp) {
+        LinearLayout.LayoutParams lp = lpMatchWrap();
+        lp.topMargin = Utils.dipToPixels(topMarginDp);
+        return lp;
+    }
+
+    private TextView makeMetaTextView(Context ctx) {
+        TextView tv = new TextView(ctx);
+        tv.setTextSize(12.0f);
+        tv.setAlpha(0.75f);
+        tv.setTypeface(null, Typeface.ITALIC);
+        tv.setLayoutParams(lpMatchWrap());
+        return tv;
+    }
+
+    private TextView makeBodyTextView(Context ctx) {
+        TextView tv = new TextView(ctx);
+        tv.setTextSize(14.0f);
+        tv.setLayoutParams(lpMatchWrap());
+        tv.setSingleLine(false);
+        tv.setMaxLines(Integer.MAX_VALUE);
+        return tv;
+    }
+
+    private void applyExpandedState(ViewHolder holder, boolean expanded) {
+        holder.diff.setVisibility(expanded ? View.GONE : View.VISIBLE);
+        holder.expandedContainer.setVisibility(expanded ? View.VISIBLE : View.GONE);
     }
 
     private CharSequence getDiffSpannable(String oldText, String newText) {
@@ -59,8 +117,10 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
         SpannableStringBuilder builder = new SpannableStringBuilder();
 
         // Simple word-based diff
-        String[] oldWords = oldText.split("\\s+");
-        String[] newWords = newText.split("\\s+");
+        String oldTrim = oldText.trim();
+        String newTrim = newText.trim();
+        String[] oldWords = oldTrim.isEmpty() ? new String[0] : oldTrim.split("\\s+");
+        String[] newWords = newTrim.isEmpty() ? new String[0] : newTrim.split("\\s+");
 
         int oldIndex = 0;
         int newIndex = 0;
@@ -83,7 +143,7 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
                                 if (builder.length() > 0) builder.append(" ");
                                 int start = builder.length();
                                 builder.append(newWords[j]);
-                                builder.setSpan(new ForegroundColorSpan(Color.GREEN), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                builder.setSpan(new ForegroundColorSpan(DIFF_ADDED_COLOR), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                             }
                             // Add the matched word normally
                             if (builder.length() > 0) builder.append(" ");
@@ -100,7 +160,7 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
                         if (builder.length() > 0) builder.append(" ");
                         int start = builder.length();
                         builder.append(oldWords[oldIndex]);
-                        builder.setSpan(new ForegroundColorSpan(Color.RED), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        builder.setSpan(new ForegroundColorSpan(DIFF_DELETED_COLOR), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                         builder.setSpan(new StrikethroughSpan(), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                         oldIndex++;
                     } else if (newIndex < newWords.length) {
@@ -108,7 +168,7 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
                         if (builder.length() > 0) builder.append(" ");
                         int start = builder.length();
                         builder.append(newWords[newIndex]);
-                        builder.setSpan(new ForegroundColorSpan(Color.GREEN), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        builder.setSpan(new ForegroundColorSpan(DIFF_ADDED_COLOR), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                         newIndex++;
                     }
                 }
@@ -123,33 +183,123 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
     public View getView(int position, View convertView, @NonNull ViewGroup parent) {
         ViewHolder holder;
         if (convertView == null) {
-            convertView = super.getView(position, convertView, parent);
+            LinearLayout root = new LinearLayout(context);
+            root.setOrientation(LinearLayout.VERTICAL);
+            int padH = Utils.dipToPixels(16);
+            int padV = Utils.dipToPixels(10);
+            root.setPadding(padH, padV, padH, padV);
+
+            LayoutTransition lt = new LayoutTransition();
+            lt.enableTransitionType(LayoutTransition.APPEARING);
+            lt.enableTransitionType(LayoutTransition.DISAPPEARING);
+            lt.enableTransitionType(LayoutTransition.CHANGING);
+            lt.setDuration(220);
+            root.setLayoutTransition(lt);
+
             holder = new ViewHolder();
-            holder.text1 = convertView.findViewById(android.R.id.text1);
-            holder.text2 = convertView.findViewById(android.R.id.text2);
+
+            holder.time = makeMetaTextView(context);
+            holder.diff = makeBodyTextView(context);
+            holder.diff.setLayoutParams(lpMatchWrapWithTopMargin(6));
+
+            holder.expandedContainer = new LinearLayout(context);
+            holder.expandedContainer.setOrientation(LinearLayout.VERTICAL);
+            holder.expandedContainer.setLayoutParams(lpMatchWrapWithTopMargin(8));
+            int innerPad = Utils.dipToPixels(12);
+            holder.expandedContainer.setPadding(innerPad, innerPad, innerPad, innerPad);
+            holder.expandedContainer.setVisibility(View.GONE);
+
+            holder.originalLabel = makeMetaTextView(context);
+            holder.originalText = makeBodyTextView(context);
+            holder.originalText.setLayoutParams(lpMatchWrapWithTopMargin(2));
+
+            holder.editedLabel = makeMetaTextView(context);
+            holder.editedLabel.setLayoutParams(lpMatchWrapWithTopMargin(10));
+            holder.editedText = makeBodyTextView(context);
+            holder.editedText.setLayoutParams(lpMatchWrapWithTopMargin(2));
+
+            holder.expandedContainer.addView(holder.originalLabel);
+            holder.expandedContainer.addView(holder.originalText);
+            holder.expandedContainer.addView(holder.editedLabel);
+            holder.expandedContainer.addView(holder.editedText);
+
+            root.addView(holder.time);
+            root.addView(holder.diff);
+            root.addView(holder.expandedContainer);
+
+            convertView = root;
             convertView.setTag(holder);
         } else {
             holder = (ViewHolder) convertView.getTag();
         }
-        holder.text1.setTextSize(14.0f);
-        holder.text1.setTextColor(DesignUtils.getPrimaryTextColor());
 
-        if (position == 0) {
-            // Original message, show normally
-            holder.text1.setText(this.items.get(position).message);
-        } else {
-            // Edited message, show diff with previous
-            String prevMessage = this.items.get(position - 1).message;
-            String currMessage = this.items.get(position).message;
-            CharSequence diffText = getDiffSpannable(prevMessage, currMessage);
-            holder.text1.setText(diffText);
-        }
-        holder.text2.setTextSize(12.0f);
-        holder.text2.setAlpha(0.75f);
-        holder.text2.setTypeface(null, Typeface.ITALIC);
-        holder.text2.setTextColor(DesignUtils.getPrimaryTextColor());
-        var timestamp = this.items.get(position).timestamp;
-        holder.text2.setText((timestamp == 0L ? context.getString(ResId.string.message_original) : "✏️ " + Utils.getDateTimeFromMillis(timestamp)));
+        boolean expanded = position == expandedPosition;
+
+        int actualIndex = position + 1;
+        String originalMessage = this.items.get(0).message;
+        if (originalMessage == null) originalMessage = "";
+        String currMessage = this.items.get(actualIndex).message;
+        if (currMessage == null) currMessage = "";
+        long timestamp = this.items.get(actualIndex).timestamp;
+
+        holder.time.setTextColor(DesignUtils.getPrimaryTextColor());
+        holder.time.setText("✏️ " + Utils.getDateTimeFromMillis(timestamp));
+
+        holder.diff.setTextColor(DesignUtils.getPrimaryTextColor());
+        holder.diff.setSingleLine(false);
+        holder.diff.setMaxLines(Integer.MAX_VALUE);
+
+        holder.originalLabel.setTextColor(DesignUtils.getPrimaryTextColor());
+        holder.originalText.setTextColor(DesignUtils.getPrimaryTextColor());
+        holder.editedLabel.setTextColor(DesignUtils.getPrimaryTextColor());
+        holder.editedText.setTextColor(DesignUtils.getPrimaryTextColor());
+
+        // Content (set for both states so click toggling doesn't need notifyDataSetChanged)
+        holder.diff.setText(getDiffSpannable(originalMessage, currMessage));
+        holder.originalLabel.setText(context.getString(ResId.string.message_original));
+        holder.originalText.setText(originalMessage);
+        holder.editedLabel.setText(context.getString(ResId.string.edited_history));
+        holder.editedText.setText(currMessage);
+
+        // Card-like background for expanded details
+        var cardDrawable = DesignUtils.createDrawable("selector_bg", Color.BLACK);
+        holder.expandedContainer.setBackground(
+                DesignUtils.alphaDrawable(cardDrawable, DesignUtils.getPrimaryTextColor(), EXPANDED_BG_ALPHA)
+        );
+
+        applyExpandedState(holder, expanded);
+
+        final int boundPosition = position;
+        convertView.setOnClickListener(v -> {
+            int prevExpanded = expandedPosition;
+            boolean nextExpanded = prevExpanded != boundPosition;
+            expandedPosition = nextExpanded ? boundPosition : -1;
+
+            // Collapse previously expanded visible row (if any)
+            if (parent instanceof ListView && prevExpanded != -1 && prevExpanded != boundPosition) {
+                ListView lv = (ListView) parent;
+                int first = lv.getFirstVisiblePosition();
+                View prevView = lv.getChildAt(prevExpanded - first);
+                if (prevView != null) {
+                    Object tag = prevView.getTag();
+                    if (tag instanceof ViewHolder) {
+                        applyExpandedState((ViewHolder) tag, false);
+                    }
+                }
+            }
+
+            applyExpandedState(holder, nextExpanded);
+
+            // Fade/slide the newly shown block a bit
+            View animatedTarget = nextExpanded ? holder.expandedContainer : holder.diff;
+            animatedTarget.setAlpha(0.0f);
+            animatedTarget.setTranslationY(nextExpanded ? Utils.dipToPixels(6) : Utils.dipToPixels(-6));
+            animatedTarget.animate()
+                    .alpha(1.0f)
+                    .translationY(0.0f)
+                    .setDuration(200)
+                    .start();
+        });
         return convertView;
     }
 
