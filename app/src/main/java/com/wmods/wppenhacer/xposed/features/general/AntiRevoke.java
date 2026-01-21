@@ -1,5 +1,9 @@
 package com.wmods.wppenhacer.xposed.features.general;
 
+import android.app.PendingIntent;
+import android.content.Intent;
+import android.os.Build;
+import android.os.Parcelable;
 import android.text.TextUtils;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -249,9 +253,9 @@ public class AntiRevoke extends Feature {
 
     private void showRevocationToast(FMessageWpp fMessage) {
         var jidAuthor = fMessage.getKey().remoteJid;
-        var messageSuffix = Utils.getApplication().getString(ResId.string.deleted_message);
-        if (jidAuthor.isStatus()) {
-            messageSuffix = Utils.getApplication().getString(ResId.string.deleted_status);
+        var isStatus = jidAuthor.isStatus();
+        var messageSuffix = Utils.getApplication().getString(isStatus ? ResId.string.deleted_status : ResId.string.deleted_message);
+        if (isStatus) {
             jidAuthor = fMessage.getUserJid();
         }
         if (jidAuthor.userJid == null) return;
@@ -259,22 +263,93 @@ public class AntiRevoke extends Feature {
         if (TextUtils.isEmpty(name)) {
             name = jidAuthor.getPhoneNumber();
         }
-        String message;
-        if (jidAuthor.isGroup() && fMessage.getUserJid().isNull()) {
+        boolean isGroupDeletion = jidAuthor.isGroup() && !fMessage.getUserJid().isNull();
+
+        String participantName = null;
+        if (isGroupDeletion) {
             var participantJid = fMessage.getUserJid();
-            String participantName = WppCore.getContactName(participantJid);
+            participantName = WppCore.getContactName(participantJid);
             if (TextUtils.isEmpty(participantName)) {
                 participantName = participantJid.getPhoneNumber();
             }
+        }
+
+        String message;
+        if (isGroupDeletion) {
             message = Utils.getApplication().getString(ResId.string.deleted_a_message_in_group, participantName, name);
         } else {
             message = name + " " + messageSuffix;
         }
-        var toastDeletedOption = Integer.parseInt(prefs.getString("toastdeleted", "0"));
+
+        // Cleaner notification layout:
+        // - Group:   title = group name, content = "<person> deleted a message"
+        // - Chat:    title = person name, content = "deleted a message/status"
+        String notificationTitle;
+        String notificationContent;
+        if (isGroupDeletion) {
+            notificationTitle = name;
+            notificationContent = participantName + " " + messageSuffix;
+        } else {
+            notificationTitle = name;
+            notificationContent = messageSuffix;
+        }
+        int toastDeletedOption;
+        try {
+            toastDeletedOption = Integer.parseInt(prefs.getString("toastdeleted", "0"));
+        } catch (Throwable ignored) {
+            // Backward compatibility: old builds used a boolean preference
+            toastDeletedOption = prefs.getBoolean("toastdeleted", false) ? 1 : 0;
+        }
         if (toastDeletedOption == 1) {
             Utils.showToast(message, Toast.LENGTH_LONG);
         } else if (toastDeletedOption == 2) {
-            Utils.showNotification(Utils.getApplication().getString(ResId.string.deleted_message), message);
+            PendingIntent pendingIntent = null;
+            try {
+                // Prefer phone JID first; for groups this is the reliable form (@g.us).
+                String rawJid = jidAuthor.getPhoneRawString();
+                if (rawJid == null) rawJid = jidAuthor.getUserRawString();
+
+                if (rawJid != null) {
+                    Intent intent;
+
+                    if (isStatus) {
+                        // For status revocation, open the status playback screen.
+                        var statusPlaybackClass = Unobfuscator.getClassByName("StatusPlaybackActivity", classLoader);
+                        intent = new Intent(Utils.getApplication(), statusPlaybackClass);
+                        intent.putExtra("jid", rawJid);
+                    } else {
+                        // For message revocation, open the chat (group or 1:1).
+                        intent = new Intent();
+                        intent.setClassName(Utils.getApplication().getPackageName(), "com.whatsapp.Conversation");
+
+                        var jidObj = WppCore.createUserJid(rawJid);
+                        if (jidObj != null) {
+                            // WhatsApp usually expects a Parcelable Jid in "jid".
+                            // If the runtime type is not Parcelable, fallback to string.
+                            try {
+                                intent.putExtra("jid", (Parcelable) jidObj);
+                            } catch (Throwable ignored) {
+                                intent.putExtra("jid", rawJid);
+                            }
+                        } else {
+                            intent.putExtra("jid", rawJid);
+                        }
+                    }
+
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                            | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
+                    int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        flags |= PendingIntent.FLAG_IMMUTABLE;
+                    }
+                    pendingIntent = PendingIntent.getActivity(Utils.getApplication(), rawJid.hashCode(), intent, flags);
+                }
+            } catch (Throwable ignored) {
+            }
+
+            Utils.showNotification(notificationTitle, notificationContent, pendingIntent);
         }
         Tasker.sendTaskerEvent(name, jidAuthor.getPhoneNumber(), jidAuthor.isStatus() ? "deleted_status" : "deleted_message");
     }

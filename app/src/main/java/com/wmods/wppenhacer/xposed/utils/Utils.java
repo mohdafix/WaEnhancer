@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.Application;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
@@ -23,6 +24,7 @@ import android.util.TypedValue;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.documentfile.provider.DocumentFile;
@@ -340,6 +342,11 @@ public class Utils {
 
     @SuppressLint("MissingPermission")
     public static void showNotification(String title, String content) {
+        showNotification(title, content, null);
+    }
+
+    @SuppressLint("MissingPermission")
+    public static void showNotification(String title, String content, @Nullable PendingIntent contentIntent) {
         var context = Utils.getApplication();
         var notificationManager = NotificationManagerCompat.from(context);
         var channel = new NotificationChannel("wppenhacer", "WAE Enhancer", NotificationManager.IMPORTANCE_HIGH);
@@ -348,6 +355,7 @@ public class Utils {
                 .setSmallIcon(android.R.mipmap.sym_def_app_icon)
                 .setContentTitle(title)
                 .setContentText(content)
+                .setContentIntent(contentIntent)
                 .setAutoCancel(true)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(content));
         notificationManager.notify(new Random().nextInt(), notification.build());
