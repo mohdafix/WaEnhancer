@@ -28,6 +28,17 @@
         <item>2</item>
     </string-array>
 
+    <string-array name="profile_picture_change_entries">
+        <item>@string/profile_picture_change_option_disabled</item>
+        <item>@string/profile_picture_change_option_toast</item>
+        <item>@string/profile_picture_change_option_notification</item>
+    </string-array>
+    <string-array name="profile_picture_change_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+
 
     <string-array name="archive_entries">
         <item>@string/disabled</item>

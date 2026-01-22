@@ -63,7 +63,7 @@ public class GeneralFragment extends BaseFragment {
             // Migrate boolean preferences to string for ListPreferences
             var editor = mPrefs.edit();
             boolean changed = false;
-            String[] listPrefKeys = {"toastdeleted", "antirevoke", "antirevokestatus"};
+            String[] listPrefKeys = {"toastdeleted", "antirevoke", "antirevokestatus", "profile_picture_change_toast"};
             for (String key : listPrefKeys) {
                 Object value = mPrefs.getAll().get(key);
                 if (value instanceof Boolean) {

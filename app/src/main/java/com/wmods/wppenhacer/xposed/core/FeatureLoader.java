@@ -48,6 +48,7 @@ import com.wmods.wppenhacer.xposed.features.general.MenuStatus;
 import com.wmods.wppenhacer.xposed.features.general.NewChat;
 import com.wmods.wppenhacer.xposed.features.general.Others;
 import com.wmods.wppenhacer.xposed.features.general.PinnedLimit;
+import com.wmods.wppenhacer.xposed.features.general.ProfilePictureChangeNotifier;
 import com.wmods.wppenhacer.xposed.features.general.SeenTick;
 import com.wmods.wppenhacer.xposed.features.general.ShareLimit;
 import com.wmods.wppenhacer.xposed.features.general.ShowEditMessage;
@@ -69,6 +70,7 @@ import com.wmods.wppenhacer.xposed.features.others.GoogleTranslate;
 import com.wmods.wppenhacer.xposed.features.others.GroupAdmin;
 import com.wmods.wppenhacer.xposed.features.others.MenuHome;
 import com.wmods.wppenhacer.xposed.features.others.MessageScheduler;
+import com.wmods.wppenhacer.xposed.features.scheduler.SchedulerServiceFeature;
 import com.wmods.wppenhacer.xposed.features.others.Stickers;
 import com.wmods.wppenhacer.xposed.features.others.TextStatusComposer;
 import com.wmods.wppenhacer.xposed.features.others.ToastViewer;
@@ -349,9 +351,10 @@ public class FeatureLoader {
                 LiteMode.class,
                 MediaQuality.class,
                 NewChat.class,
-                 Others.class,
+Others.class,
                  PinnedLimit.class,
-                CustomTime.class,
+                 ProfilePictureChangeNotifier.class,
+                 CustomTime.class,
                 ShareLimit.class,
                 StatusDownload.class,
                 ViewOnce.class,
@@ -367,11 +370,12 @@ public class FeatureLoader {
                 GroupAdmin.class,
                 Stickers.class,
                 CopyStatus.class,
-                TextStatusComposer.class,
-                ToastViewer.class,
-                MenuHome.class,
-                MessageScheduler.class,
-                AntiWa.class,
+                 TextStatusComposer.class,
+                 ToastViewer.class,
+                 MenuHome.class,
+                 MessageScheduler.class,
+                 SchedulerServiceFeature.class,
+                 AntiWa.class,
                 CustomPrivacy.class,
                 AudioTranscript.class,
                 GoogleTranslate.class,

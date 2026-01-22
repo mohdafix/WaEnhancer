@@ -133,6 +133,15 @@
             app:summary="Enable schedule message option in conversation menu"
             app:title="Schedule Message" />
 
+        <ListPreference
+            app:defaultValue="0"
+            app:entries="@array/profile_picture_change_entries"
+            app:entryValues="@array/profile_picture_change_values"
+            app:iconSpaceReserved="false"
+            app:key="profile_picture_change_toast"
+            app:summary="@string/profile_picture_change_toast_sum"
+            app:title="@string/profile_picture_change_toast" />
+
     </PreferenceCategory>
 
 </PreferenceScreen>
