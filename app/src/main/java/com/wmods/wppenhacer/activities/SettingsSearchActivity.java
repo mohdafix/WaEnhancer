@@ -28,6 +28,8 @@ public class SettingsSearchActivity extends BaseActivity {
     private List<SettingsSearchIndex.Entry> allEntries;
     @Nullable
     private MenuItem searchMenuItem;
+    @Nullable
+    private SearchView searchView;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -38,7 +40,11 @@ public class SettingsSearchActivity extends BaseActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                finish();
+                if (searchMenuItem != null && searchMenuItem.isActionViewExpanded()) {
+                    searchMenuItem.collapseActionView();
+                } else {
+                    finish();
+                }
             }
         });
 
@@ -64,7 +70,7 @@ public class SettingsSearchActivity extends BaseActivity {
         searchMenuItem = menu.findItem(R.id.action_search);
         searchMenuItem.expandActionView();
 
-        SearchView searchView = (SearchView) searchMenuItem.getActionView();
+        searchView = (SearchView) searchMenuItem.getActionView();
         searchView.setQueryHint(getString(R.string.settings_search_hint));
         searchView.setIconified(false);
         searchView.requestFocus();
