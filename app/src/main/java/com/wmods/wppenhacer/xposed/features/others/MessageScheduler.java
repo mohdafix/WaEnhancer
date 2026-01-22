@@ -36,6 +36,7 @@ import java.util.Locale;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
 
 /**
  * Scheduler UI only:
@@ -84,8 +85,11 @@ public class MessageScheduler extends Feature {
         if (menu.findItem(MENU_ITEM_ID) != null) return;
 
         MenuItem item = menu.add(0, MENU_ITEM_ID, 0, "Schedule Message");
-        // Put it in the toolbar (action bar).
-        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+
+        // Decide based on conversation type, not just activity.
+        // If chatting with a business account (from regular WA app), use overflow to avoid duplicate toolbar icons.
+        boolean isBusinessChat = isCurrentConversationBusiness(activity);
+        item.setShowAsAction(isBusinessChat ? MenuItem.SHOW_AS_ACTION_NEVER : MenuItem.SHOW_AS_ACTION_ALWAYS);
 
         // Best-effort icon.
         try {
@@ -106,6 +110,30 @@ public class MessageScheduler extends Feature {
             showScheduleMessageDialog(activity);
             return true;
         });
+    }
+
+    private boolean isCurrentConversationBusiness(Activity activity) {
+        try {
+            var userJid = WppCore.getCurrentUserJid();
+            if (userJid == null || userJid.isNull()) return false;
+
+            // Preferred: if WA provides isBusiness(), use it.
+            try {
+                //noinspection JavaReflectionMemberAccess
+                return (Boolean) XposedHelpers.callMethod(userJid, "isBusiness");
+            } catch (Throwable ignored) {
+            }
+
+            // Fallback: raw string detection for business markers.
+            String raw = userJid.getPhoneRawString();
+            if (raw != null && raw.toLowerCase().contains("business")) return true;
+
+            // Secondary check: try userJid as string
+            String userRaw = userJid.getUserRawString();
+            return userRaw != null && userRaw.toLowerCase().contains("business");
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private void showScheduleMessageDialog(Activity activity) {
@@ -166,7 +194,7 @@ public class MessageScheduler extends Feature {
             AlertDialog dialog = new AlertDialog.Builder(activity)
                     .setTitle("Schedule Message")
                     .setView(scrollView)
-                    // We override the click so validation does not auto-close.
+                    // We override click so validation does not auto-close.
                     .setPositiveButton("Schedule", null)
                     .setNegativeButton("Cancel", null)
                     .create();
