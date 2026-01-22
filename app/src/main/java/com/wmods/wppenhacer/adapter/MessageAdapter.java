@@ -8,11 +8,11 @@ import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StrikethroughSpan;
+import android.util.SparseBooleanArray;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
-import android.widget.ListView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -28,8 +28,8 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
     private final Context context;
     private final List<MessageHistory.MessageItem> items;
 
-    // Only one item expanded at a time. -1 means all collapsed.
-    private int expandedPosition = -1;
+    // Track expansion per row. Avoid collapsing others to prevent scroll jump.
+    private final SparseBooleanArray expandedPositions = new SparseBooleanArray();
 
     // Requested diff colors
     // green: rgba(122, 224, 178, 1)
@@ -233,7 +233,7 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
             holder = (ViewHolder) convertView.getTag();
         }
 
-        boolean expanded = position == expandedPosition;
+        boolean expanded = expandedPositions.get(position, false);
 
         int actualIndex = position + 1;
         String originalMessage = this.items.get(0).message;
@@ -271,23 +271,8 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
 
         final int boundPosition = position;
         convertView.setOnClickListener(v -> {
-            int prevExpanded = expandedPosition;
-            boolean nextExpanded = prevExpanded != boundPosition;
-            expandedPosition = nextExpanded ? boundPosition : -1;
-
-            // Collapse previously expanded visible row (if any)
-            if (parent instanceof ListView && prevExpanded != -1 && prevExpanded != boundPosition) {
-                ListView lv = (ListView) parent;
-                int first = lv.getFirstVisiblePosition();
-                View prevView = lv.getChildAt(prevExpanded - first);
-                if (prevView != null) {
-                    Object tag = prevView.getTag();
-                    if (tag instanceof ViewHolder) {
-                        applyExpandedState((ViewHolder) tag, false);
-                    }
-                }
-            }
-
+            boolean nextExpanded = !expandedPositions.get(boundPosition, false);
+            expandedPositions.put(boundPosition, nextExpanded);
             applyExpandedState(holder, nextExpanded);
 
             // Fade/slide the newly shown block a bit
