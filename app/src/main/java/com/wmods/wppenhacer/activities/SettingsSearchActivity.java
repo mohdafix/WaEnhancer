@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SearchView;
@@ -25,12 +26,21 @@ public class SettingsSearchActivity extends BaseActivity {
     private ActivitySettingsSearchBinding binding;
     private SettingsSearchAdapter adapter;
     private List<SettingsSearchIndex.Entry> allEntries;
+    @Nullable
+    private MenuItem searchMenuItem;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivitySettingsSearchBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                finish();
+            }
+        });
 
         setSupportActionBar(binding.toolbar);
         var actionBar = getSupportActionBar();
@@ -51,10 +61,10 @@ public class SettingsSearchActivity extends BaseActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.settings_search_menu, menu);
 
-        MenuItem item = menu.findItem(R.id.action_search);
-        item.expandActionView();
+        searchMenuItem = menu.findItem(R.id.action_search);
+        searchMenuItem.expandActionView();
 
-        SearchView searchView = (SearchView) item.getActionView();
+        SearchView searchView = (SearchView) searchMenuItem.getActionView();
         searchView.setQueryHint(getString(R.string.settings_search_hint));
         searchView.setIconified(false);
         searchView.requestFocus();
