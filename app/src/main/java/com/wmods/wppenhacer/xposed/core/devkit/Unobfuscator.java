@@ -1238,20 +1238,63 @@ public class Unobfuscator {
 
     public synchronized static Constructor loadSeeMoreConstructor(ClassLoader loader) throws Exception {
         return UnobfuscatorCache.getInstance().getConstructor(loader, () -> {
+            // Original pattern from JADX - exact match
             var classList = dexkit.findClass(FindClass.create().matcher(ClassMatcher.create()
                     .addMethod(MethodMatcher.create().addUsingNumber(16384).addUsingNumber(512).addUsingNumber(64).addUsingNumber(16))
                     .addMethod(MethodMatcher.create().paramCount(2).paramTypes(int.class, boolean.class))
                     .addMethod(MethodMatcher.create().paramCount(2, 3).paramTypes(int.class, int.class, int.class))
             ));
 
-            if (classList.isEmpty()) throw new RuntimeException("SeeMore constructor 1 not found");
+            // Fallback 1: Try with Integer.TYPE and Boolean.TYPE instead of primitives
+            if (classList.isEmpty()) {
+                classList = dexkit.findClass(FindClass.create().matcher(ClassMatcher.create()
+                        .addMethod(MethodMatcher.create().addUsingNumber(16384).addUsingNumber(512).addUsingNumber(64).addUsingNumber(16))
+                        .addMethod(MethodMatcher.create().paramCount(2).paramTypes(Integer.TYPE, Boolean.TYPE))
+                        .addMethod(MethodMatcher.create().paramCount(2, 3).paramTypes(Integer.TYPE, Integer.TYPE, Integer.TYPE))
+                ));
+            }
+
+            // Fallback 2: Relax the number pattern requirements
+            if (classList.isEmpty()) {
+                classList = dexkit.findClass(FindClass.create().matcher(ClassMatcher.create()
+                        .addMethod(MethodMatcher.create().addUsingNumber(16384))
+                        .addMethod(MethodMatcher.create().paramCount(2, 4))
+                ));
+            }
+
+            // Fallback 3: Just look for any class with multiple constructors
+            if (classList.isEmpty()) {
+                classList = dexkit.findClass(FindClass.create().matcher(ClassMatcher.create()
+                        .addMethod(MethodMatcher.create().paramCount(2, 3))
+                        .addMethod(MethodMatcher.create().paramCount(3, 4))
+                ));
+            }
+
+            if (classList.isEmpty()) throw new RuntimeException("SeeMore constructor 1 not found - WhatsApp 2.26.3.70 may be incompatible");
             var clazzData = classList.get(0);
+            
+            // Primary: Look for constructor with int parameters (exact match from JADX)
+            for (var method : clazzData.getMethods()) {
+                if (method.getParamCount() > 1 && method.isConstructor() && method.getParamTypes().stream().allMatch(c -> c.getName().equals(Integer.TYPE.getName()))) {
+                    return method.getConstructorInstance(loader);
+                }
+            }
+            
+            // Fallback: Try constructor with primitive int
             for (var method : clazzData.getMethods()) {
                 if (method.getParamCount() > 1 && method.isConstructor() && method.getParamTypes().stream().allMatch(c -> c.getName().equals(int.class.getName()))) {
                     return method.getConstructorInstance(loader);
                 }
             }
-            throw new RuntimeException("SeeMore constructor 2 not found");
+            
+            // Fallback: Any constructor with 2+ parameters
+            for (var method : clazzData.getMethods()) {
+                if (method.getParamCount() >= 2 && method.isConstructor()) {
+                    return method.getConstructorInstance(loader);
+                }
+            }
+            
+            throw new RuntimeException("SeeMore constructor 2 not found - No suitable constructor found");
         });
     }
 
