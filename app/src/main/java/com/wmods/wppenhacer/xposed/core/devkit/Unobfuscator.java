@@ -1386,34 +1386,98 @@ public class Unobfuscator {
         });
     }
 
-    public synchronized static Class loadVideoViewContainerClass(ClassLoader loader) throws Exception {
-        return UnobfuscatorCache.getInstance().getClass(loader, () -> {
-            var clazz = findFirstClassUsingStrings(loader, StringMatchType.Contains, "frame_visibility_serial_worker");
-            if (clazz == null) throw new RuntimeException("VideoViewContainer class not found");
-            return clazz;
-        });
+
+    public synchronized static Class<?> loadVideoViewContainerClass(ClassLoader loader) {
+        try {
+            return UnobfuscatorCache.getInstance().getClass(
+                    loader,
+                    new UnobfuscatorCache.FunctionCall() {
+                        @Override
+                        public Object call() {
+                            ClassDataList clazzList = dexkit.findClass(
+                                    FindClass.create().matcher(
+                                            ClassMatcher.create().addMethod(
+                                                    MethodMatcher.create().addUsingNumber(
+                                                            Integer.valueOf(Utils.getID(
+                                                                    "conversation_row_video_foreground_shadow",
+                                                                    "id"
+                                                            ))
+                                                    )
+                                            )
+                                    )
+                            );
+
+                            if (clazzList.isEmpty()) {
+                                throw new RuntimeException("VideoViewContainer class not found");
+                            }
+
+                            for (ClassData clazzData : clazzList) {
+                                Class<?> clazz = null;
+                                try {
+                                    clazz = clazzData.getInstance(loader);
+                                } catch (ClassNotFoundException e) {
+                                    throw new RuntimeException(e);
+                                }
+                                if (ViewGroup.class.isAssignableFrom(clazz)) {
+                                    return clazz;
+                                }
+                            }
+
+                            throw new RuntimeException("Class VideoViewContainer not Found");
+                        }
+                    }
+            );
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public synchronized static Class loadImageVewContainerClass(ClassLoader loader) throws Exception {
-        return UnobfuscatorCache.getInstance().getClass(loader, () -> {
-            var clazzList = dexkit.findClass(FindClass.create().matcher(
-                    ClassMatcher.create()
-                            .addMethod(
-                                    MethodMatcher.create()
-                                            .addUsingNumber(Utils.getID("hd_invisible_touch", "id"))
-                                            .addUsingNumber(Utils.getID("control_btn", "id"))
-                            ))
+    public synchronized static Class<?> loadImageVewContainerClass(ClassLoader loader) {
+        try {
+            return UnobfuscatorCache.getInstance().getClass(
+                    loader,
+                    new UnobfuscatorCache.FunctionCall() {
+                        @Override
+                        public Object call() {
+                            try {
+                                return resolveImageViewContainer(loader);
+                            } catch (ClassNotFoundException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    }
             );
-            if (clazzList.isEmpty())
-                throw new RuntimeException("ImageViewContainer class not found");
-            for (var clazzData : clazzList) {
-                var clazz = clazzData.getInstance(loader);
-                if (ViewGroup.class.isAssignableFrom(clazz))
-                    return clazz;
-            }
-            throw new ClassNotFoundException("Class ImageViewContainer not Found");
-        });
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
+
+    private static Class<?> resolveImageViewContainer(ClassLoader loader) throws ClassNotFoundException {
+        ClassDataList clazzList = dexkit.findClass(
+                FindClass.create().matcher(
+                        ClassMatcher.create().addMethod(
+                                MethodMatcher.create()
+                                        .addUsingNumber(Integer.valueOf(Utils.getID("hd_invisible_touch", "id")))
+                                        .addUsingNumber(Integer.valueOf(Utils.getID("control_btn", "id")))
+                        )
+                )
+        );
+
+        if (clazzList.isEmpty()) {
+            return null; // IMPORTANT: do not throw yet
+        }
+
+        for (ClassData clazzData : clazzList) {
+            Class<?> clazz = clazzData.getInstance(loader);
+            if (ViewGroup.class.isAssignableFrom(clazz)) {
+                return clazz;
+            }
+        }
+
+        return null;
+    }
+
+
 
 
     public synchronized static Method getFilterInitMethod(ClassLoader loader) throws Exception {

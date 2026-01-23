@@ -310,6 +310,7 @@
     <string name="hold_title">Hold on WhatsApp title</string>
     <string name="read_all_mark_as_read">Read all (mark as read)</string>
     <string name="enable_copy_status">Enable Copy Status</string>
+    <string name="select_days_required">Please select at least one day</string>
     <string name="enable_copy_status_sum">Activates the possibility of copying the description and caption of statuses by holding on them</string>
     <string name="animation_emojis">Animation Emojis</string>
     <string name="animation_emojis_sum">Activate animated emojis (This creates large emojis in conversations)</string>
@@ -437,20 +438,75 @@
     <string name="possible_block_detected">Possible block detected</string>
     <string name="block_not_detected">Block not detected</string>
     <string name="checking_if_the_contact_is_blocked">Checking if the contact is blocked...</string>
-    <string name="show_contact_blocked">Show Contact Blocked in Conversation</string>
-    <string name="show_contact_blocked_sum">This option verifies whether the contact may have blocked you (note: false positives may occur).</string>
-    <string name="block_unverified">Block Unverified</string>
-    <string name="disable_whatsapp_expiration">Disable WhatsApp Expiration</string>
-    <string name="disable_whatsapp_expiration_sum">Deactivates the expired version of WhatsApp, (Note: Manual Disable to update WhatsApp on the Play Store or mark the Play Store on LSposed)</string>
-    <string name="call_recording_title">Call Recording</string>
-    <string name="call_recording_enable">Enable Call Recording</string>
-    <string name="call_recording_enable_sum">Record incoming and outgoing calls (Voice &amp; Video) as audio.</string>
-    <string name="call_recording_path">Recordings Output Folder</string>
-    <string name="video_call_screen_rec">Record Video Calls (Screen)</string>
-    <string name="video_call_screen_rec_sum">Record video calls by capturing screen (requires root and system framework hook)</string>
-    <string name="disable_ads">Disable Ads</string>
-    <string name="disable_ads_sum">Blocks ads from appearing in WhatsApp</string>
-    <string name="lockedchats_enhancer">Enhanced Locked Chats</string>
-    <string name="lockedchats_enhancer_sum">Improve locked chats by hiding notifications and contacts from the contact list</string>
-
+    
+    <!-- Scheduler Feature Strings -->
+    <string name="scheduler">Scheduler</string>
+    <string name="schedule_message">Schedule Message</string>
+    <string name="edit_message">Edit Message</string>
+    <string name="scheduled_messages">Scheduled Messages</string>
+    <string name="scheduled_messages_desc">Messages scheduled for automatic sending</string>
+    <string name="no_scheduled_messages">No Scheduled Messages</string>
+    <string name="no_scheduled_messages_desc">Tap the + button to create your first scheduled message</string>
+    <string name="add_scheduled_message">Add Scheduled Message</string>
+    
+    <!-- Message Composition -->
+    <string name="recipients">Recipients</string>
+    <string name="select_contacts_required">Please select at least one contact</string>
+    <string name="message_required">Message cannot be empty</string>
+    
+    <!-- Date & Time -->
+    <string name="schedule_time">Schedule Time</string>
+    <string name="select_date_time">Select Date and Time</string>
+    <string name="invalid_time">Invalid Time</string>
+    <string name="schedule_future_time">Please select a future time</string>
+    
+    <!-- Repeat Options -->
+    <string name="repeat">Repeat</string>
+    <string name="repeat_once">Once</string>
+    <string name="repeat_daily">Daily</string>
+    <string name="repeat_weekly">Weekly</string>
+    <string name="repeat_monthly">Monthly</string>
+    <string name="repeat_custom">Custom</string>
+    <string name="select_days">Select Days</string>
+    <string name="no_days_selected">Please select at least one day</string>
+    <string name="sunday">Sun</string>
+    <string name="monday">Mon</string>
+    <string name="tuesday">Tue</string>
+    <string name="wednesday">Wed</string>
+    <string name="thursday">Thu</string>
+    <string name="friday">Fri</string>
+    <string name="saturday">Sat</string>
+    
+    <!-- WhatsApp Type -->
+    <string name="whatsapp_type">WhatsApp Type</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="whatsapp_business">WhatsApp Business</string>
+    
+    <!-- Message Status -->
+    <string name="active">Active</string>
+    <string name="inactive">Inactive</string>
+    <string name="sent">Sent</string>
+    
+    <!-- Menu Actions -->
+    <string name="delete_message">Delete Message</string>
+    <string name="delete_message_confirm">Delete scheduled message for %s?</string>
+    <string name="message_deleted">Message deleted</string>
+    <string name="clear_sent_messages">Clear Sent Messages</string>
+    <string name="clear_sent_messages_confirm">Delete all one-time messages that have been sent?</string>
+    <string name="sent_messages_cleared">Sent messages cleared</string>
+    <string name="action_save">Save</string>
+    
+    <!-- Service Status -->
+    <string name="scheduler_service_running">Scheduler service is running</string>
+    <string name="scheduler_service_stopped">Scheduler service is stopped</string>
+    
+    <!-- Notification Messages -->
+    <string name="scheduled_messages_active">%d active scheduled messages</string>
+    <string name="scheduled_messages_monitoring">Monitoring scheduled messages</string>
+    <string name="scheduled_messages_next" formatted="false">%d messages • Next: %s • %s</string>
+    
+    <!-- Errors -->
+    <string name="error">Error</string>
+    <string name="save_failed">Failed to save message</string>
+    <string name="no_contacts">No Contacts</string>
 </resources>
