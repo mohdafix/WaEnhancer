@@ -315,12 +315,17 @@ public class MediaPreview extends Feature {
 
         VideoView videoView = new VideoView(context);
         videoView.setVideoURI(Uri.fromFile(filePath));
-        root.addView(videoView,
-                new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT));
+        
+        // Center video like image viewer - not full screen
+        FrameLayout.LayoutParams videoParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Utils.dipToPixels(280), // Reasonable height
+                Gravity.CENTER
+        );
+        videoView.setLayoutParams(videoParams);
+        root.addView(videoView);
 
-        // Main floating control panel (centered, rounded card)
+        // Main floating control panel (positioned below video)
         FrameLayout floatingPanel = new FrameLayout(context);
         floatingPanel.setBackground(createRoundDrawable(Color.parseColor("#CC000000")));
         
@@ -329,8 +334,9 @@ public class MediaPreview extends Feature {
         
         FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
                 panelWidth, panelHeight,
-                Gravity.CENTER
+                Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM
         );
+        panelParams.setMargins(0, 0, 0, Utils.dipToPixels(100)); // Position above bottom
         root.addView(floatingPanel, panelParams);
 
         // Play/Pause button in center
