@@ -92,7 +92,7 @@ public class BridgeClient extends BaseClient implements ServiceConnection {
             if (!continuation.isDone()) {
                 continuation.completeExceptionally(new Exception("Connection timed out"));
             }
-        }, 3, TimeUnit.SECONDS);
+        }, 10, TimeUnit.SECONDS);
 
         return future.exceptionally(ex -> false);
     }

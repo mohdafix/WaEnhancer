@@ -35,16 +35,6 @@ public abstract class BasePreferenceFragment extends PreferenceFragmentCompat im
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         mPrefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
         mPrefs.registerOnSharedPreferenceChangeListener(this);
-        requireActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                if (getParentFragmentManager().getBackStackEntryCount() > 0) {
-                    getParentFragmentManager().popBackStack();
-                } else {
-                    requireActivity().finish();
-                }
-            }
-        });
     }
 
     @NonNull

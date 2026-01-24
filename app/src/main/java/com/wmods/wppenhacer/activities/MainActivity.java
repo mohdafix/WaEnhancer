@@ -2,6 +2,7 @@ package com.wmods.wppenhacer.activities;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.util.Log;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PowerManager;
@@ -99,6 +100,46 @@ public class MainActivity extends BaseActivity {
         FilePicker.registerFilePicker(this);
 
         handleSearchIntent(getIntent());
+        checkPermissions();
+
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                int currentItem = binding.viewPager.getCurrentItem();
+                
+                // If in General tab (0), check its child backstack
+                Fragment gf = findTabFragment(0);
+                if (currentItem == 0 && gf instanceof com.wmods.wppenhacer.ui.fragments.GeneralFragment) {
+                    androidx.fragment.app.FragmentManager childFm = gf.getChildFragmentManager();
+                    if (childFm.getBackStackEntryCount() > 0) {
+                        childFm.popBackStack();
+                        return;
+                    }
+                }
+
+                // If not in Home tab (2), go back to Home tab
+                if (currentItem != 2) {
+                    binding.viewPager.setCurrentItem(2, true);
+                    return;
+                }
+
+                // Default behavior (finish activity)
+                setEnabled(false);
+                MainActivity.this.getOnBackPressedDispatcher().onBackPressed();
+            }
+        });
+    }
+
+    private void checkPermissions() {
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            String[] permissions = {
+                android.Manifest.permission.READ_CONTACTS,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            };
+            requestPermissions(permissions, 100);
+        } else {
+            requestPermissions(new String[]{android.Manifest.permission.READ_CONTACTS}, 100);
+        }
     }
 
     @Override
@@ -130,9 +171,9 @@ public class MainActivity extends BaseActivity {
 
     private void tryNavigateToPreference(int tabIndex, @Nullable String screenClassName, @Nullable String prefKey, int attempt) {
         var tabFragment = findTabFragment(tabIndex);
-        if (tabFragment == null) {
+        if (tabFragment == null || !tabFragment.isAdded()) {
             if (attempt < 20) {
-                binding.viewPager.postDelayed(() -> tryNavigateToPreference(tabIndex, screenClassName, prefKey, attempt + 1), 50);
+                binding.viewPager.postDelayed(() -> tryNavigateToPreference(tabIndex, screenClassName, prefKey, attempt + 1), 100);
             }
             return;
         }
@@ -144,7 +185,12 @@ public class MainActivity extends BaseActivity {
 
         if (tabFragment instanceof androidx.preference.PreferenceFragmentCompat prefFragment) {
             if (prefKey != null) {
-                prefFragment.scrollToPreference(prefKey);
+                // Ensure it's laid out
+                binding.viewPager.post(() -> {
+                    try {
+                        prefFragment.scrollToPreference(prefKey);
+                    } catch (Exception ignored) {}
+                });
             }
         }
     }
@@ -221,6 +267,7 @@ public class MainActivity extends BaseActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.header_menu, menu);
+        Log.d("WaEnhancer", "Options menu inflated");
         var powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         if (powerManager.isIgnoringBatteryOptimizations(getPackageName())) {
             menu.findItem(R.id.batteryoptimization).setVisible(false);
@@ -240,6 +287,12 @@ public class MainActivity extends BaseActivity {
             var options = ActivityOptionsCompat.makeCustomAnimation(
                     this, R.anim.slide_in_right, R.anim.slide_out_left);
             startActivity(new Intent(this, AboutActivity.class), options.toBundle());
+            return true;
+        } else if (item.getItemId() == R.id.menu_scheduled_messages) {
+            Log.d("WaEnhancer", "Scheduled Messages menu tapped");
+            var options = ActivityOptionsCompat.makeCustomAnimation(
+                    this, R.anim.slide_in_right, R.anim.slide_out_left);
+            startActivity(new Intent(this, ScheduledMessagesListActivity.class), options.toBundle());
             return true;
         } else if (item.getItemId() == R.id.batteryoptimization) {
             if (batteryPermissionHelper.isBatterySaverPermissionAvailable(this, true)) {

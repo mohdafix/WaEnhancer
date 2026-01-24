@@ -23,7 +23,9 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
+import com.wmods.wppenhacer.App;
 import com.wmods.wppenhacer.R;
+import android.util.TypedValue;
 
 public class BaseActivity extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
 
@@ -95,24 +97,49 @@ public class BaseActivity extends AppCompatActivity implements SharedPreferences
         var sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         var themeColor = sharedPreferences.getString("app_theme_color", "green");
 
+        int primaryColor;
+        int secondaryColor;
+
         if ("custom".equals(themeColor)) {
-            int customColor = sharedPreferences.getInt("app_custom_color", Color.parseColor("#4CAF50"));
-            
+            primaryColor = sharedPreferences.getInt("app_custom_color", Color.parseColor("#4CAF50"));
             float[] hsv = new float[3];
-            Color.colorToHSV(customColor, hsv);
+            Color.colorToHSV(primaryColor, hsv);
             hsv[2] *= 0.6f;
-            int darkerColor = Color.HSVToColor(hsv);
+            secondaryColor = Color.HSVToColor(hsv);
+        } else {
+            TypedValue typedValue = new TypedValue();
+            int primaryAttr = getResources().getIdentifier("colorPrimary", "attr", getPackageName());
+            int secondaryAttr = getResources().getIdentifier("colorSecondary", "attr", getPackageName());
 
-            Window window = getWindow();
-            window.setStatusBarColor(darkerColor);
-
-            View toolbar = findViewById(R.id.toolbar);
-            if (toolbar != null) {
-                GradientDrawable gradient = new GradientDrawable(
-                        GradientDrawable.Orientation.TL_BR,
-                        new int[]{customColor, darkerColor});
-                toolbar.setBackground(gradient);
+            if (primaryAttr != 0 && getTheme().resolveAttribute(primaryAttr, typedValue, true)) {
+                primaryColor = typedValue.data;
+            } else {
+                primaryColor = Color.parseColor("#4CAF50");
             }
+
+            if (secondaryAttr != 0 && getTheme().resolveAttribute(secondaryAttr, typedValue, true)) {
+                secondaryColor = typedValue.data;
+            } else {
+                float[] hsv = new float[3];
+                Color.colorToHSV(primaryColor, hsv);
+                hsv[2] *= 0.8f;
+                secondaryColor = Color.HSVToColor(hsv);
+            }
+        }
+
+        Window window = getWindow();
+        window.setStatusBarColor(secondaryColor);
+
+        View toolbar = findViewById(R.id.toolbar);
+        if (toolbar != null) {
+            GradientDrawable gradient = new GradientDrawable(
+                    GradientDrawable.Orientation.TL_BR,
+                    new int[]{primaryColor, secondaryColor});
+            toolbar.setBackground(gradient);
+        }
+
+        if ("custom".equals(themeColor)) {
+            int customColor = primaryColor;
 
             View navView = findViewById(R.id.nav_view);
             if (navView instanceof BottomNavigationView bottomNav) {

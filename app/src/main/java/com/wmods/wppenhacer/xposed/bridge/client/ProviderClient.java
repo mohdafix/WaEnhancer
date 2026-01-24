@@ -80,7 +80,7 @@ public class ProviderClient extends BaseClient {
             if (!continuation.isDone()) {
                 continuation.completeExceptionally(new Exception("Connection timed out"));
             }
-        }, 3, TimeUnit.SECONDS);
+        }, 10, TimeUnit.SECONDS);
 
         return future.exceptionally(ex -> false);
     }

@@ -70,7 +70,8 @@ import com.wmods.wppenhacer.xposed.features.others.GoogleTranslate;
 import com.wmods.wppenhacer.xposed.features.others.GroupAdmin;
 import com.wmods.wppenhacer.xposed.features.others.MenuHome;
 import com.wmods.wppenhacer.xposed.features.others.MessageScheduler;
-import com.wmods.wppenhacer.xposed.features.scheduler.SchedulerServiceFeature;
+import com.wmods.wppenhacer.xposed.features.others.ScheduledMessageSender;
+import com.wmods.wppenhacer.xposed.features.general.ScheduledMessageServiceHook;
 import com.wmods.wppenhacer.xposed.features.others.Stickers;
 import com.wmods.wppenhacer.xposed.features.others.TextStatusComposer;
 import com.wmods.wppenhacer.xposed.features.others.ToastViewer;
@@ -374,7 +375,8 @@ Others.class,
                  ToastViewer.class,
                  MenuHome.class,
                  MessageScheduler.class,
-                 SchedulerServiceFeature.class,
+                 ScheduledMessageSender.class,
+                 ScheduledMessageServiceHook.class,
                  AntiWa.class,
                 CustomPrivacy.class,
                 AudioTranscript.class,

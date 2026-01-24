@@ -1567,6 +1567,23 @@ public class Unobfuscator {
         });
     }
 
+    public static Method loadUserActionsTextMessageSending(final ClassLoader classLoader) throws Exception {
+        return UnobfuscatorCache.getInstance().getMethod(classLoader, () -> {
+            Method method = findFirstMethodUsingStrings(classLoader, StringMatchType.Contains, "UserActionsTextMessageSending/createFMessageTextFromUserInputs");
+            if (method == null) {
+                throw new NoSuchMethodException("UserActionsTextMessageSending not found");
+            }
+            Method sendMethod = ReflectionUtils.findMethodUsingFilter(method.getDeclaringClass(), m -> {
+                List<Class<?>> types = Arrays.asList(m.getParameterTypes());
+                return ArrayList.class.isAssignableFrom(m.getReturnType()) && types.contains(List.class) && types.contains(String.class) && types.contains(Long.class) && !Modifier.isStatic(m.getModifiers());
+            });
+            if (sendMethod == null) {
+                throw new NoSuchMethodException("UserActionsTextMessageSending not found");
+            }
+            return sendMethod;
+        });
+    }
+
     public synchronized static Method loadOnPlaybackFinished(ClassLoader classLoader) throws Exception {
         return UnobfuscatorCache.getInstance().getMethod(classLoader, () -> {
             var method = findFirstMethodUsingStrings(classLoader, StringMatchType.Contains, "playbackPage/onPlaybackContentFinished");

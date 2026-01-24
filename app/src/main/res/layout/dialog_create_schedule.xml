@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Contact Input -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/input_contact"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:hint="Contacts">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/edit_contact"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Message Input -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/input_message"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:hint="Message">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/edit_message"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine"
+                android:minLines="3" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Date Input -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/input_date"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:hint="Date">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/edit_date"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none"
+                android:focusable="false" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Time Input -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/input_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:hint="Time">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/edit_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none"
+                android:focusable="false" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Repeat Options -->
+        <RadioGroup
+            android:id="@+id/radio_group_repeat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp">
+
+            <RadioButton
+                android:id="@+id/radio_once"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Once" />
+
+            <RadioButton
+                android:id="@+id/radio_daily"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Daily" />
+
+            <RadioButton
+                android:id="@+id/radio_weekly"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Weekly" />
+
+            <RadioButton
+                android:id="@+id/radio_monthly"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Monthly" />
+
+            <RadioButton
+                android:id="@+id/radio_custom_days"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Custom Days" />
+
+        </RadioGroup>
+
+        <!-- Days of Week -->
+        <LinearLayout
+            android:id="@+id/days_of_week_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Select Days"
+                android:textStyle="bold" />
+
+            <com.google.android.material.chip.ChipGroup
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:singleSelection="false">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_sunday"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sun" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_monday"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Mon" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_tuesday"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tue" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_wednesday"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Wed" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_thursday"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Thu" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_friday"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Fri" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_saturday"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sat" />
+
+            </com.google.android.material.chip.ChipGroup>
+
+        </LinearLayout>
+
+        <!-- WhatsApp Type -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_whatsapp_type"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp">
+
+            <RadioGroup
+                android:id="@+id/radio_group_whatsapp_type"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp">
+
+                <RadioButton
+                    android:id="@+id/radio_whatsapp_normal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="WhatsApp"
+                    android:checked="true" />
+
+                <RadioButton
+                    android:id="@+id/radio_whatsapp_business"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="WhatsApp Business" />
+
+            </RadioGroup>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Save Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/save_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save"
+            app:icon="@android:drawable/ic_menu_save" />
+
+    </LinearLayout>
+
+</ScrollView>

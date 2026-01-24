@@ -20,4 +20,9 @@
     <color name="whatsapp_green">#25D366</color>
     <color name="whatsapp_dark_green">#128C7E</color>
     <color name="whatsapp_teal">#075E54</color>
+
+    <color name="primary_background">#121212</color>
+    <color name="card_background">#1E1E1E</color>
+    <color name="icon_circle_background">#252525</color>
+    <color name="divider_color">#2C2C2C</color>
 </resources>

@@ -1,5 +1,6 @@
 package com.wmods.wppenhacer.ui.fragments;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -7,8 +8,10 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.preference.Preference;
 
 import com.wmods.wppenhacer.R;
+import com.wmods.wppenhacer.activities.ScheduledMessagesListActivity;
 import com.wmods.wppenhacer.ui.fragments.base.BaseFragment;
 import com.wmods.wppenhacer.ui.fragments.base.BasePreferenceFragment;
 
@@ -44,6 +47,17 @@ public class GeneralFragment extends BaseFragment {
             super.onCreatePreferences(savedInstanceState, rootKey);
             setPreferencesFromResource(R.xml.preference_general_home, rootKey);
             setDisplayHomeAsUpEnabled(true);
+        }
+
+        @Override
+        public boolean onPreferenceTreeClick(Preference preference) {
+            String key = preference.getKey();
+            if ("scheduled_messages".equals(key)) {
+                Intent intent = new Intent(getActivity(), ScheduledMessagesListActivity.class);
+                startActivity(intent);
+                return true;
+            }
+            return super.onPreferenceTreeClick(preference);
         }
     }
 

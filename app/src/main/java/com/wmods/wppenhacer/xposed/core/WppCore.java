@@ -4,11 +4,15 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
+import android.util.Pair;
 import android.widget.Toast;
+import java.util.ArrayList;
+import java.util.List;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -30,6 +34,7 @@ import org.json.JSONObject;
 import org.luckypray.dexkit.query.enums.StringMatchType;
 
 import java.io.File;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -49,6 +54,33 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
 public class WppCore {
+
+    // Guard XposedBridge usage for environments where Xposed is not loaded
+    private static boolean sHasXposedBridge = false;
+
+    static {
+        try {
+            Class.forName("de.robv.android.xposed.XposedBridge");
+            sHasXposedBridge = true;
+        } catch (Throwable t) {
+            sHasXposedBridge = false;
+        }
+    }
+
+    private static void logX(String msg) {
+        if (sHasXposedBridge) {
+            try {
+                Class<?> xb = Class.forName("de.robv.android.xposed.XposedBridge");
+                var m = xb.getMethod("log", String.class);
+                m.invoke(null, msg);
+            } catch (Throwable t) {
+                android.util.Log.w("WaEnhancer", "XposedBridge log failed (via reflection)", t);
+                android.util.Log.d("WaEnhancer", msg);
+            }
+        } else {
+            android.util.Log.d("WaEnhancer", msg);
+        }
+    }
 
     static final HashSet<ActivityChangeState> listenerAcitivity = new HashSet<>();
     @SuppressLint("StaticFieldLeak")
@@ -70,6 +102,8 @@ public class WppCore {
 
     private static Object mWaJidMapRepository;
     private static Method convertJidToLid;
+    private static Object mUserActionSend;
+    private static Method userActionSendMethod;
     private static Class actionUser;
     private static Method cachedMessageStoreKey;
 
@@ -110,6 +144,15 @@ public class WppCore {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 mStartUpConfig = param.thisObject;
+            }
+        });
+
+        // UserActionSend
+        userActionSendMethod = Unobfuscator.loadUserActionsTextMessageSending(loader);
+        XposedBridge.hookAllConstructors(userActionSendMethod.getDeclaringClass(), new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                mUserActionSend = param.thisObject;
             }
         });
 
@@ -225,30 +268,101 @@ public class WppCore {
     }
 
     public static void sendMessage(String number, String message) {
+        sendMessage(Collections.singletonList(number + "@s.whatsapp.net"), message, -1);
+    }
+
+    public static void sendMessage(List<String> jids, String message, long messageId) {
+        XposedBridge.log("WaEnhancer: sendMessage called for messageId: " + messageId + " with " + jids.size() + " JIDs");
         try {
-            var senderMethod = ReflectionUtils.findMethodUsingFilterIfExists(actionUser, (method) -> List.class.isAssignableFrom(method.getReturnType()) && ReflectionUtils.findIndexOfType(method.getParameterTypes(), String.class) != -1);
-            if (senderMethod != null) {
-                var userJid = createUserJid(number + "@s.whatsapp.net");
-                if (userJid == null) {
-                    Utils.showToast("UserJID not found", Toast.LENGTH_SHORT);
-                    return;
+            if (userActionSendMethod == null) {
+                XposedBridge.log("WaEnhancer: userActionSendMethod is null!");
+                return;
+            }
+            XposedBridge.log("WaEnhancer: Using senderMethod: " + userActionSendMethod.getName() + " from class: " + userActionSendMethod.getDeclaringClass().getName());
+            
+            List<Object> userJidList = new ArrayList<>();
+            for (String jid : jids) {
+                Object userJid = createUserJid(jid);
+                if (userJid != null) {
+                    userJidList.add(userJid);
+                } else {
+                    XposedBridge.log("WaEnhancer: Failed to create UserJID for: " + jid);
                 }
-                var newObject = new Object[senderMethod.getParameterCount()];
-                for (int i = 0; i < newObject.length; i++) {
-                    var param = senderMethod.getParameterTypes()[i];
-                    newObject[i] = ReflectionUtils.getDefaultValue(param);
+            }
+
+            if (userJidList.isEmpty()) {
+                XposedBridge.log("WaEnhancer: No valid JIDs found after creation");
+                Utils.showToast("No valid JIDs found", Toast.LENGTH_SHORT);
+                return;
+            }
+
+            Class<?>[] params = userActionSendMethod.getParameterTypes();
+            Object[] args = new Object[params.length];
+            for (int i = 0; i < args.length; i++) {
+                args[i] = ReflectionUtils.getDefaultValue(params[i]);
+            }
+            
+            int msgIndex = ReflectionUtils.findIndexOfType(params, String.class);
+            if (msgIndex != -1) args[msgIndex] = message;
+            
+            int listIndex = ReflectionUtils.findIndexOfType(params, List.class);
+            if (listIndex != -1) args[listIndex] = userJidList;
+            
+            Object userActionInstance = getUserActionSend();
+            if (userActionInstance == null) {
+                XposedBridge.log("WaEnhancer: userActionInstance is null!");
+                throw new Exception("UserActionSend instance is null");
+            }
+            
+            XposedBridge.log("WaEnhancer: Invoking senderMethod...");
+            userActionSendMethod.invoke(userActionInstance, args);
+            XposedBridge.log("WaEnhancer: senderMethod invoked successfully");
+            
+            // Success callback to the app
+            if (messageId != -1) {
+                Intent intent = new Intent("com.wmods.wppenhacer.MESSAGE_SENT");
+                intent.putExtra("message_id", messageId);
+                intent.putExtra("success", true);
+                intent.setPackage("com.wmods.wppenhacer");
+                Utils.getApplication().sendBroadcast(intent);
+                XposedBridge.log("WaEnhancer: Broadcasted success for messageId: " + messageId);
+            }
+            
+            Utils.showToast("Message sent to " + userJidList.size() + " contacts", Toast.LENGTH_SHORT);
+        } catch (Exception e) {
+            XposedBridge.log("WaEnhancer: Exception in sendMessage: " + e.getMessage());
+            XposedBridge.log(e);
+            Utils.showToast("Error in sending message:" + e.getMessage(), Toast.LENGTH_SHORT);
+            
+            // Failure callback to the app
+            if (messageId != -1) {
+                Intent intent = new Intent("com.wmods.wppenhacer.MESSAGE_SENT");
+                intent.putExtra("message_id", messageId);
+                intent.putExtra("success", false);
+                intent.setPackage("com.wmods.wppenhacer");
+                Utils.getApplication().sendBroadcast(intent);
+            }
+        }
+    }
+
+    public static Object getUserActionSend() {
+        try {
+            if (mUserActionSend == null) {
+                XposedBridge.log("WaEnhancer: mUserActionSend is null, attempting to instantiate...");
+                Class<?> clazz = userActionSendMethod.getDeclaringClass();
+                Constructor<?>[] constructors = clazz.getConstructors();
+                if (constructors.length == 0) {
+                    XposedBridge.log("WaEnhancer: No public constructors found for UserActionSend");
+                    return null;
                 }
-                var index = ReflectionUtils.findIndexOfType(senderMethod.getParameterTypes(), String.class);
-                newObject[index] = message;
-                var index2 = ReflectionUtils.findIndexOfType(senderMethod.getParameterTypes(), List.class);
-                newObject[index2] = Collections.singletonList(userJid);
-                senderMethod.invoke(getActionUser(), newObject);
-                Utils.showToast("Message sent to " + number, Toast.LENGTH_SHORT);
+                mUserActionSend = constructors[0].newInstance();
+                XposedBridge.log("WaEnhancer: New UserActionSend instance created");
             }
         } catch (Exception e) {
-            Utils.showToast("Error in sending message:" + e.getMessage(), Toast.LENGTH_SHORT);
+            XposedBridge.log("WaEnhancer: Failed to instantiate UserActionSend: " + e.getMessage());
             XposedBridge.log(e);
         }
+        return mUserActionSend;
     }
 
     public static void sendReaction(String s, Object objMessage) {
@@ -279,6 +393,9 @@ public class WppCore {
         var database = new File(dataDir, "databases/wa.db");
         if (database.exists()) {
             mWaDatabase = SQLiteDatabase.openDatabase(database.getAbsolutePath(), null, SQLiteDatabase.OPEN_READONLY);
+            logX("WaEnhancer: WA DB opened at " + database.getAbsolutePath());
+        } else {
+            logX("WaEnhancer: WA DB not found at " + database.getAbsolutePath());
         }
     }
 
@@ -707,6 +824,23 @@ public class WppCore {
         return client.getService();
     }
 
+
+    public static List<Pair<String, String>> getAllContacts() {
+        loadWADatabase();
+        if (mWaDatabase == null) return new ArrayList<>();
+        var cursor = mWaDatabase.query("wa_contacts", new String[]{"jid", "display_name"}, null, null, null, null, "display_name ASC");
+        List<Pair<String, String>> contacts = new ArrayList<>();
+        while (cursor.moveToNext()) {
+            String jid = cursor.getString(0);
+            String name = cursor.getString(1);
+            if (name != null && !name.isEmpty() && jid != null) {
+                contacts.add(new Pair<>(name, jid));
+            }
+        }
+        cursor.close();
+        logX("WaEnhancer: WA contacts loaded: " + contacts.size());
+        return contacts;
+    }
 
     public interface ActivityChangeState {
 

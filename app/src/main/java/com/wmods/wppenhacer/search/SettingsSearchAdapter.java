@@ -45,15 +45,38 @@ public class SettingsSearchAdapter extends RecyclerView.Adapter<SettingsSearchAd
         var entry = data.get(position);
         holder.title.setText(entry.title);
 
-        String subtitle = TextUtils.isEmpty(entry.summary) ? entry.breadcrumb : entry.summary;
-        holder.subtitle.setText(subtitle == null ? "" : subtitle);
+        String subtitle = entry.summary;
+        if (TextUtils.isEmpty(subtitle)) {
+            holder.subtitle.setVisibility(View.GONE);
+        } else {
+            holder.subtitle.setVisibility(View.VISIBLE);
+            holder.subtitle.setText(subtitle);
+        }
 
-        if (!TextUtils.isEmpty(entry.breadcrumb) && !TextUtils.isEmpty(entry.summary)) {
+        if (!TextUtils.isEmpty(entry.breadcrumb)) {
             holder.breadcrumb.setVisibility(View.VISIBLE);
             holder.breadcrumb.setText(entry.breadcrumb);
         } else {
             holder.breadcrumb.setVisibility(View.GONE);
         }
+
+        // Set Icon
+        int iconRes = switch (entry.tabIndex) {
+            case 0 -> R.drawable.ic_general;
+            case 1 -> R.drawable.ic_privacy;
+            case 3 -> R.drawable.ic_media;
+            default -> R.drawable.ic_general;
+        };
+        
+        if (entry.breadcrumb != null) {
+            String lowerBc = entry.breadcrumb.toLowerCase();
+            if (lowerBc.contains("media")) iconRes = R.drawable.ic_media;
+            else if (lowerBc.contains("privacy")) iconRes = R.drawable.ic_privacy;
+            else if (lowerBc.contains("conversation") || lowerBc.contains("chat")) iconRes = R.drawable.ic_general;
+        }
+
+        holder.icon.setImageResource(iconRes);
+        holder.icon.setColorFilter(holder.itemView.getContext().getColor(R.color.text_primary));
 
         holder.itemView.setOnClickListener(v -> onClick.accept(entry));
     }
@@ -67,12 +90,14 @@ public class SettingsSearchAdapter extends RecyclerView.Adapter<SettingsSearchAd
         final TextView title;
         final TextView subtitle;
         final TextView breadcrumb;
+        final android.widget.ImageView icon;
 
         VH(@NonNull View itemView) {
             super(itemView);
             title = itemView.findViewById(R.id.title);
             subtitle = itemView.findViewById(R.id.subtitle);
             breadcrumb = itemView.findViewById(R.id.breadcrumb);
+            icon = itemView.findViewById(R.id.image_icon);
         }
     }
 }

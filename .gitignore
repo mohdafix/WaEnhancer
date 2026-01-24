@@ -9,6 +9,4 @@
 .cxx
 local.properties
 key.jks
-
- 
- 
+*.log

@@ -501,12 +501,34 @@
     <string name="scheduler_service_stopped">Scheduler service is stopped</string>
     
     <!-- Notification Messages -->
-    <string name="scheduled_messages_active">%d active scheduled messages</string>
+    <string name="scheduled_messages_active" formatted="true">%d active scheduled messages</string>
     <string name="scheduled_messages_monitoring">Monitoring scheduled messages</string>
-    <string name="scheduled_messages_next" formatted="false">%d messages • Next: %s • %s</string>
+    <string name="scheduled_messages_next" formatted="true">%1$d messages • Next: %2$s • %3$s</string>
     
     <!-- Errors -->
     <string name="error">Error</string>
     <string name="save_failed">Failed to save message</string>
     <string name="no_contacts">No Contacts</string>
+
+    <!-- Missing strings for flavors -->
+    <string name="call_recording_title">Call Recording</string>
+    <string name="call_recording_enable">Enable Call Recording</string>
+    <string name="call_recording_enable_sum">Record voice calls automatically</string>
+    <string name="call_recording_path">Recording Path</string>
+    <string name="video_call_screen_rec">Video Call Screen Recording</string>
+    <string name="video_call_screen_rec_sum">Record screen during video calls</string>
+    <string name="lockedchats_enhancer">Locked Chats Enhancer</string>
+    <string name="lockedchats_enhancer_sum">Enhance locked chats functionality</string>
+    <string name="show_contact_blocked">Show Contact Blocked</string>
+    <string name="show_contact_blocked_sum">Display blocked contact indicator</string>
+    <string name="disable_whatsapp_expiration">Disable WhatsApp Expiration</string>
+    <string name="disable_whatsapp_expiration_sum">Prevent WhatsApp from expiring</string>
+    <string name="disable_ads">Disable Ads</string>
+    <string name="disable_ads_sum">Remove advertisements</string>
+    <string name="block_unverified">Block Unverified</string>
+
+    <!-- Scheduled message status -->
+    <string name="schedule_sent">Sent</string>
+    <string name="schedule_pending">Pending</string>
+    <string name="schedule_inactive">Inactive</string>
 </resources>

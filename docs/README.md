@@ -80,6 +80,7 @@
 - `Disable Auto Status`
 - `Enable Copy Status`
 - `Toast on Viewed Status`
+- `Scheduled Messages`
 </details>
 
 <details closed>
@@ -142,6 +143,24 @@
 3. Download the WaEnhancer from the [Actions](https://github.com/Dev4Mod/WaEnhancer/actions) section.
 4. Install the WaEnhancer APK.
 5. Enable the WaEnhancer module in the Xposed Installer app.
+
+## Scheduled Messages Usage
+The Scheduled Messages feature allows you to schedule WhatsApp messages to be sent at future times.
+
+### How to Use:
+1. Open WhatsApp and go to Settings > General > Scheduled Messages.
+2. Tap the "+" button to create a new scheduled message.
+3. Select contacts from your WhatsApp contact list.
+4. Enter the message text.
+5. Choose the date and time for sending.
+6. Select repeat options: Once, Daily, Weekly, Monthly, or Custom days.
+7. Choose whether to use WhatsApp or WhatsApp Business (if installed).
+8. Save the message.
+
+### Notes:
+- Messages are sent automatically at the scheduled time.
+- Ensure the app has necessary permissions and is not optimized by battery saver.
+- Messages are stored locally and sent via WhatsApp's API.
 
 ## Support
 If you encounter any issues or have questions about WaEnhancer, please [Visit Telegram](https://t.me/waenhancer).

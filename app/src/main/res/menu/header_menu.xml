@@ -17,10 +17,18 @@
         app:showAsAction="ifRoom" />
 
     <item
+        android:id="@+id/menu_scheduled_messages"
+        android:icon="@drawable/ic_dashboard_black_24dp"
+        android:title="Scheduled Messages"
+        app:iconTint="@color/text_on_gradient"
+        app:showAsAction="ifRoom" />
+
+    <item
         android:id="@+id/menu_about"
         android:icon="@drawable/about"
         android:title="@string/about"
         app:iconTint="@color/text_on_gradient"
         app:showAsAction="ifRoom" />
+
 
 </menu>

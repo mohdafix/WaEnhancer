@@ -1,0 +1,467 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/dialog_background">
+
+    <!-- Drag Handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:background="#DDDDDD"
+        android:backgroundTint="@color/divider_color" />
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="20dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/text_sheet_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Schedule Message"
+            android:textSize="20sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="@color/text_primary" />
+
+        <ImageButton
+            android:id="@+id/button_close"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_close"
+            android:background="?selectableItemBackgroundBorderless"
+            app:tint="@color/text_secondary" />
+
+    </LinearLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="24dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="20dp">
+
+            <!-- Connection Status Card (Optional in sheet, but keeping for parity) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_bridge_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <com.google.android.material.progressindicator.CircularProgressIndicator
+                        android:id="@+id/status_progress"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:indeterminate="true"
+                        app:indicatorSize="20dp"
+                        app:trackThickness="3dp"
+                        android:visibility="gone" />
+
+                    <ImageView
+                        android:id="@+id/image_status_icon"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:src="@android:drawable/presence_online"
+                        app:tint="@color/status_active" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="16dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/text_status_title"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="WhatsApp Bridge"
+                            android:textColor="@color/text_primary"
+                            android:textSize="15sp"
+                            android:fontFamily="sans-serif-medium" />
+
+                        <TextView
+                            android:id="@+id/text_status_message"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Connected and ready"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp" />
+
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_retry_bridge"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Retry"
+                        android:textAllCaps="false"
+                        android:textColor="?colorPrimary"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Contacts Section -->
+            <TextView
+                style="@style/SectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Recipients"
+                android:layout_marginBottom="12dp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_select_contacts"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Select Contacts"
+                        app:icon="@drawable/ic_general"
+                        android:textAllCaps="false" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/recycler_selected_contacts"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:maxHeight="150dp"
+                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Message Section -->
+            <TextView
+                style="@style/SectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Message Content"
+                android:layout_marginBottom="12dp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="0dp">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="8dp"
+                    app:boxStrokeWidth="0dp"
+                    app:boxStrokeWidthFocused="0dp"
+                    app:hintEnabled="false">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/edit_message"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Type message here..."
+                        android:minLines="3"
+                        android:gravity="top"
+                        android:background="@android:color/transparent"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Schedule Settings -->
+            <TextView
+                style="@style/SectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Schedule &amp; Repeat"
+                android:layout_marginBottom="12dp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- Date Picker -->
+                    <LinearLayout
+                        android:id="@+id/layout_date"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="16dp"
+                        android:gravity="center_vertical"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@android:drawable/ic_menu_my_calendar"
+                            app:tint="?colorPrimary" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="16dp"
+                            android:text="Schedule Date"
+                            android:textColor="@color/text_primary"
+                            android:textSize="15sp" />
+
+                        <TextView
+                            android:id="@+id/text_date"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Select Date"
+                            android:textColor="?colorPrimary"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/divider_color"
+                        android:layout_marginStart="56dp" />
+
+                    <!-- Time Picker -->
+                    <LinearLayout
+                        android:id="@+id/layout_time"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="16dp"
+                        android:gravity="center_vertical"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@android:drawable/ic_menu_recent_history"
+                            app:tint="?colorPrimary" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="16dp"
+                            android:text="Schedule Time"
+                            android:textColor="@color/text_primary"
+                            android:textSize="15sp" />
+
+                        <TextView
+                            android:id="@+id/text_time"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Select Time"
+                            android:textColor="?colorPrimary"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Repeat Options -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="8dp">
+
+                    <RadioGroup
+                        android:id="@+id/radio_group_repeat"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <RadioButton
+                            android:id="@+id/radio_once"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Once"
+                            android:padding="8dp"
+                            android:checked="true" />
+
+                        <RadioButton
+                            android:id="@+id/radio_daily"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Daily"
+                            android:padding="8dp" />
+
+                        <RadioButton
+                            android:id="@+id/radio_weekly"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Weekly"
+                            android:padding="8dp" />
+
+                        <RadioButton
+                            android:id="@+id/radio_monthly"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Monthly"
+                            android:padding="8dp" />
+
+                        <RadioButton
+                            android:id="@+id/radio_custom_days"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Custom Days"
+                            android:padding="8dp" />
+
+                    </RadioGroup>
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chip_group_days"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="8dp"
+                        android:visibility="gone"
+                        app:singleSelection="false">
+
+                        <com.google.android.material.chip.Chip id="@+id/chip_sunday" style="@style/Widget.Material3.Chip.Filter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sun" />
+                        <com.google.android.material.chip.Chip id="@+id/chip_monday" style="@style/Widget.Material3.Chip.Filter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mon" />
+                        <com.google.android.material.chip.Chip id="@+id/chip_tuesday" style="@style/Widget.Material3.Chip.Filter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tue" />
+                        <com.google.android.material.chip.Chip id="@+id/chip_wednesday" style="@style/Widget.Material3.Chip.Filter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Wed" />
+                        <com.google.android.material.chip.Chip id="@+id/chip_thursday" style="@style/Widget.Material3.Chip.Filter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Thu" />
+                        <com.google.android.material.chip.Chip id="@+id/chip_friday" style="@style/Widget.Material3.Chip.Filter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Fri" />
+                        <com.google.android.material.chip.Chip id="@+id/chip_saturday" style="@style/Widget.Material3.Chip.Filter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sat" />
+
+                    </com.google.android.material.chip.ChipGroup>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- WhatsApp Selection -->
+            <TextView
+                style="@style/SectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Target App"
+                android:layout_marginBottom="12dp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="32dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="0dp">
+
+                <RadioGroup
+                    android:id="@+id/radio_group_whatsapp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="8dp">
+
+                    <RadioButton
+                        android:id="@+id/radio_whatsapp_normal"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="WhatsApp"
+                        android:padding="12dp"
+                        android:checked="true" />
+
+                    <RadioButton
+                        android:id="@+id/radio_whatsapp_business"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Business"
+                        android:padding="12dp" />
+
+                </RadioGroup>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_save"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="Save Schedule"
+                android:fontFamily="sans-serif-medium"
+                android:textSize="16sp"
+                android:textAllCaps="false"
+                app:cornerRadius="16dp"
+                android:textColor="@android:color/white"
+                android:backgroundTint="?colorPrimary" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>

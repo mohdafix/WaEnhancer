@@ -61,5 +61,6 @@
     <color name="inactive_message_background">#FAFAFA</color>
     <color name="primary_color">#26A69A</color>
     <color name="card_background">#FFFFFF</color>
-    
+    <color name="icon_circle_background">#F0F7F6</color>
+    <color name="divider_color">#EEEEEE</color>
  </resources>
