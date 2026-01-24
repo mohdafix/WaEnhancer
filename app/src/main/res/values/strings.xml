@@ -262,6 +262,11 @@
     <string name="voice_note_speed">Voice Note Speed</string>
     <string name="select">Select</string>
     <string name="search_contacts">Search contacts</string>
+    <string name="filter_notification_types">Filter notification types</string>
+    <string name="filter_notification_types_sum">Choose which types of deleted messages should trigger notifications</string>
+    <string name="filter_private_messages">Private messages</string>
+    <string name="filter_group_messages">Group messages</string>
+    <string name="filter_status">Status</string>
 
     <string name="settings_search">Search</string>
     <string name="settings_search_hint">Search settings</string>

@@ -300,56 +300,59 @@ public class AntiRevoke extends Feature {
             // Backward compatibility: old builds used a boolean preference
             toastDeletedOption = prefs.getBoolean("toastdeleted", false) ? 1 : 0;
         }
-        if (toastDeletedOption == 1) {
-            Utils.showToast(message, Toast.LENGTH_LONG);
-        } else if (toastDeletedOption == 2) {
-            PendingIntent pendingIntent = null;
-            try {
-                // Prefer phone JID first; for groups this is the reliable form (@g.us).
-                String rawJid = jidAuthor.getPhoneRawString();
-                if (rawJid == null) rawJid = jidAuthor.getUserRawString();
-
-                if (rawJid != null) {
-                    Intent intent;
-
-                    if (isStatus) {
-                        // For status revocation, open the status playback screen.
-                        var statusPlaybackClass = Unobfuscator.getClassByName("StatusPlaybackActivity", classLoader);
-                        intent = new Intent(Utils.getApplication(), statusPlaybackClass);
-                        intent.putExtra("jid", rawJid);
-                    } else {
-                        // For message revocation, open the chat (group or 1:1).
-                        intent = new Intent();
-                        intent.setClassName(Utils.getApplication().getPackageName(), "com.whatsapp.Conversation");
-
-                        var jidObj = WppCore.createUserJid(rawJid);
-                        if (jidObj != null) {
-                            // WhatsApp usually expects a Parcelable Jid in "jid".
-                            // If the runtime type is not Parcelable, fallback to string.
-                            try {
-                                intent.putExtra("jid", (Parcelable) jidObj);
-                            } catch (Throwable ignored) {
-                                intent.putExtra("jid", rawJid);
-                            }
-                        } else {
-                            intent.putExtra("jid", rawJid);
-                        }
-                    }
-
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                            | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                            | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-
-                    int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        flags |= PendingIntent.FLAG_IMMUTABLE;
-                    }
-                    pendingIntent = PendingIntent.getActivity(Utils.getApplication(), rawJid.hashCode(), intent, flags);
-                }
-            } catch (Throwable ignored) {
+        if (toastDeletedOption != 0) {
+            Set<String> filters = prefs.getStringSet("notification_filter", null);
+            if (filters == null) {
+                // Default to all if not set
+                filters = new java.util.HashSet<>();
+                filters.add("private");
+                filters.add("group");
+                filters.add("status");
             }
 
-            Utils.showNotification(notificationTitle, notificationContent, pendingIntent);
+            boolean isAllowed = false;
+            if (isStatus) {
+                if (filters.contains("status")) isAllowed = true;
+            } else if (isGroupDeletion) {
+                if (filters.contains("group")) isAllowed = true;
+            } else {
+                if (filters.contains("private")) isAllowed = true;
+            }
+
+            if (isAllowed) {
+                if (toastDeletedOption == 1) {
+                    Utils.showToast(message, Toast.LENGTH_LONG);
+                } else if (toastDeletedOption == 2) {
+                    PendingIntent pendingIntent = null;
+                    try {
+                        String rawJid = jidAuthor.getPhoneRawString();
+                        if (rawJid == null) rawJid = jidAuthor.getUserRawString();
+
+                        if (rawJid != null) {
+                            Intent intent;
+                            if (isStatus) {
+                                var statusPlaybackClass = Unobfuscator.getClassByName("StatusPlaybackActivity", classLoader);
+                                intent = new Intent(Utils.getApplication(), statusPlaybackClass);
+                                intent.putExtra("jid", rawJid);
+                            } else {
+                                intent = new Intent();
+                                intent.setClassName(Utils.getApplication().getPackageName(), "com.whatsapp.Conversation");
+                                intent.putExtra("jid", rawJid);
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                            }
+                            
+                            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                flags |= PendingIntent.FLAG_IMMUTABLE;
+                            }
+                            pendingIntent = PendingIntent.getActivity(Utils.getApplication(), rawJid.hashCode(), intent, flags);
+                        }
+                    } catch (Throwable e) {
+                        log(e);
+                    }
+                    Utils.showNotification(notificationTitle, notificationContent, pendingIntent);
+                }
+            }
         }
         Tasker.sendTaskerEvent(name, jidAuthor.getPhoneNumber(), jidAuthor.isStatus() ? "deleted_status" : "deleted_message");
     }

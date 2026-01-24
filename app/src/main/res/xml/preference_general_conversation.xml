@@ -18,6 +18,15 @@
             app:summary="@string/toast_on_delete_sum"
             app:title="@string/toast_on_delete" />
 
+        <MultiSelectListPreference
+            app:defaultValue="@array/notification_filter_values"
+            app:entries="@array/notification_filter_entries"
+            app:entryValues="@array/notification_filter_values"
+            app:iconSpaceReserved="false"
+            app:key="notification_filter"
+            app:summary="@string/filter_notification_types_sum"
+            app:title="@string/filter_notification_types" />
+
         <rikka.material.preference.MaterialSwitchPreference
             app:key="toast_viewed_message"
             app:summary="@string/toast_on_viewed_message_sum"

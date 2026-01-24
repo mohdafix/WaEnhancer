@@ -91,6 +91,21 @@ public class GeneralFragment extends BaseFragment {
             }
             setPreferencesFromResource(R.xml.preference_general_conversation, rootKey);
             setDisplayHomeAsUpEnabled(true);
+
+            // Add listener to disable notification_filter if toastdeleted is "0" (Disabled)
+            androidx.preference.ListPreference toastDeletedPref = findPreference("toastdeleted");
+            androidx.preference.Preference notificationFilterPref = findPreference("notification_filter");
+            
+            if (toastDeletedPref != null && notificationFilterPref != null) {
+                String toastVal = toastDeletedPref.getValue();
+                if (toastVal == null) toastVal = "0";
+                notificationFilterPref.setEnabled(!"0".equals(toastVal));
+                
+                toastDeletedPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                    notificationFilterPref.setEnabled(!"0".equals(newValue));
+                    return true;
+                });
+            }
         }
     }
 

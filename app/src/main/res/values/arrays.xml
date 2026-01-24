@@ -39,6 +39,18 @@
         <item>2</item>
     </string-array>
 
+    <string-array name="notification_filter_entries">
+        <item>@string/filter_private_messages</item>
+        <item>@string/filter_group_messages</item>
+        <item>@string/filter_status</item>
+    </string-array>
+    
+    <string-array name="notification_filter_values">
+        <item>private</item>
+        <item>group</item>
+        <item>status</item>
+    </string-array>
+
 
     <string-array name="archive_entries">
         <item>@string/disabled</item>
