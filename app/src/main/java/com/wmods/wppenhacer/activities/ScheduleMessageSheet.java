@@ -339,6 +339,10 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
         editingMessage.setWhatsappType(wType);
         if (repeat == ScheduledMessage.REPEAT_CUSTOM_DAYS) editingMessage.setRepeatDays(getRepeatDaysFromChips());
         
+        // Ensure message is active and reset sent status when saving/editing
+        editingMessage.setActive(true);
+        editingMessage.setSent(false);
+        
         if (editingMessage.getId() != 0) messageStore.updateMessage(editingMessage);
         else messageStore.insertMessage(editingMessage);
         
