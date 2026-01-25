@@ -33,6 +33,20 @@ public class MainActivity extends BaseActivity {
     public static final String EXTRA_SEARCH_SCREEN_CLASS = "extra_search_screen_class";
     public static final String EXTRA_SEARCH_PREF_KEY = "extra_search_pref_key";
 
+    private PendingNavigation pendingNavigation;
+
+    private static class PendingNavigation {
+        final int tabIndex;
+        final String screenClassName;
+        final String prefKey;
+
+        PendingNavigation(int tabIndex, String screenClassName, String prefKey) {
+            this.tabIndex = tabIndex;
+            this.screenClassName = screenClassName;
+            this.prefKey = prefKey;
+        }
+    }
+
     private ActivityMainBinding binding;
     private BatteryPermissionHelper batteryPermissionHelper = BatteryPermissionHelper.Companion.getInstance();
 
@@ -95,22 +109,39 @@ public class MainActivity extends BaseActivity {
                 binding.navView.getMenu().getItem(position).setChecked(true);
             }
         });
-        binding.viewPager.setCurrentItem(2, false);
+        binding.viewPager.setCurrentItem(2, false); // Default to Home
         createMainDir();
         FilePicker.registerFilePicker(this);
 
-        handleSearchIntent(getIntent());
+        // Register lifecycle callbacks to handle deferred navigation
+        getSupportFragmentManager().registerFragmentLifecycleCallbacks(new androidx.fragment.app.FragmentManager.FragmentLifecycleCallbacks() {
+            @Override
+            public void onFragmentResumed(@NonNull androidx.fragment.app.FragmentManager fm, @NonNull Fragment f) {
+                if (pendingNavigation != null) {
+                    // Check if this fragment corresponds to the pending tab
+                    // ViewPager2 tags fragments as "f" + position (e.g., "f1")
+                    String tag = f.getTag();
+                    if (tag != null && tag.equals("f" + pendingNavigation.tabIndex)) {
+                        attemptPendingNavigation(f);
+                    }
+                }
+            }
+        }, false);
+
         checkPermissions();
+        handleSearchIntent(getIntent());
 
         getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 int currentItem = binding.viewPager.getCurrentItem();
                 
-                // If in General tab (0), check its child backstack
-                Fragment gf = findTabFragment(0);
-                if (currentItem == 0 && gf instanceof com.wmods.wppenhacer.ui.fragments.GeneralFragment) {
-                    androidx.fragment.app.FragmentManager childFm = gf.getChildFragmentManager();
+                // Attempt to find the current tab fragment
+                Fragment currentFragment = findTabFragment(currentItem);
+                
+                // Check if the current fragment has a back stack (nested screens)
+                if (currentFragment != null) {
+                    androidx.fragment.app.FragmentManager childFm = currentFragment.getChildFragmentManager();
                     if (childFm.getBackStackEntryCount() > 0) {
                         childFm.popBackStack();
                         return;
@@ -156,41 +187,61 @@ public class MainActivity extends BaseActivity {
         String screenClass = intent.getStringExtra(EXTRA_SEARCH_SCREEN_CLASS);
         String prefKey = intent.getStringExtra(EXTRA_SEARCH_PREF_KEY);
 
-        // Prevent re-handling on configuration changes.
+        // Store pending operation
+        pendingNavigation = new PendingNavigation(tabIndex, screenClass, prefKey);
+
+        // Switch tab
+        binding.viewPager.setCurrentItem(tabIndex, false);
+
+        // If fragment is already alive and resumed, execute immediately
+        Fragment currentFragment = findTabFragment(tabIndex);
+        if (currentFragment != null && currentFragment.isResumed()) {
+            attemptPendingNavigation(currentFragment);
+        }
+        
+        // Clean up intent
         intent.removeExtra(EXTRA_SEARCH_TAB_INDEX);
         intent.removeExtra(EXTRA_SEARCH_SCREEN_CLASS);
         intent.removeExtra(EXTRA_SEARCH_PREF_KEY);
-
-        navigateToPreference(tabIndex, screenClass, prefKey);
     }
 
-    private void navigateToPreference(int tabIndex, @Nullable String screenClassName, @Nullable String prefKey) {
-        binding.viewPager.setCurrentItem(tabIndex, false);
-        binding.viewPager.postDelayed(() -> tryNavigateToPreference(tabIndex, screenClassName, prefKey, 0), 50);
-    }
-
-    private void tryNavigateToPreference(int tabIndex, @Nullable String screenClassName, @Nullable String prefKey, int attempt) {
-        var tabFragment = findTabFragment(tabIndex);
-        if (tabFragment == null || !tabFragment.isAdded()) {
-            if (attempt < 20) {
-                binding.viewPager.postDelayed(() -> tryNavigateToPreference(tabIndex, screenClassName, prefKey, attempt + 1), 100);
-            }
-            return;
+    private void attemptPendingNavigation(@NonNull Fragment fragment) {
+        if (pendingNavigation == null) return;
+        
+        // Double check this fragment matches the request
+        // We use a looser check here because tag might vary, but mostly we care about index logic
+        // But for safety, verify if possible. 
+        // Actually, since we register lifecycle callback on FM, we get notified for ALL fragments.
+        // We really should check if this resumed fragment IS the one for the tab index.
+        
+        Fragment tabFragment = findTabFragment(pendingNavigation.tabIndex);
+        if (tabFragment != fragment && fragment.getParentFragment() != tabFragment) {
+            // It might be a child fragment of the tab fragment?
+             if (tabFragment != null && fragment.getParentFragmentManager() == tabFragment.getChildFragmentManager()) {
+                 // It's a child, maybe we don't need to do anything if it's already there?
+                 // But wait, our logic to open screen REPLACES the child.
+             } else if (tabFragment != fragment) {
+                 return; // Not the fragment we are waiting for
+             }
         }
-
-        if (tabIndex == 0 && tabFragment instanceof com.wmods.wppenhacer.ui.fragments.GeneralFragment generalFragment) {
-            openGeneralScreenAndScroll(generalFragment, screenClassName, prefKey);
-            return;
-        }
-
-        if (tabFragment instanceof androidx.preference.PreferenceFragmentCompat prefFragment) {
-            if (prefKey != null) {
-                // Ensure it's laid out
-                binding.viewPager.post(() -> {
-                    try {
-                        prefFragment.scrollToPreference(prefKey);
-                    } catch (Exception ignored) {}
-                });
+        
+        // If the fragment passed here is indeed the tab fragment or we found it
+        if (tabFragment != null) {
+            try {
+                if (pendingNavigation.tabIndex == 0 && tabFragment instanceof com.wmods.wppenhacer.ui.fragments.GeneralFragment generalFragment) {
+                    openGeneralScreenAndScroll(generalFragment, pendingNavigation.screenClassName, pendingNavigation.prefKey);
+                } else if (tabFragment instanceof androidx.preference.PreferenceFragmentCompat prefFragment) {
+                    if (pendingNavigation.prefKey != null) {
+                        binding.viewPager.post(() -> {
+                            try {
+                                prefFragment.scrollToPreference(pendingNavigation.prefKey);
+                            } catch (Exception ignored) {}
+                        });
+                    }
+                }
+                pendingNavigation = null;
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }
@@ -207,44 +258,53 @@ public class MainActivity extends BaseActivity {
 
         var fm = generalFragment.getChildFragmentManager();
         if (fm.isStateSaved()) {
-            // Retry once the state is restored.
-            binding.viewPager.postDelayed(() -> openGeneralScreenAndScroll(generalFragment, screenClassName, prefKey), 50);
-            return;
+            return; // Can't commit now, rely on next resume?
         }
 
-        // Reset to a clean stack, then open the target screen.
+        // Reset to a clean stack
         fm.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
 
         try {
+            // Find class
             Class<?> clazz = Class.forName(target);
             var fragment = (androidx.fragment.app.Fragment) clazz.getDeclaredConstructor().newInstance();
 
             boolean isRoot = target.endsWith("$GeneralPreferenceFragment");
-            var tx = fm.beginTransaction().replace(R.id.frag_container, fragment);
+            
+            var tx = fm.beginTransaction()
+                    .replace(R.id.frag_container, fragment);
+            
             if (!isRoot) {
                 tx.addToBackStack(null);
             }
-            tx.commitNow();
+            tx.commit(); // Use commit allowed stateless instead of commitNow to be safer during lifecycle changes
 
-            if (prefKey != null && fragment instanceof androidx.preference.PreferenceFragmentCompat pf) {
-                // Ensure preferences are laid out before scrolling.
-                binding.viewPager.post(() -> pf.scrollToPreference(prefKey));
+            // Post action to scroll after the child fragment attaches and creates view
+            if (prefKey != null) {
+                binding.viewPager.postDelayed(() -> {
+                    if (fragment instanceof androidx.preference.PreferenceFragmentCompat pf && pf.isVisible()) {
+                         pf.scrollToPreference(prefKey);
+                    }
+                }, 100); 
             }
-        } catch (Throwable ignored) {
+        } catch (Throwable e) {
+            e.printStackTrace();
         }
     }
 
     @Nullable
     private Fragment findTabFragment(int tabIndex) {
-        // ViewPager2 fragments are typically tagged as "f0", "f1", ...
+        // ViewPager2 fragments are tagged as "f" + position by FragmentStateAdapter
         Fragment byTag = getSupportFragmentManager().findFragmentByTag("f" + tabIndex);
         if (byTag != null) return byTag;
 
+        // Fallback search in case tags are different or missing
         for (Fragment f : getSupportFragmentManager().getFragments()) {
             if (tabIndex == 1 && f instanceof com.wmods.wppenhacer.ui.fragments.PrivacyFragment) return f;
             if (tabIndex == 3 && f instanceof com.wmods.wppenhacer.ui.fragments.MediaFragment) return f;
             if (tabIndex == 4 && f instanceof com.wmods.wppenhacer.ui.fragments.CustomizationFragment) return f;
             if (tabIndex == 0 && f instanceof com.wmods.wppenhacer.ui.fragments.GeneralFragment) return f;
+            if (tabIndex == 5 && f instanceof com.wmods.wppenhacer.ui.fragments.RecordingsFragment) return f;
         }
         return null;
     }

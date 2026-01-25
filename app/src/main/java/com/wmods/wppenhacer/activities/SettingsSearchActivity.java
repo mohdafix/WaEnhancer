@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -20,12 +21,13 @@ import com.wmods.wppenhacer.search.SettingsSearchIndex;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 
 public class SettingsSearchActivity extends BaseActivity {
 
     private ActivitySettingsSearchBinding binding;
     private SettingsSearchAdapter adapter;
-    private List<SettingsSearchIndex.Entry> allEntries;
+    private volatile List<SettingsSearchIndex.Entry> allEntries;
     @Nullable
     private MenuItem searchMenuItem;
     @Nullable
@@ -54,40 +56,53 @@ public class SettingsSearchActivity extends BaseActivity {
             actionBar.setDisplayHomeAsUpEnabled(true);
         }
 
-        allEntries = SettingsSearchIndex.get(this);
+        // Initialize adapter immediately with empty/null listener first or handle clicks
         adapter = new SettingsSearchAdapter(this::onEntryClick);
 
         binding.recycler.setLayoutManager(new LinearLayoutManager(this));
         binding.recycler.setAdapter(adapter);
 
-        updateResults("", true);
+        // Load index asynchronously
+        CompletableFuture.supplyAsync(() -> SettingsSearchIndex.get(getApplicationContext()))
+                .thenAcceptAsync(entries -> {
+                    allEntries = entries;
+                    // Apply filter if query already exists (e.g. from state restoration or fast typing)
+                    if (searchView != null) {
+                        updateResults(searchView.getQuery().toString(), true);
+                    } else {
+                        updateResults("", true);
+                    }
+                }, getMainExecutor());
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
+        // Use the existing menu resource which contains action_search
         getMenuInflater().inflate(R.menu.settings_search_menu, menu);
 
         searchMenuItem = menu.findItem(R.id.action_search);
-        searchMenuItem.expandActionView();
+        if (searchMenuItem != null) {
+            searchMenuItem.expandActionView();
+            searchView = (SearchView) searchMenuItem.getActionView();
+            
+            if (searchView != null) {
+                searchView.setQueryHint(getString(R.string.settings_search_hint));
+                searchView.setIconified(false);
+                searchView.requestFocus();
+                searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+                    @Override
+                    public boolean onQueryTextSubmit(String query) {
+                        return false;
+                    }
 
-        searchView = (SearchView) searchMenuItem.getActionView();
-        searchView.setQueryHint(getString(R.string.settings_search_hint));
-        searchView.setIconified(false);
-        searchView.requestFocus();
-        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-            @Override
-            public boolean onQueryTextSubmit(String query) {
-                updateResults(query, false);
-                return true;
+                    @Override
+                    public boolean onQueryTextChange(String newText) {
+                        updateResults(newText, false);
+                        return true;
+                    }
+                });
             }
-
-            @Override
-            public boolean onQueryTextChange(String newText) {
-                updateResults(newText, false);
-                return true;
-            }
-        });
-
+        }
         return true;
     }
 
@@ -101,22 +116,27 @@ public class SettingsSearchActivity extends BaseActivity {
     }
 
     private void updateResults(@Nullable String query, boolean allowEmpty) {
+        // Safe check if index is not loaded yet
+        if (allEntries == null) {
+            return;
+        }
+
         String q = query == null ? "" : query.trim();
         if (q.isEmpty() && !allowEmpty) {
             adapter.submit(Collections.emptyList());
-            binding.emptyView.setVisibility(android.view.View.GONE);
+            binding.emptyView.setVisibility(View.GONE);
             return;
         }
 
         String needle = q.toLowerCase(Locale.ROOT);
         var results = SettingsSearchIndex.filter(allEntries, needle, 60);
         adapter.submit(results);
-        binding.emptyView.setVisibility(results.isEmpty() && !q.isEmpty() ? android.view.View.VISIBLE : android.view.View.GONE);
+        binding.emptyView.setVisibility(results.isEmpty() && !q.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
     private void onEntryClick(SettingsSearchIndex.Entry entry) {
         Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP); // 603979776
         intent.putExtra(MainActivity.EXTRA_SEARCH_TAB_INDEX, entry.tabIndex);
         intent.putExtra(MainActivity.EXTRA_SEARCH_SCREEN_CLASS, entry.screenClassName);
         if (entry.preferenceKey != null) {

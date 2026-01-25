@@ -30,8 +30,9 @@ import de.robv.android.xposed.XposedHelpers;
 
 public class ProfilePictureChangeNotifier extends Feature {
 
-    private static final Map<String, String> profilePictureHashes = new HashMap<>();
     private static final String PREF_KEY = "profile_picture_change_toast";
+    private static final String HASH_PREFS = "wppenhancer_profile_hashes";
+    private android.content.SharedPreferences hashPrefs;
 
     public ProfilePictureChangeNotifier(@NonNull ClassLoader classLoader,
                                         @NonNull XSharedPreferences preferences) {
@@ -48,9 +49,13 @@ public class ProfilePictureChangeNotifier extends Feature {
 
         // Hook into contact item binding to detect profile picture changes
         ContactItemListener.contactListeners.add(new ProfilePictureChangeListener());
-        
-        // Also hook into profile picture loading methods
-        hookProfilePictureLoading();
+    }
+
+    private android.content.SharedPreferences getHashPrefs() {
+        if (hashPrefs == null) {
+            hashPrefs = Utils.getApplication().getSharedPreferences(HASH_PREFS, android.content.Context.MODE_PRIVATE);
+        }
+        return hashPrefs;
     }
 
     private int getNotificationOption() {
@@ -62,44 +67,16 @@ public class ProfilePictureChangeNotifier extends Feature {
         }
     }
 
-    private void hookProfilePictureLoading() throws Throwable {
+    private void handleProfilePictureUpdate(WaContactWpp waContact) {
         try {
-            // Find profile picture related classes and methods
-            var profilePhotoClass = Unobfuscator.findFirstClassUsingName(
-                    classLoader,
-                    StringMatchType.Contains,
-                    "ProfilePhoto"
-            );
-            
-            if (profilePhotoClass != null) {
-                // Hook into profile photo update methods
-                XposedBridge.hookAllMethods(profilePhotoClass, "onProfilePictureUpdated", 
-                        new XC_MethodHook() {
-                            @Override
-                            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                                handleProfilePictureUpdate(param);
-                            }
-                        });
-            }
-        } catch (Exception e) {
-            log("Failed to hook profile picture loading: " + e.getMessage());
-        }
-    }
-
-    private void handleProfilePictureUpdate(XC_MethodHook.MethodHookParam param) {
-        try {
-            Object contactObj = param.args[0];
-            if (contactObj == null) return;
-            
-            var waContact = new WaContactWpp(contactObj);
             var userJid = waContact.getUserJid();
             if (userJid.isNull()) return;
 
             String jid = userJid.getUserRawString();
             String contactName = WppCore.getContactName(userJid);
-            
+
             checkAndNotifyProfilePictureChange(jid, contactName);
-            
+
         } catch (Exception e) {
             log("Error handling profile picture update: " + e.getMessage());
         }
@@ -108,31 +85,34 @@ public class ProfilePictureChangeNotifier extends Feature {
     private void checkAndNotifyProfilePictureChange(String jid, String contactName) {
         try {
             String currentHash = getProfilePictureHash(jid);
-            String previousHash = profilePictureHashes.get(jid);
-            
-            if (previousHash != null && !previousHash.equals(currentHash)) {
+            String previousHash = getHashPrefs().getString(jid, null);
+
+            // If we have a previous hash and it differs from current, notify
+            if (previousHash != null && !previousHash.equals(currentHash) && !currentHash.equals("no_profile")) {
                 // Profile picture has changed
-                String displayName = TextUtils.isEmpty(contactName) ? 
+                String displayName = TextUtils.isEmpty(contactName) ?
                         WppCore.stripJID(jid) : contactName;
-                
+
                 int notificationOption = getNotificationOption();
                 String title = "Profile Picture Updated";
                 String message = displayName + " updated their profile picture";
-                
+
                 if (notificationOption == 1) {
-                    // Show Toast
+                    // Show Toast (Main Thread)
                     Utils.showToast(message, Toast.LENGTH_LONG);
                 } else if (notificationOption == 2) {
                     // Show Notification
                     showNotification(title, message, jid);
                 }
-                
+
                 log("Profile picture changed for: " + displayName);
             }
-            
-            // Update the stored hash
-            profilePictureHashes.put(jid, currentHash);
-            
+
+            // Update the stored hash if changed or new
+            if (!currentHash.equals(previousHash)) {
+                getHashPrefs().edit().putString(jid, currentHash).apply();
+            }
+
         } catch (Exception e) {
             log("Error checking profile picture change: " + e.getMessage());
         }
@@ -184,25 +164,25 @@ public class ProfilePictureChangeNotifier extends Feature {
             if (profileFile != null && profileFile.exists()) {
                 return profileFile.getAbsolutePath() + "_" + profileFile.lastModified();
             }
-            
-            // Try alternative paths
+
+            // Try alternative paths (duplicated from WppCore for safety or legacy)
             String strippedJid = WppCore.stripJID(jid);
             File[] possibleFiles = {
                     new File("/data/data/com.whatsapp/cache/Profile Pictures/" + strippedJid + ".jpg"),
                     new File("/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/Profile Pictures/" + strippedJid + ".jpg"),
                     new File("/data/data/com.whatsapp/files/Avatars/" + jid + ".j")
             };
-            
+
             for (File file : possibleFiles) {
                 if (file.exists()) {
                     return file.getAbsolutePath() + "_" + file.lastModified();
                 }
             }
-            
+
         } catch (Exception e) {
             log("Error getting profile picture hash: " + e.getMessage());
         }
-        
+
         return "no_profile";
     }
 
@@ -210,16 +190,11 @@ public class ProfilePictureChangeNotifier extends Feature {
         @Override
         public void onBind(WaContactWpp waContact, android.view.View view) {
             try {
-                var userJid = waContact.getUserJid();
-                if (userJid.isNull()) return;
+                // Pass waContact to handleProfilePictureUpdate to keep logic centralized
+                // We use execute to run on background thread
+                Utils.getExecutor().execute(() ->
+                        handleProfilePictureUpdate(waContact));
 
-                String jid = userJid.getUserRawString();
-                String contactName = WppCore.getContactName(userJid);
-                
-                // Check profile picture change when contact item is bound
-                Utils.getExecutor().execute(() -> 
-                    checkAndNotifyProfilePictureChange(jid, contactName));
-                
             } catch (Exception e) {
                 log("Error in profile picture change listener: " + e.getMessage());
             }

@@ -428,5 +428,100 @@
     <string name="disable_ads">Disable Ads</string>
     <string name="disable_ads_sum">Blocks ads from appearing in WhatsApp</string>
     <string name="lockedchats_enhancer">Enhanced Locked Chats</string>
-    <string name="lockedchats_enhancer_sum">Improve locked chats by hiding notifications and contacts from the contact list</string>
+    <string name="lockedchats_enhancer_sum">Melhore os chats bloqueados ocultando notificações e contatos da lista de contatos</string>
+    
+    <!-- Profile Picture & Toast Options -->
+    <string name="profile_picture_change_toast">Notificações de alteração de foto de perfil</string>
+    <string name="profile_picture_change_toast_sum">Escolha como ser notificado quando alguém alterar sua foto de perfil</string>
+    <string name="profile_picture_change_option_disabled">Desativado</string>
+    <string name="profile_picture_change_option_toast">Mostrar Toast</string>
+    <string name="profile_picture_change_option_notification">Mostrar Notificação</string>
+    <string name="toastdeleted_option_disabled">Desativado</string>
+    <string name="toastdeleted_option_toast">Mostrar Toast</string>
+    <string name="toastdeleted_option_notification">Mostrar Notificação</string>
+    <string name="monet_theme">AMOLED Material You</string>
+    <string name="monet_theme_sum">Usar cores de destaque do sistema com fundo preto puro no Modo Escuro</string>
+
+    <!-- Scheduler Feature Strings -->
+    <string name="scheduler">Agendador</string>
+    <string name="schedule_message">Agendar Mensagem</string>
+    <string name="edit_message">Editar Mensagem</string>
+    <string name="scheduled_messages">Mensagens Agendadas</string>
+    <string name="scheduled_messages_desc">Mensagens agendadas para envio automático</string>
+    <string name="no_scheduled_messages">Nenhuma mensagem agendada</string>
+    <string name="no_scheduled_messages_desc">Toque no botão + para criar sua primeira mensagem agendada</string>
+    <string name="add_scheduled_message">Adicionar mensagem agendada</string>
+    
+    <!-- Message Composition -->
+    <string name="recipients">Destinatários</string>
+    <string name="select_contacts_required">Selecione pelo menos um contato</string>
+    <string name="message_required">A mensagem não pode estar vazia</string>
+    
+    <!-- Date & Time -->
+    <string name="schedule_time">Hora do agendamento</string>
+    <string name="select_date_time">Selecionar data e hora</string>
+    <string name="invalid_time">Hora inválida</string>
+    <string name="schedule_future_time">Selecione um horário futuro</string>
+    
+    <!-- Repeat Options -->
+    <string name="repeat">Repetir</string>
+    <string name="repeat_once">Uma vez</string>
+    <string name="repeat_daily">Diariamente</string>
+    <string name="repeat_weekly">Semanalmente</string>
+    <string name="repeat_monthly">Mensalmente</string>
+    <string name="repeat_custom">Personalizado</string>
+    <string name="select_days">Selecionar dias</string>
+    <string name="no_days_selected">Selecione pelo menos um dia</string>
+    <string name="sunday">Dom</string>
+    <string name="monday">Seg</string>
+    <string name="tuesday">Ter</string>
+    <string name="wednesday">Qua</string>
+    <string name="thursday">Qui</string>
+    <string name="friday">Sex</string>
+    <string name="saturday">Sáb</string>
+    
+    <!-- WhatsApp Type -->
+    <string name="whatsapp_type">Tipo de WhatsApp</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="whatsapp_business">WhatsApp Business</string>
+    
+    <!-- Message Status -->
+    <string name="active">Ativo</string>
+    <string name="inactive">Inativo</string>
+    <string name="sent">Enviado</string>
+    
+    <!-- Menu Actions -->
+    <string name="delete_message">Excluir Mensagem</string>
+    <string name="delete_message_confirm">Excluir mensagem agendada para %s?</string>
+    <string name="message_deleted">Mensagem excluída</string>
+    <string name="clear_sent_messages">Limpar mensagens enviadas</string>
+    <string name="clear_sent_messages_confirm">Excluir todas as mensagens de envio único que já foram enviadas?</string>
+    <string name="sent_messages_cleared">Mensagens enviadas limpas</string>
+    <string name="action_save">Salvar</string>
+    
+    <!-- Service Status -->
+    <string name="scheduler_service_running">Serviço de agendamento em execução</string>
+    <string name="scheduler_service_stopped">Serviço de agendamento parado</string>
+    
+    <!-- Notification Messages -->
+    <string name="scheduled_messages_active" formatted="true">%d mensagens agendadas ativas</string>
+    <string name="scheduled_messages_monitoring">Monitorando mensagens agendadas</string>
+    <string name="scheduled_messages_next" formatted="true">%1$d mensagens • Próximo: %2$s • %3$s</string>
+    
+    <!-- Errors -->
+    <string name="error">Erro</string>
+    <string name="save_failed">Falha ao salvar mensagem</string>
+    <string name="no_contacts">Sem contatos</string>
+
+    <!-- Scheduled message status -->
+    <string name="schedule_sent">Enviado</string>
+    <string name="schedule_pending">Pendente</string>
+    <string name="schedule_inactive">Inativo</string>
+
+    <!-- Deleted Message Notification Filter -->
+    <string name="filter_notification_types">Filtrar tipos de notificação</string>
+    <string name="filter_notification_types_sum">Escolha quais tipos de mensagens excluídas devem acionar notificações</string>
+    <string name="filter_private_messages">Mensagens privadas</string>
+    <string name="filter_group_messages">Mensagens de grupo</string>
+    <string name="filter_status">Status</string>
 </resources>

@@ -49,6 +49,7 @@
         android:requestLegacyExternalStorage="true"
         android:roundIcon="@mipmap/launcher"
         android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
         tools:targetApi="q">
 
         <!--suppress AndroidDomInspection -->
