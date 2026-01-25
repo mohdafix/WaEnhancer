@@ -35,7 +35,7 @@ public class ScheduledMessageService extends Service {
     public static final String ACTION_MESSAGE_SENT = "com.wmods.wppenhacer.MESSAGE_SENT";
     public static final String ACTION_SCHEDULED_STATUS = "com.wmods.wppenhacer.SCHEDULED_MESSAGES_STATUS";
     public static final String ACTION_SEND_MESSAGE = "com.wmods.wppenhacer.SEND_SCHEDULED_MESSAGE";
-    private static final String CHANNEL_ID = "scheduled_messages_channel";
+    private static final String CHANNEL_ID = "scheduled_messages_live_v1";
     private static final int CHECK_INTERVAL = 30000;
     public static final String EXTRA_HAS_PENDING = "has_pending";
     public static final String EXTRA_MESSAGE_ID = "message_id";
@@ -323,7 +323,7 @@ public class ScheduledMessageService extends Service {
     }
 
     private void createNotificationChannel() {
-        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, getString(R.string.scheduled_messages), 2);
+        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, getString(R.string.scheduled_messages), NotificationManager.IMPORTANCE_DEFAULT);
         channel.setDescription(getString(R.string.scheduled_messages_desc));
         channel.setShowBadge(true);
         NotificationManager manager = (NotificationManager) getSystemService(NotificationManager.class);
@@ -344,7 +344,16 @@ public class ScheduledMessageService extends Service {
         } else {
             text = getString(R.string.scheduled_messages_monitoring);
         }
-        return new NotificationCompat.Builder(this, CHANNEL_ID).setContentTitle(title).setContentText(text).setSmallIcon(R.drawable.ic_dashboard_black_24dp).setPriority(-1).setOngoing(true).setContentIntent(pendingIntent).setCategory("service").setVisibility(1).build();
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setSmallIcon(R.drawable.ic_dashboard_black_24dp)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setOngoing(true)
+                .setContentIntent(pendingIntent)
+                .setCategory(NotificationCompat.CATEGORY_EVENT)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .build();
     }
 
     private void updateNotification(int activeCount, ScheduledMessage nextMessage) {
@@ -395,10 +404,10 @@ public class ScheduledMessageService extends Service {
                 .setContentTitle(title)
                 .setContentText(contentText.toString())
                 .setSmallIcon(R.drawable.ic_dashboard_black_24dp)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setOngoing(true)
                 .setContentIntent(pendingIntent)
-                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setCategory(NotificationCompat.CATEGORY_EVENT)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(bigText.toString()));
 
@@ -409,7 +418,8 @@ public class ScheduledMessageService extends Service {
         if (liveUpdate && nextMessage != null) {
             long nextTime = nextMessage.getNextScheduledTime();
             builder.setWhen(nextTime)
-                   .setUsesChronometer(true);
+                   .setUsesChronometer(true)
+                   .setPriority(NotificationCompat.PRIORITY_HIGH);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 builder.setChronometerCountDown(true);
             }
