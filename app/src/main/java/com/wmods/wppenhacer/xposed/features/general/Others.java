@@ -99,6 +99,8 @@ public class Others extends Feature {
 
         // new text composer
         propsBoolean.put(15708, true);
+        propsBoolean.put(14862, newSettings);
+        propsBoolean.put(18726, newSettings);
 
         // change page id
         propsBoolean.put(2358, false);
@@ -166,6 +168,16 @@ public class Others extends Feature {
         // new stories selection
         propsBoolean.put(0x32ca, true);
         propsBoolean.put(0x32cb, true);
+
+        propsBoolean.put(13497, true);
+        propsBoolean.put(13596, true);
+        propsBoolean.put(8841, true);
+        propsBoolean.put(14143, true);
+        propsBoolean.put(11490, true);
+        propsBoolean.put(11491, true);
+        propsBoolean.put(13402, true);
+        propsBoolean.put(13002, true);
+        propsBoolean.put(13003, true);
 
         if (disableMetaAI) {
             propsBoolean.put(8025, false);
@@ -281,11 +293,21 @@ public class Others extends Feature {
     }
 
     private void disableAds() throws Exception {
-        propsBoolean.put(22904, true);
+        propsBoolean.put(22904, false);
         propsBoolean.put(14306, false);
         try {
             var loadAd = Unobfuscator.loadAdVerifyMethod(classLoader);
-            XposedBridge.hookMethod(loadAd, XC_MethodReplacement.returnConstant(false));
+            XposedBridge.hookMethod(loadAd, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    Enum<?> enumParam = (Enum<?>) param.args[0];
+                    if (enumParam.name().equals("WAMO")) {
+                        Class<? extends Enum> returnType = (Class<? extends Enum>) ((Method) param.method).getReturnType();
+                        Enum<?> pauseEnum = Enum.valueOf(returnType, "PAUSED");
+                        param.setResult(pauseEnum);
+                    }
+                }
+            });
         } catch (Exception e) {
             logDebug(e);
         }

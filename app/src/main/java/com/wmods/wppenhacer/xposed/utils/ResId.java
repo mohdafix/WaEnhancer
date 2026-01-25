@@ -21,6 +21,9 @@ public class ResId {
         public static int edit2;
         public static int ic_privacy;
         public static int user_foreground;
+        public static int ic_status_pending_fb;
+        public static int ic_status_delivered_fb;
+        public static int ic_status_read_fb;
     }
 
     public static class string {

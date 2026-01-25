@@ -36,6 +36,7 @@ import com.wmods.wppenhacer.xposed.features.customization.FilterGroups;
 import com.wmods.wppenhacer.xposed.features.customization.HideSeenView;
 import com.wmods.wppenhacer.xposed.features.customization.HideTabs;
 import com.wmods.wppenhacer.xposed.features.customization.IGStatus;
+import com.wmods.wppenhacer.xposed.features.customization.OwnMessageStatus;
 import com.wmods.wppenhacer.xposed.features.customization.SeparateGroup;
 import com.wmods.wppenhacer.xposed.features.customization.ShowOnline;
 import com.wmods.wppenhacer.xposed.features.general.AntiRevoke;
@@ -383,7 +384,8 @@ Others.class,
                 GoogleTranslate.class,
                 ContactBlockedVerify.class,
                 CallRecording.class,
-                VideoCallRecording.class
+                VideoCallRecording.class,
+                OwnMessageStatus.class
         };
         XposedBridge.log("Loading Plugins");
         var executorService = Executors.newWorkStealingPool(Math.min(Runtime.getRuntime().availableProcessors(), 4));

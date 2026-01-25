@@ -142,6 +142,19 @@
             app:summary="Enable schedule message option in conversation menu"
             app:title="Schedule Message" />
 
+        <rikka.material.preference.MaterialSwitchPreference
+            app:key="own_status_indicator"
+            app:summary="@string/own_status_indicator_sum"
+            app:title="@string/own_status_indicator" />
+
+        <ListPreference
+            app:dependency="own_status_indicator"
+            app:defaultValue="0"
+            app:entries="@array/own_status_style_entries"
+            app:entryValues="@array/own_status_style_values"
+            app:key="own_status_style"
+            app:title="@string/own_status_style" />
+
         <ListPreference
             app:defaultValue="0"
             app:entries="@array/profile_picture_change_entries"

@@ -327,6 +327,24 @@ public class FMessageWpp {
         } catch (Exception ignored) { return -1; }
     }
 
+    public int getStatus() {
+        if (fmessage == null) return -1;
+        try {
+            // Usually 'status' or a similar int field.
+            // Heuristic: Status is an int, and common obfuscated names often repeat.
+            // We can search for an int field that is typically 0, 1, 4, 5, 13.
+            Field f = XposedHelpers.findField(fmessage.getClass(), "status");
+            return f.getInt(fmessage);
+        } catch (Throwable t) {
+            // Try common obfuscated names if needed, but 'status' is very common in FMessage
+            try {
+                // Search all int fields for one that matches status values? Too slow.
+                // Just use reflection to find "status" field even if it's protected/private
+            } catch (Exception ignored) {}
+        }
+        return -1;
+    }
+
     public boolean isViewOnce() {
         var media_type = getMediaType();
         return (media_type == 82 || media_type == 42 || media_type == 43);

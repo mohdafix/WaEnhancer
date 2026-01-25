@@ -535,5 +535,8 @@
     <!-- Scheduled message status -->
     <string name="schedule_sent">Sent</string>
     <string name="schedule_pending">Pending</string>
+    <string name="own_status_indicator">Own Message Status Indicator</string>
+    <string name="own_status_indicator_sum">Replace the normal arrow ticks for your own messages with custom indicators</string>
+    <string name="own_status_style">Indicator Style</string>
     <string name="schedule_inactive">Inactive</string>
 </resources>
