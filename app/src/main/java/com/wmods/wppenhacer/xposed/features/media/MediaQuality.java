@@ -3,6 +3,7 @@ package com.wmods.wppenhacer.xposed.features.media;
 import android.graphics.Bitmap;
 import android.graphics.RecordingCanvas;
 import android.os.Build;
+import android.util.Pair;
 
 import androidx.annotation.NonNull;
 
@@ -13,6 +14,8 @@ import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
 
 import org.json.JSONObject;
 
+import java.util.List;
+import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicReference;
 
 import de.robv.android.xposed.XC_MethodHook;
@@ -30,7 +33,7 @@ public class MediaQuality extends Feature {
     public void doHook() throws Exception {
         var videoQuality = prefs.getBoolean("videoquality", false);
         var imageQuality = prefs.getBoolean("imagequality", false);
-        var maxSize = (int) prefs.getFloat("video_limit_size", 60);
+        var maxSize = (int) prefs.getFloat("video_limit_size", 110);
         var realResolution = prefs.getBoolean("video_real_resolution", false);
 
         // Max video size
@@ -77,6 +80,91 @@ public class MediaQuality extends Feature {
             });
             jsonPropertyHook.set(unhooked);
 
+            // Hook for Dimension Swapping (Fix Horizontal Video)
+            var videoMethod = Unobfuscator.loadMediaQualityVideoMethod2(classLoader);
+            final var mediaFields = Unobfuscator.loadMediaQualityOriginalVideoFields(classLoader);
+            final var mediaTranscodeParams = Unobfuscator.loadMediaQualityVideoFields(classLoader);
+            
+            XposedBridge.hookMethod(videoMethod, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    Object resizeVideo = param.getResult(); // The transcode params object
+                    
+                    // Logic to determine if high resolution is active
+                    boolean isHighResolution;
+                    boolean isEnum = false;
+                    Enum enumObj = ReflectionUtils.getArg(param.args, Enum.class, 0);
+                    
+                    if (enumObj == null) {
+                         // Fallback logic usually index 1 is resolution type int?
+                         Object arg1 = param.args.length > 1 ? param.args[1] : null;
+                         isHighResolution = arg1 instanceof Integer && (Integer) arg1 == 3; 
+                    } else {
+                        isEnum = true;
+                        // Check if enum matches RESOLUTION_1080P or similar high res constant
+                        // We do a loose check here or strictly match name
+                        isHighResolution = enumObj.name().contains("1080") || enumObj.name().contains("HD");
+                    }
+
+                    // Only apply swap if we are tampering with resolution (realResolution is active)
+                    // or if we just want to enforce corectness for safety. 
+                    // The user code snippet implies: if (isHighResolution && realResolution) 
+                    // But actually, the swap logic is useful regardless if the default logic fails.
+                    // We will stick to the logic provided in the user's snippet which seems to be:
+                    if (isHighResolution && realResolution) { 
+                        int width, height, rotation;
+
+                        if (mediaFields.isEmpty()) {
+                            // Newer/different version logic using JSON or map?
+                            if (isEnum) {
+                                // Fallback reading from args?
+                                // The user code snippet reads from index 0, 1, 2 of found integers?
+                                var intParams = ReflectionUtils.findInstancesOfType(param.args, Integer.class);
+                                if (intParams.size() >= 3) {
+                                    width = intParams.get(0).second;
+                                    height = intParams.get(1).second; // Actually might be intParams.get(1)
+                                    // The snippet had: width=0.second, height2=1.second, height=2.second (rotation?)
+                                    // height here means rotation
+                                    rotation = intParams.get(2).second;
+                                } else {
+                                    return; // Cannot determine
+                                }
+                            } else {
+                                JSONObject fields = (JSONObject) XposedHelpers.callMethod(param.args[0], "A00"); // Obfuscated call
+                                width = fields.getInt("widthPx");
+                                height = fields.getInt("heightPx");
+                                rotation = fields.getInt("rotationAngle");
+                            }
+                        } else {
+                            // Standard reflection field access
+                            width = mediaFields.get("widthPx").getInt(param.args[0]);
+                            height = mediaFields.get("heightPx").getInt(param.args[0]);
+                            rotation = mediaFields.get("rotationAngle").getInt(param.args[0]);
+                        }
+
+                        var targetWidthField = mediaTranscodeParams.get("targetWidth");
+                        var targetHeightField = mediaTranscodeParams.get("targetHeight");
+                        
+                        // Swap logic
+                        boolean swap = (rotation == 90 || rotation == 270);
+                        
+                        // The user snippet says:
+                        // targetHeightField.setInt(out, inverted ? width : height2);
+                        // targetWidthField.setInt(out, inverted ? height2 : width);
+                        // So if swapped (inverted), targetHeight = width (large), targetWidth = height (small)
+                        // This makes it portrait.
+                        
+                        targetWidthField.setInt(resizeVideo, swap ? height : width);
+                        targetHeightField.setInt(resizeVideo, swap ? width : height);
+                    }
+
+                    if (MediaQuality.this.prefs.getBoolean("video_maxfps", false)) {
+                       var frameRateField = mediaTranscodeParams.get("frameRate");
+                       if (frameRateField != null) frameRateField.setInt(resizeVideo, 60);
+                    }
+                }
+            });
+
 
             // HD video must be sent in maximum resolution (up to 4K)
             if (realResolution) {
@@ -88,10 +176,10 @@ public class MediaQuality extends Feature {
             }
 
              // Non-HD video must be sent in HD resolution
-             Others.propsInteger.put(4686, 0);
-             Others.propsInteger.put(3654, 0);
-             Others.propsInteger.put(3183, 0); // Stories
-             Others.propsInteger.put(4685, 0); // Stories
+             Others.propsInteger.put(4686, 5000);
+             Others.propsInteger.put(3654, 5000);
+             Others.propsInteger.put(3183, 5000); // Stories
+             Others.propsInteger.put(4685, 5000); // Stories
 
             // Max bitrate
             Others.propsInteger.put(3755, 96000);

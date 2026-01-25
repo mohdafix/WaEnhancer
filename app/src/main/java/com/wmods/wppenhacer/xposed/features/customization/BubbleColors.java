@@ -38,8 +38,14 @@ public class BubbleColors extends Feature {
         // Priority 1: Manual color always takes precedence
         if (manualColor != 0) return manualColor;
 
-        // Priority 2: Monet colors (if enabled and available)
+        // Priority 2: CSS/Properties color (Theme Manager)
+        if (propertyColor != 0) return propertyColor;
+
+        // Priority 3: Monet colors (if enabled and available)
         if (monetEnabled) {
+            if (!isOutgoing) {
+                return Color.BLACK;
+            }
             try {
                 int monetColor = isOutgoing
                     ? MonetColorEngine.getBubbleOutgoingColor(Utils.getApplication())
@@ -47,9 +53,6 @@ public class BubbleColors extends Feature {
                 if (monetColor != -1) return monetColor;
             } catch (Exception ignored) {}
         }
-
-        // Priority 3: CSS/Properties color
-        if (propertyColor != 0) return propertyColor;
 
         // Priority 4: Default (0 = use WhatsApp default)
         return 0;

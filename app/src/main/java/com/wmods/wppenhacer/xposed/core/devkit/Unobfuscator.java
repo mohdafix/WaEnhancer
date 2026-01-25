@@ -501,8 +501,10 @@ public class Unobfuscator {
             var result = new HashMap<String, Field>();
             for (int i = 0; i < usingStrings.size(); i++) {
                 if (i == usingFields.size()) break;
+                var key = usingStrings.get(i);
                 var field = usingFields.get(i).getField().getFieldInstance(classLoader);
-                result.put(usingStrings.get(i), field);
+                result.put(key, field);
+                result.put(key.replaceAll("[^a-zA-Z0-9]", ""), field);
             }
             return result;
         });
@@ -523,8 +525,10 @@ public class Unobfuscator {
             var result = new HashMap<String, Field>();
             for (int i = 0; i < usingStrings.size(); i++) {
                 if (i == usingFields.size()) break;
+                var key = usingStrings.get(i);
                 var field = usingFields.get(i).getField().getFieldInstance(classLoader);
-                result.put(usingStrings.get(i), field);
+                result.put(key, field);
+                result.put(key.replaceAll("[^a-zA-Z0-9]", ""), field);
             }
             return result;
         });

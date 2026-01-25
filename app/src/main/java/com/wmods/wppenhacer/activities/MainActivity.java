@@ -49,6 +49,7 @@ public class MainActivity extends BaseActivity {
 
     private ActivityMainBinding binding;
     private BatteryPermissionHelper batteryPermissionHelper = BatteryPermissionHelper.Companion.getInstance();
+    private androidx.activity.OnBackPressedCallback backCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +60,32 @@ public class MainActivity extends BaseActivity {
         setContentView(binding.getRoot());
 
         setSupportActionBar(binding.toolbar);
+
+        backCallback = new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                int currentItem = binding.viewPager.getCurrentItem();
+                
+                Fragment currentFragment = findTabFragment(currentItem);
+                
+                if (currentFragment != null) {
+                    androidx.fragment.app.FragmentManager childFm = currentFragment.getChildFragmentManager();
+                    if (childFm.getBackStackEntryCount() > 0) {
+                        childFm.popBackStack();
+                        return;
+                    }
+                }
+
+                if (currentItem != 2) {
+                    binding.viewPager.setCurrentItem(2, true);
+                    return;
+                }
+
+                setEnabled(false);
+                MainActivity.this.getOnBackPressedDispatcher().onBackPressed();
+            }
+        };
+        getOnBackPressedDispatcher().addCallback(this, backCallback);
 
         MainPagerAdapter pagerAdapter = new MainPagerAdapter(this);
         binding.viewPager.setAdapter(pagerAdapter);
@@ -107,6 +134,7 @@ public class MainActivity extends BaseActivity {
             public void onPageSelected(int position) {
                 super.onPageSelected(position);
                 binding.navView.getMenu().getItem(position).setChecked(true);
+                updateBackCallbackState();
             }
         });
         binding.viewPager.setCurrentItem(2, false); // Default to Home
@@ -131,34 +159,11 @@ public class MainActivity extends BaseActivity {
         checkPermissions();
         handleSearchIntent(getIntent());
 
-        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                int currentItem = binding.viewPager.getCurrentItem();
-                
-                // Attempt to find the current tab fragment
-                Fragment currentFragment = findTabFragment(currentItem);
-                
-                // Check if the current fragment has a back stack (nested screens)
-                if (currentFragment != null) {
-                    androidx.fragment.app.FragmentManager childFm = currentFragment.getChildFragmentManager();
-                    if (childFm.getBackStackEntryCount() > 0) {
-                        childFm.popBackStack();
-                        return;
-                    }
-                }
-
-                // If not in Home tab (2), go back to Home tab
-                if (currentItem != 2) {
-                    binding.viewPager.setCurrentItem(2, true);
-                    return;
-                }
-
-                // Default behavior (finish activity)
-                setEnabled(false);
-                MainActivity.this.getOnBackPressedDispatcher().onBackPressed();
-            }
-        });
+        checkPermissions();
+        handleSearchIntent(getIntent());
+        
+        // Back callback moved to top of onCreate for predictive back support
+        updateBackCallbackState();
     }
 
     private void checkPermissions() {
@@ -230,11 +235,16 @@ public class MainActivity extends BaseActivity {
             try {
                 if (pendingNavigation.tabIndex == 0 && tabFragment instanceof com.wmods.wppenhacer.ui.fragments.GeneralFragment generalFragment) {
                     openGeneralScreenAndScroll(generalFragment, pendingNavigation.screenClassName, pendingNavigation.prefKey);
-                } else if (tabFragment instanceof androidx.preference.PreferenceFragmentCompat prefFragment) {
+                } else if (tabFragment instanceof androidx.preference.PreferenceFragmentCompat) {
+                    androidx.preference.PreferenceFragmentCompat prefFragment = (androidx.preference.PreferenceFragmentCompat) tabFragment;
                     if (pendingNavigation.prefKey != null) {
                         binding.viewPager.post(() -> {
                             try {
-                                prefFragment.scrollToPreference(pendingNavigation.prefKey);
+                                if (prefFragment instanceof com.wmods.wppenhacer.ui.fragments.base.BasePreferenceFragment) {
+                                    ((com.wmods.wppenhacer.ui.fragments.base.BasePreferenceFragment) prefFragment).scrollToPreferenceAndHighlight(pendingNavigation.prefKey);
+                                } else {
+                                    prefFragment.scrollToPreference(pendingNavigation.prefKey);
+                                }
                             } catch (Exception ignored) {}
                         });
                     }
@@ -282,8 +292,10 @@ public class MainActivity extends BaseActivity {
             // Post action to scroll after the child fragment attaches and creates view
             if (prefKey != null) {
                 binding.viewPager.postDelayed(() -> {
-                    if (fragment instanceof androidx.preference.PreferenceFragmentCompat pf && pf.isVisible()) {
-                         pf.scrollToPreference(prefKey);
+                    if (fragment instanceof com.wmods.wppenhacer.ui.fragments.base.BasePreferenceFragment && fragment.isVisible()) {
+                        ((com.wmods.wppenhacer.ui.fragments.base.BasePreferenceFragment) fragment).scrollToPreferenceAndHighlight(prefKey);
+                    } else if (fragment instanceof androidx.preference.PreferenceFragmentCompat && fragment.isVisible()) {
+                         ((androidx.preference.PreferenceFragmentCompat) fragment).scrollToPreference(prefKey);
                     }
                 }, 100); 
             }
@@ -301,12 +313,29 @@ public class MainActivity extends BaseActivity {
         // Fallback search in case tags are different or missing
         for (Fragment f : getSupportFragmentManager().getFragments()) {
             if (tabIndex == 1 && f instanceof com.wmods.wppenhacer.ui.fragments.PrivacyFragment) return f;
+            if (tabIndex == 2 && f instanceof com.wmods.wppenhacer.ui.fragments.HomeFragment) return f;
             if (tabIndex == 3 && f instanceof com.wmods.wppenhacer.ui.fragments.MediaFragment) return f;
             if (tabIndex == 4 && f instanceof com.wmods.wppenhacer.ui.fragments.CustomizationFragment) return f;
             if (tabIndex == 0 && f instanceof com.wmods.wppenhacer.ui.fragments.GeneralFragment) return f;
             if (tabIndex == 5 && f instanceof com.wmods.wppenhacer.ui.fragments.RecordingsFragment) return f;
         }
         return null;
+    }
+
+    private void updateBackCallbackState() {
+        if (backCallback == null) return;
+        int currentItem = binding.viewPager.getCurrentItem();
+        boolean isHome = (currentItem == 2);
+        boolean homeHasStack = false;
+        
+        // Check if current fragment has back stack
+        Fragment f = findTabFragment(currentItem);
+        if (f != null && f.getChildFragmentManager().getBackStackEntryCount() > 0) {
+             homeHasStack = true;
+        }
+        
+        // Enable if NOT home, OR if currently managing a backstack
+        backCallback.setEnabled(!isHome || homeHasStack);
     }
 
     private void createMainDir() {

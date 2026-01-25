@@ -306,7 +306,7 @@ public class MediaPreview extends Feature {
     // ================= VIDEO =================
 
     private void showVideo(Context context) {
-
+        
         videoDialog = new Dialog(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         videoDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
 
@@ -316,199 +316,215 @@ public class MediaPreview extends Feature {
         VideoView videoView = new VideoView(context);
         videoView.setVideoURI(Uri.fromFile(filePath));
         
-        // Center video like image viewer - not full screen
         FrameLayout.LayoutParams videoParams = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                Utils.dipToPixels(280), // Reasonable height
+                ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.CENTER
         );
         videoView.setLayoutParams(videoParams);
         root.addView(videoView);
 
-        // Main floating control panel (positioned below video)
-        FrameLayout floatingPanel = new FrameLayout(context);
-        floatingPanel.setBackground(createRoundDrawable(Color.parseColor("#CC000000")));
-        
-        int panelWidth = Utils.dipToPixels(280);
-        int panelHeight = Utils.dipToPixels(120);
-        
-        FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
-                panelWidth, panelHeight,
-                Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM
-        );
-        panelParams.setMargins(0, 0, 0, Utils.dipToPixels(100)); // Position above bottom
-        root.addView(floatingPanel, panelParams);
+        // ================= OVERLAY LAYER (Always Visible for Clicks) =================
+        FrameLayout touchOverlay = new FrameLayout(context);
+        touchOverlay.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        touchOverlay.setClickable(true);
+        root.addView(touchOverlay);
 
-        // Play/Pause button in center
-        ImageView playPauseBtn = new ImageView(context);
-        playPauseBtn.setImageResource(android.R.drawable.ic_media_pause);
-        playPauseBtn.setColorFilter(Color.WHITE);
-        playPauseBtn.setPadding(Utils.dipToPixels(16), Utils.dipToPixels(16), Utils.dipToPixels(16), Utils.dipToPixels(16));
-        playPauseBtn.setBackground(createRoundDrawable(Color.parseColor("#80FFFFFF")));
-        
-        FrameLayout.LayoutParams playPauseParams = new FrameLayout.LayoutParams(
-                Utils.dipToPixels(56),
-                Utils.dipToPixels(56),
-                Gravity.CENTER
-        );
-        floatingPanel.addView(playPauseBtn, playPauseParams);
-
-        // Top row controls (mute and speed)
-        LinearLayout topControls = new LinearLayout(context);
-        topControls.setOrientation(LinearLayout.HORIZONTAL);
-        topControls.setGravity(Gravity.CENTER_VERTICAL);
-        
-        FrameLayout.LayoutParams topParams = new FrameLayout.LayoutParams(
+        // ================= CONTROLS CONTAINER =================
+        FrameLayout controlsOverlay = new FrameLayout(context);
+        controlsOverlay.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                Utils.dipToPixels(36),
-                Gravity.TOP
-        );
-        topParams.setMargins(Utils.dipToPixels(16), Utils.dipToPixels(8), Utils.dipToPixels(16), 0);
-        floatingPanel.addView(topControls, topParams);
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        root.addView(controlsOverlay);
 
-        // Speed button (modern pill design)
+        // Center Play/Pause Button
+        ImageView centerPlayBtn = new ImageView(context);
+        centerPlayBtn.setImageResource(android.R.drawable.ic_media_pause);
+        centerPlayBtn.setColorFilter(Color.WHITE);
+        centerPlayBtn.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        int playBtnSize = Utils.dipToPixels(64);
+        int playBtnPadding = Utils.dipToPixels(18);
+        centerPlayBtn.setPadding(playBtnPadding, playBtnPadding, playBtnPadding, playBtnPadding);
+        centerPlayBtn.setBackground(createCircleDrawable(Color.parseColor("#80000000")));
+        
+        FrameLayout.LayoutParams centerPlayParams = new FrameLayout.LayoutParams(playBtnSize, playBtnSize);
+        centerPlayParams.gravity = Gravity.CENTER;
+        controlsOverlay.addView(centerPlayBtn, centerPlayParams);
+
+        // Bottom Controls Container (Gradient Background)
+        LinearLayout bottomContainer = new LinearLayout(context);
+        bottomContainer.setOrientation(LinearLayout.VERTICAL);
+        bottomContainer.setPadding(
+                Utils.dipToPixels(16),
+                Utils.dipToPixels(16),
+                Utils.dipToPixels(16),
+                Utils.dipToPixels(16)
+        );
+        
+        // Gradient background for readability
+        GradientDrawable gradient = new GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{Color.TRANSPARENT, Color.parseColor("#B3000000")}
+        );
+        bottomContainer.setBackground(gradient);
+
+        FrameLayout.LayoutParams bottomParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        bottomParams.gravity = Gravity.BOTTOM;
+        controlsOverlay.addView(bottomContainer, bottomParams);
+
+        // Row 1: Seek Bar
+        SeekBar seekBar = new SeekBar(context);
+        seekBar.setPadding(0, 0, 0, 0);
+        // Style seekbar if possible, otherwise default is okay
+        LinearLayout.LayoutParams seekParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        seekParams.bottomMargin = Utils.dipToPixels(8);
+        bottomContainer.addView(seekBar, seekParams);
+
+        // Row 2: Time and Actions
+        LinearLayout actionsRow = new LinearLayout(context);
+        actionsRow.setOrientation(LinearLayout.HORIZONTAL);
+        actionsRow.setGravity(Gravity.CENTER_VERTICAL);
+        bottomContainer.addView(actionsRow);
+
+        // Time Text
+        TextView timeText = new TextView(context);
+        timeText.setTextColor(Color.WHITE);
+        timeText.setTextSize(12);
+        timeText.setText("00:00 / 00:00");
+        actionsRow.addView(timeText);
+
+        // Spacer
+        View spacer = new View(context);
+        actionsRow.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1.0f));
+
+        // Speed Button
         TextView speedBtn = new TextView(context);
         speedBtn.setText("1.0x");
         speedBtn.setTextColor(Color.WHITE);
-        speedBtn.setGravity(Gravity.CENTER);
         speedBtn.setTextSize(12);
-        speedBtn.setPadding(Utils.dipToPixels(12), Utils.dipToPixels(4), Utils.dipToPixels(12), Utils.dipToPixels(4));
-        speedBtn.setBackground(createRoundDrawable(Color.parseColor("#66000000")));
+        speedBtn.setGravity(Gravity.CENTER);
+        speedBtn.setTypeface(null, android.graphics.Typeface.BOLD);
+        speedBtn.setPadding(Utils.dipToPixels(12), Utils.dipToPixels(6), Utils.dipToPixels(12), Utils.dipToPixels(6));
+        speedBtn.setBackground(createRoundedRectDrawable(Color.parseColor("#4DFFFFFF"), Utils.dipToPixels(16)));
         
         LinearLayout.LayoutParams speedParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        topControls.addView(speedBtn, speedParams);
+        speedParams.rightMargin = Utils.dipToPixels(16);
+        actionsRow.addView(speedBtn, speedParams);
 
-        // Spacer between controls
-        View spacer = new View(context);
-        LinearLayout.LayoutParams spacerParams = new LinearLayout.LayoutParams(0, 1, 1.0f);
-        topControls.addView(spacer, spacerParams);
-
-        // Mute button
+        // Mute Button
         ImageView muteBtn = new ImageView(context);
         muteBtn.setImageResource(android.R.drawable.ic_lock_silent_mode_off);
         muteBtn.setColorFilter(Color.WHITE);
-        muteBtn.setPadding(Utils.dipToPixels(8), Utils.dipToPixels(8), Utils.dipToPixels(8), Utils.dipToPixels(8));
-        muteBtn.setBackground(createRoundDrawable(Color.parseColor("#66000000")));
-
         LinearLayout.LayoutParams muteParams = new LinearLayout.LayoutParams(
-                Utils.dipToPixels(36),
-                Utils.dipToPixels(36)
+                Utils.dipToPixels(24),
+                Utils.dipToPixels(24)
         );
-        topControls.addView(muteBtn, muteParams);
-
-        // Bottom seek bar
-        SeekBar seekBar = new SeekBar(context);
-        
-        FrameLayout.LayoutParams seekParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                Utils.dipToPixels(32),
-                Gravity.BOTTOM
-        );
-        seekParams.setMargins(Utils.dipToPixels(16), 0, Utils.dipToPixels(16), Utils.dipToPixels(8));
-        floatingPanel.addView(seekBar, seekParams);
-
-        // Time labels (optional enhancement)
-        LinearLayout timeContainer = new LinearLayout(context);
-        timeContainer.setOrientation(LinearLayout.HORIZONTAL);
-        timeContainer.setGravity(Gravity.CENTER_VERTICAL);
-        
-        FrameLayout.LayoutParams timeParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                Utils.dipToPixels(20),
-                Gravity.BOTTOM
-        );
-        timeParams.setMargins(Utils.dipToPixels(16), 0, Utils.dipToPixels(16), Utils.dipToPixels(36));
-        floatingPanel.addView(timeContainer, timeParams);
-
-        TextView currentTime = new TextView(context);
-        currentTime.setText("00:00");
-        currentTime.setTextColor(Color.WHITE);
-        currentTime.setTextSize(10);
-        timeContainer.addView(currentTime);
-
-        View timeSpacer = new View(context);
-        LinearLayout.LayoutParams timeSpacerParams = new LinearLayout.LayoutParams(0, 1, 1.0f);
-        timeContainer.addView(timeSpacer, timeSpacerParams);
-
-        TextView totalTime = new TextView(context);
-        totalTime.setText("00:00");
-        totalTime.setTextColor(Color.WHITE);
-        totalTime.setTextSize(10);
-        timeContainer.addView(totalTime);
+        actionsRow.addView(muteBtn, muteParams);
 
         videoDialog.setContentView(root);
         videoDialog.show();
 
+        // Logic
         Handler handler = new Handler(Looper.getMainLooper());
-
-        // Auto-hide floating panel with smooth animations
         Handler hideHandler = new Handler(Looper.getMainLooper());
-        Runnable hideRunnable = new Runnable() {
-            @Override
-            public void run() {
-                floatingPanel.animate().alpha(0f).scaleY(0.8f).scaleX(0.8f).setDuration(500).start();
-            }
+        
+        Runnable hideControls = () -> {
+            controlsOverlay.animate()
+                    .alpha(0f)
+                    .setDuration(300)
+                    .withEndAction(() -> {
+                         controlsOverlay.setVisibility(View.GONE);
+                         centerPlayBtn.setVisibility(View.GONE); // Ensure plays button is gone so touchOverlay gets clicks
+                    })
+                    .start();
         };
 
-        floatingPanel.setAlpha(0f);
-        floatingPanel.setScaleX(0.8f);
-        floatingPanel.setScaleY(0.8f);
+        Runnable showControls = () -> {
+            controlsOverlay.setVisibility(View.VISIBLE);
+            centerPlayBtn.setVisibility(View.VISIBLE);
+            controlsOverlay.animate().alpha(1f).setDuration(200).start();
+            hideHandler.removeCallbacks(hideControls);
+            hideHandler.postDelayed(hideControls, 3000);
+        };
+
+        // This overlay is ALWAYS clickable and below control buttons but ABOVE video
+        // It toggles the controls overlay
+        touchOverlay.setOnClickListener(v -> {
+            // Toggle
+            if (controlsOverlay.getVisibility() == View.VISIBLE && controlsOverlay.getAlpha() > 0.5f) {
+                hideHandler.removeCallbacks(hideControls);
+                hideControls.run();
+            } else {
+                showControls.run();
+            }
+        });
+
+        // The controls themselves should consume click events so they don't toggle the UI
+        bottomContainer.setOnClickListener(v -> hideHandler.removeCallbacks(hideControls)); // Keep alive
+
+        centerPlayBtn.setOnClickListener(v -> {
+            if (videoView.isPlaying()) {
+                videoView.pause();
+                centerPlayBtn.setImageResource(android.R.drawable.ic_media_play);
+                hideHandler.removeCallbacks(hideControls); // Keep controls visible while paused
+            } else {
+                videoView.start();
+                centerPlayBtn.setImageResource(android.R.drawable.ic_media_pause);
+                showControls.run(); // Will auto-hide in 3s
+            }
+        });
 
         videoView.setOnPreparedListener(mp -> {
             currentMediaPlayer = mp;
-            seekBar.setMax(mp.getDuration());
-            totalTime.setText(formatTime(mp.getDuration()));
+            int duration = mp.getDuration();
+            seekBar.setMax(duration);
+            timeText.setText("00:00 / " + formatTime(duration));
             videoView.start();
+            
+            // Initial hide after delay
+            hideHandler.postDelayed(hideControls, 2500);
 
-            // Show panel with scale animation
-            floatingPanel.animate().alpha(1f).scaleY(1f).scaleX(1f).setDuration(300).start();
-            hideHandler.postDelayed(hideRunnable, 3000);
-
+            // Update Progress
             handler.post(new Runnable() {
                 @Override
                 public void run() {
-                    if (videoView.isPlaying()) {
-                        int pos = videoView.getCurrentPosition();
-                        seekBar.setProgress(pos);
-                        currentTime.setText(formatTime(pos));
-                    }
-                    handler.postDelayed(this, 100);
+                    try {
+                        if (videoView.isPlaying()) {
+                            int pos = videoView.getCurrentPosition();
+                            seekBar.setProgress(pos);
+                            timeText.setText(formatTime(pos) + " / " + formatTime(duration));
+                        }
+                        // Continue updating even if paused to catch seek changes
+                        handler.postDelayed(this, 200);
+                    } catch (Exception ignored) {}
                 }
             });
 
-            // Play/Pause button logic
-            playPauseBtn.setOnClickListener(v -> {
-                if (videoView.isPlaying()) {
-                    videoView.pause();
-                    playPauseBtn.setImageResource(android.R.drawable.ic_media_play);
-                } else {
-                    videoView.start();
-                    playPauseBtn.setImageResource(android.R.drawable.ic_media_pause);
-                }
-            });
-
-            // Mute button logic
+            // Mute Logic
             muteBtn.setOnClickListener(v -> {
                 isMuted = !isMuted;
-
                 if (currentMediaPlayer != null) {
-                    currentMediaPlayer.setVolume(
-                            isMuted ? 0f : 1f,
-                            isMuted ? 0f : 1f
-                    );
+                   try {
+                       currentMediaPlayer.setVolume(isMuted ? 0f : 1f, isMuted ? 0f : 1f);
+                   } catch(Exception ignored){}
                 }
-
-                muteBtn.setImageResource(
-                        isMuted
-                                ? android.R.drawable.ic_lock_silent_mode
-                                : android.R.drawable.ic_lock_silent_mode_off
-                );
+                muteBtn.setImageResource(isMuted ? android.R.drawable.ic_lock_silent_mode : android.R.drawable.ic_lock_silent_mode_off);
+                showControls.run(); // Reset timer
             });
 
-            // Speed button logic with visual feedback
+            // Speed Logic
             speedBtn.setOnClickListener(v -> {
                 if (playbackSpeed == 1.0f) {
                     playbackSpeed = 1.5f;
@@ -517,75 +533,68 @@ public class MediaPreview extends Feature {
                 } else {
                     playbackSpeed = 1.0f;
                 }
-
                 speedBtn.setText(playbackSpeed + "x");
-
-                // Animate button
-                speedBtn.animate().scaleX(1.2f).scaleY(1.2f).setDuration(150).withEndAction(() -> {
-                    speedBtn.animate().scaleX(1f).scaleY(1f).setDuration(150).start();
-                }).start();
-
                 if (currentMediaPlayer != null) {
                     try {
-                        currentMediaPlayer.setPlaybackParams(
-                                currentMediaPlayer.getPlaybackParams()
-                                        .setSpeed(playbackSpeed)
-                        );
-                    } catch (Throwable ignored) {}
+                        currentMediaPlayer.setPlaybackParams(currentMediaPlayer.getPlaybackParams().setSpeed(playbackSpeed));
+                    } catch (Exception ignored) {}
                 }
+                showControls.run(); // Reset timer
             });
+        });
+        
+        videoView.setOnCompletionListener(mp -> {
+             centerPlayBtn.setImageResource(android.R.drawable.ic_media_play);
+             showControls.run();
+             hideHandler.removeCallbacks(hideControls); // Keep controls valid on end
         });
 
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
-            public void onProgressChanged(SeekBar sb, int p, boolean fromUser) {
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
-                    videoView.seekTo(p);
-                    currentTime.setText(formatTime(p));
+                    videoView.seekTo(progress);
+                    int total = videoView.getDuration();
+                    timeText.setText(formatTime(progress) + " / " + formatTime(total));
+                    showControls.run();
                 }
             }
-
-            public void onStartTrackingTouch(SeekBar sb) {}
-            public void onStopTrackingTouch(SeekBar sb) {}
-        });
-
-        // Touch interactions with panel reveal
-        videoView.setOnTouchListener(new View.OnTouchListener() {
-            long lastTap = 0;
-
-            @Override
-            public boolean onTouch(View v, android.view.MotionEvent e) {
-                if (e.getAction() == android.view.MotionEvent.ACTION_DOWN) {
-                    long now = System.currentTimeMillis();
-                    if (now - lastTap < 300) {
-                        if (videoView.isPlaying()) {
-                            videoView.pause();
-                            playPauseBtn.setImageResource(android.R.drawable.ic_media_play);
-                        } else {
-                            videoView.start();
-                            playPauseBtn.setImageResource(android.R.drawable.ic_media_pause);
-                        }
-                    }
-                    lastTap = now;
-                }
-                
-                // Show floating panel with smooth animation
-                floatingPanel.animate().alpha(1f).scaleY(1f).scaleX(1f).setDuration(300).start();
-                hideHandler.removeCallbacks(hideRunnable);
-                hideHandler.postDelayed(hideRunnable, 3000);
-                
-                return false;
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {
+                hideHandler.removeCallbacks(hideControls);
+            }
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {
+                if(videoView.isPlaying()) showControls.run();
             }
         });
 
-        videoDialog.setOnDismissListener(d -> cleanup());
+        videoDialog.setOnDismissListener(d -> {
+            handler.removeCallbacksAndMessages(null);
+            hideHandler.removeCallbacksAndMessages(null);
+            cleanup();
+        });
+    }
+
+    private GradientDrawable createCircleDrawable(int color) {
+        GradientDrawable d = new GradientDrawable();
+        d.setShape(GradientDrawable.OVAL);
+        d.setColor(color);
+        return d;
+    }
+
+    private GradientDrawable createRoundedRectDrawable(int color, float radius) {
+        GradientDrawable d = new GradientDrawable();
+        d.setShape(GradientDrawable.RECTANGLE);
+        d.setCornerRadius(radius);
+        d.setColor(color);
+        return d;
     }
 
     private String formatTime(int milliseconds) {
+        if (milliseconds <= 0) return "00:00";
         int seconds = milliseconds / 1000;
         int minutes = seconds / 60;
         seconds = seconds % 60;
-        return String.format("%02d:%02d", minutes, seconds);
+        return String.format(Locale.US, "%02d:%02d", minutes, seconds);
     }
 
     // ================= CLEANUP =================

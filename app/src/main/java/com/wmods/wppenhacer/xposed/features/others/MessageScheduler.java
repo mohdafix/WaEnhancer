@@ -3,6 +3,7 @@ package com.wmods.wppenhacer.xposed.features.others;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
 import android.util.TypedValue;
@@ -145,90 +146,120 @@ public class MessageScheduler extends Feature {
             }
 
             String initialText = getMessageInputText(activity);
+            String contactName = WppCore.getContactName(currentUserJid);
+            boolean isBusiness = isCurrentConversationBusiness(activity);
 
-            ScrollView scrollView = new ScrollView(activity);
-            scrollView.setFillViewport(true);
+            // Container for everything
+            android.widget.LinearLayout rootLayout = new android.widget.LinearLayout(activity);
+            rootLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+            int pad = Utils.dipToPixels(20);
+            rootLayout.setPadding(pad, pad, pad, pad);
 
-            android.widget.LinearLayout layout = new android.widget.LinearLayout(activity);
-            layout.setOrientation(android.widget.LinearLayout.VERTICAL);
-            int padH = Utils.dipToPixels(20);
-            int padV = Utils.dipToPixels(16);
-            layout.setPadding(padH, padV, padH, Utils.dipToPixels(8));
-
+            // Message Input Label
             TextView messageLabel = new TextView(activity);
-            messageLabel.setText("Message");
-            messageLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-            messageLabel.setTextColor(0xFF8696A0);
+            messageLabel.setText("Message to schedule");
+            messageLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+            messageLabel.setTextColor(DesignUtils.getPrimaryTextColor());
+            rootLayout.addView(messageLabel);
 
+            // Message Input
             EditText messageInput = new EditText(activity);
             messageInput.setText(initialText);
-            messageInput.setMinLines(2);
-            messageInput.setMaxLines(6);
-            messageInput.setHint("Type a message in the chat first");
+            messageInput.setHint("Write something...");
+            rootLayout.addView(messageInput);
 
-            TextView dateLabel = new TextView(activity);
-            dateLabel.setText("Date");
-            dateLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-            dateLabel.setTextColor(0xFF8696A0);
+            // Delay Label
+            TextView delayLabel = new TextView(activity);
+            delayLabel.setText("Send after:");
+            delayLabel.setPadding(0, Utils.dipToPixels(16), 0, Utils.dipToPixels(8));
+            delayLabel.setTextColor(DesignUtils.getPrimaryTextColor());
+            rootLayout.addView(delayLabel);
 
+            // Delay Options (Radio Group)
+            android.widget.RadioGroup delayGroup = new android.widget.RadioGroup(activity);
+            
+            int[][] options = {{5, 5}, {10, 10}, {25, 25}, {60, 60}}; // {label, mins}
+            for (int[] opt : options) {
+                android.widget.RadioButton rb = new android.widget.RadioButton(activity);
+                rb.setText(opt[0] + " Minutes");
+                rb.setTag(opt[1]);
+                delayGroup.addView(rb);
+            }
+
+            android.widget.RadioButton rbCustom = new android.widget.RadioButton(activity);
+            rbCustom.setText("Custom Date/Time");
+            rbCustom.setTag(-1);
+            delayGroup.addView(rbCustom);
+            
+            // Set default
+            ((android.widget.RadioButton)delayGroup.getChildAt(0)).setChecked(true);
+            rootLayout.addView(delayGroup);
+
+            // Custom Picker Layout (Hidden by default)
+            android.widget.LinearLayout customPickerLayout = new android.widget.LinearLayout(activity);
+            customPickerLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+            customPickerLayout.setVisibility(View.GONE);
+            
             DatePicker datePicker = new DatePicker(activity);
+            datePicker.setCalendarViewShown(false);
             datePicker.setMinDate(System.currentTimeMillis() - 1000);
-
-            TextView timeLabel = new TextView(activity);
-            timeLabel.setText("Time");
-            timeLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-            timeLabel.setTextColor(0xFF8696A0);
-
+            
             TimePicker timePicker = new TimePicker(activity);
             timePicker.setIs24HourView(true);
+            
+            customPickerLayout.addView(datePicker);
+            customPickerLayout.addView(timePicker);
+            rootLayout.addView(customPickerLayout);
 
-            layout.addView(messageLabel);
-            layout.addView(messageInput);
-            layout.addView(dateLabel);
-            layout.addView(datePicker);
-            layout.addView(timeLabel);
-            layout.addView(timePicker);
+            // Toggle visibility based on radio selection
+            delayGroup.setOnCheckedChangeListener((group, checkedId) -> {
+                View selected = group.findViewById(checkedId);
+                if (selected != null && (int)selected.getTag() == -1) {
+                    customPickerLayout.setVisibility(View.VISIBLE);
+                } else {
+                    customPickerLayout.setVisibility(View.GONE);
+                }
+            });
 
-            scrollView.addView(layout);
+            ScrollView scrollView = new ScrollView(activity);
+            scrollView.addView(rootLayout);
 
             AlertDialog dialog = new AlertDialog.Builder(activity)
                     .setTitle("Schedule Message")
                     .setView(scrollView)
-                    // We override click so validation does not auto-close.
                     .setPositiveButton("Schedule", null)
                     .setNegativeButton("Cancel", null)
                     .create();
 
             dialog.setOnShowListener(d -> {
-                var btn = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-                if (btn == null) return;
-                btn.setOnClickListener(v -> {
-                    String message = messageInput.getText() == null ? "" : messageInput.getText().toString();
-                    if (TextUtils.isEmpty(message) || TextUtils.isEmpty(message.trim())) {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                    String message = messageInput.getText().toString().trim();
+                    if (TextUtils.isEmpty(message)) {
                         Utils.showToast("Message cannot be empty", Toast.LENGTH_SHORT);
                         return;
                     }
 
-                    Calendar cal = Calendar.getInstance();
-                    cal.set(datePicker.getYear(), datePicker.getMonth(), datePicker.getDayOfMonth(),
-                            timePicker.getHour(), timePicker.getMinute(), 0);
-                    long scheduledTime = cal.getTimeInMillis();
+                    long scheduledTime;
+                    int checkedId = delayGroup.getCheckedRadioButtonId();
+                    View selected = delayGroup.findViewById(checkedId);
+                    int delayMins = (int) selected.getTag();
+
+                    if (delayMins == -1) {
+                        // Custom logic
+                        Calendar cal = Calendar.getInstance();
+                        cal.set(datePicker.getYear(), datePicker.getMonth(), datePicker.getDayOfMonth(),
+                                timePicker.getHour(), timePicker.getMinute(), 0);
+                        scheduledTime = cal.getTimeInMillis();
+                    } else {
+                        scheduledTime = System.currentTimeMillis() + (delayMins * 60 * 1000L);
+                    }
+
                     if (scheduledTime <= System.currentTimeMillis()) {
                         Utils.showToast("Please select a future time", Toast.LENGTH_SHORT);
                         return;
                     }
 
-                    String jid = currentUserJid.getPhoneRawString();
-                    if (TextUtils.isEmpty(jid)) {
-                        Utils.showToast("Cannot get current conversation", Toast.LENGTH_SHORT);
-                        return;
-                    }
-
-                    saveScheduledMessage(jid, message, scheduledTime);
-
-                    String formattedTime = new SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
-                            .format(new Date(scheduledTime));
-                    Utils.showToast("Message scheduled for " + formattedTime, Toast.LENGTH_LONG);
+                    saveScheduledMessage(currentUserJid.getPhoneRawString(), contactName, message, scheduledTime, isBusiness);
                     dialog.dismiss();
                 });
             });
@@ -236,6 +267,28 @@ public class MessageScheduler extends Feature {
             dialog.show();
         } catch (Throwable e) {
             Utils.showToast("Error: " + e.getMessage(), Toast.LENGTH_SHORT);
+        }
+    }
+
+    private void saveScheduledMessage(String jid, String name, String message, long scheduledTime, boolean isBusiness) {
+        try {
+            Intent intent = new Intent("com.wmods.wppenhacer.SCHEDULE_MESSAGE");
+            intent.putExtra("jid", jid);
+            intent.putExtra("name", name);
+            intent.putExtra("message", message);
+            intent.putExtra("scheduled_time", scheduledTime);
+            intent.putExtra("whatsapp_type", isBusiness ? 1 : 0);
+            
+            // Explicitly target our app's receiver for reliability across processes
+            intent.setComponent(new android.content.ComponentName("com.wmods.wppenhacer", 
+                "com.wmods.wppenhacer.receivers.ScheduledMessageReceiver"));
+            
+            Utils.getApplication().sendBroadcast(intent);
+            
+            String formattedTime = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(scheduledTime));
+            Utils.showToast("Scheduled for " + formattedTime, Toast.LENGTH_LONG);
+        } catch (Exception e) {
+            Utils.showToast("Error scheduling: " + e.getMessage(), Toast.LENGTH_SHORT);
         }
     }
 
@@ -274,26 +327,6 @@ public class MessageScheduler extends Feature {
             for (int i = 0; i < group.getChildCount(); i++) {
                 findEditTexts(group.getChildAt(i), list);
             }
-        }
-    }
-
-    private void saveScheduledMessage(String jid, String message, long scheduledTime) {
-        try {
-            String existingJson = scheduledMessagesPrefs.getString(SCHEDULED_MESSAGES_KEY, "[]");
-            JSONArray scheduledMessages = new JSONArray(existingJson);
-
-            JSONObject newMessage = new JSONObject();
-            newMessage.put("jid", jid);
-            newMessage.put("text", message);
-            newMessage.put("time", scheduledTime);
-            newMessage.put("id", System.currentTimeMillis());
-            scheduledMessages.put(newMessage);
-
-            scheduledMessagesPrefs.edit()
-                    .putString(SCHEDULED_MESSAGES_KEY, scheduledMessages.toString())
-                    .apply();
-        } catch (JSONException e) {
-            Utils.showToast("Error saving scheduled message", Toast.LENGTH_SHORT);
         }
     }
 

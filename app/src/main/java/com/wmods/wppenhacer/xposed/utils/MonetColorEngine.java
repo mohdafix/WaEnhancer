@@ -16,11 +16,14 @@ public class MonetColorEngine {
     @ColorInt
     public static int getSystemAccentColor(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Try getting the system accent color directly from resources (Monet palette)
             try {
-                return context.getColor(android.R.color.system_accent1_500);
+                // Dark mode: lighter pastel (200) for better contrast
+                // Light mode: vibrant mid-tone (600)
+                int resId = isNightMode(context) 
+                    ? android.R.color.system_accent1_200 
+                    : android.R.color.system_accent1_600;
+                return context.getColor(resId);
             } catch (Exception e) {
-                // Fallback to attribute if resource lookup fails
                 return getColorFromAttr(context, android.R.attr.colorAccent);
             }
         }
@@ -31,9 +34,12 @@ public class MonetColorEngine {
     public static int getSystemPrimaryColor(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                // System accent is usually a good proxy for Primary in Monet
-                // Using 600 for slightly darker/richer primary
-                return context.getColor(android.R.color.system_accent1_600);
+                // Dark mode: lighter primary (200)
+                // Light mode: darker primary (600)
+                int resId = isNightMode(context)
+                    ? android.R.color.system_accent1_200
+                    : android.R.color.system_accent1_600;
+                return context.getColor(resId);
             } catch (Exception e) {
                 return getColorFromAttr(context, android.R.attr.colorPrimary);
             }
@@ -45,7 +51,12 @@ public class MonetColorEngine {
     public static int getSystemSecondaryColor(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                return context.getColor(android.R.color.system_accent2_500);
+                // Dark mode: lighter secondary (200)
+                // Light mode: standard secondary (500)
+                int resId = isNightMode(context)
+                    ? android.R.color.system_accent2_200
+                    : android.R.color.system_accent2_500;
+                return context.getColor(resId);
             } catch (Exception e) {
                 return getColorFromAttr(context, android.R.attr.colorSecondary);
             }
@@ -58,10 +69,8 @@ public class MonetColorEngine {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
                 if (isNightMode(context)) {
-                    // Dark Mode: Force Pure Black (AMOLED)
                     return Color.BLACK;
                 } else {
-                    // Light Mode: Use light neutral background
                     return context.getColor(android.R.color.system_neutral1_50);
                 }
             } catch (Exception e) {
@@ -75,7 +84,8 @@ public class MonetColorEngine {
     public static int getBubbleOutgoingColor(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                // Outgoing bubble: accent1_500 (primary accent tone)
+                // Outgoing bubble: accent1_500 (primary accent tone) used consistently
+                // for better contrast/readability as per user preference.
                 return context.getColor(android.R.color.system_accent1_500);
             } catch (Exception e) {
                 return -1;
@@ -88,8 +98,14 @@ public class MonetColorEngine {
     public static int getBubbleIncomingColor(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                // Incoming bubble: accent3_500 (tertiary accent tone, different from outgoing)
-                return context.getColor(android.R.color.system_accent3_500);
+                // Incoming: Tertiary/Secondary logic
+                // Dark mode: 200 (Pastel)
+                // Light mode: 500 (Vibrant) - changed to accent2 for better distinction if desired, 
+                // but sticking to accent3 as per original implementation intent
+                int resId = isNightMode(context)
+                    ? android.R.color.system_accent3_200
+                    : android.R.color.system_accent3_500;
+                return context.getColor(resId);
             } catch (Exception e) {
                 return -1;
             }

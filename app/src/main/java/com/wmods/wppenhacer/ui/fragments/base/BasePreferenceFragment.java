@@ -171,4 +171,52 @@ public abstract class BasePreferenceFragment extends PreferenceFragmentCompat im
             actionBar.setDisplayHomeAsUpEnabled(enabled);
         }
     }
+
+    public void scrollToPreferenceAndHighlight(String key) {
+        scrollToPreference(key);
+        final androidx.recyclerview.widget.RecyclerView list = getListView();
+        list.postDelayed(() -> {
+            if (!isAdded()) return;
+            androidx.preference.Preference pref = findPreference(key);
+            if (pref == null) return;
+            
+            androidx.recyclerview.widget.RecyclerView.Adapter adapter = list.getAdapter();
+            if (adapter == null) return;
+
+            for (int i = 0; i < list.getChildCount(); i++) {
+                View view = list.getChildAt(i);
+                int pos = list.getChildAdapterPosition(view);
+                if (pos != androidx.recyclerview.widget.RecyclerView.NO_POSITION) {
+                    try {
+                        java.lang.reflect.Method getItem = adapter.getClass().getMethod("getItem", int.class);
+                        Object item = getItem.invoke(adapter, pos);
+                        
+                        if (item == pref) {
+                             int color = android.graphics.Color.YELLOW;
+                             int primaryAttr = getResources().getIdentifier("colorPrimary", "attr", requireContext().getPackageName());
+                             android.util.TypedValue typedValue = new android.util.TypedValue();
+                             if (primaryAttr != 0 && requireContext().getTheme().resolveAttribute(primaryAttr, typedValue, true)) {
+                                 color = typedValue.data;
+                             }
+                             
+                             final android.graphics.drawable.ColorDrawable highlight = new android.graphics.drawable.ColorDrawable(color);
+                             highlight.setBounds(0, 0, view.getWidth(), view.getHeight());
+                             view.getOverlay().add(highlight);
+                             
+                             android.animation.ObjectAnimator anim = android.animation.ObjectAnimator.ofInt(highlight, "alpha", 0, 90, 0, 90, 0);
+                             anim.setDuration(1200);
+                             anim.addListener(new android.animation.AnimatorListenerAdapter() {
+                                 @Override
+                                 public void onAnimationEnd(android.animation.Animator animation) {
+                                     view.getOverlay().remove(highlight);
+                                 }
+                             });
+                             anim.start();
+                             break;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        }, 500);
+    }
 }
