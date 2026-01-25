@@ -391,7 +391,7 @@ public class ScheduledMessageService extends Service {
             }
         }
 
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle(title)
                 .setContentText(contentText.toString())
                 .setSmallIcon(R.drawable.ic_dashboard_black_24dp)
@@ -400,8 +400,22 @@ public class ScheduledMessageService extends Service {
                 .setContentIntent(pendingIntent)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setStyle(new NotificationCompat.BigTextStyle().bigText(bigText.toString()))
-                .build();
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(bigText.toString()));
+
+        // Live Update logic
+        android.content.SharedPreferences prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this);
+        boolean liveUpdate = prefs.getBoolean("schedule_live_notification", true);
+
+        if (liveUpdate && nextMessage != null) {
+            long nextTime = nextMessage.getNextScheduledTime();
+            builder.setWhen(nextTime)
+                   .setUsesChronometer(true);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                builder.setChronometerCountDown(true);
+            }
+        }
+
+        Notification notification = builder.build();
 
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {

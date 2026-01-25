@@ -143,6 +143,13 @@
             app:title="Schedule Message" />
 
         <rikka.material.preference.MaterialSwitchPreference
+            app:defaultValue="true"
+            app:dependency="schedule_message"
+            app:key="schedule_live_notification"
+            app:summary="@string/schedule_live_notification_sum"
+            app:title="@string/schedule_live_notification" />
+
+        <rikka.material.preference.MaterialSwitchPreference
             app:key="own_status_indicator"
             app:summary="@string/own_status_indicator_sum"
             app:title="@string/own_status_indicator" />

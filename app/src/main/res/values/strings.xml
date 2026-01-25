@@ -538,5 +538,7 @@
     <string name="own_status_indicator">Own Message Status Indicator</string>
     <string name="own_status_indicator_sum">Replace the normal arrow ticks for your own messages with custom indicators</string>
     <string name="own_status_style">Indicator Style</string>
+    <string name="schedule_live_notification">Live Update Notification</string>
+    <string name="schedule_live_notification_sum">Show real-time countdown for next scheduled message in notification</string>
     <string name="schedule_inactive">Inactive</string>
 </resources>
