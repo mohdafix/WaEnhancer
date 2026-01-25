@@ -3,6 +3,7 @@ package com.wmods.wppenhacer.xposed.features.others;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.graphics.Color;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
@@ -149,125 +150,162 @@ public class MessageScheduler extends Feature {
             String contactName = WppCore.getContactName(currentUserJid);
             boolean isBusiness = isCurrentConversationBusiness(activity);
 
-            // Container for everything
-            android.widget.LinearLayout rootLayout = new android.widget.LinearLayout(activity);
-            rootLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
-            int pad = Utils.dipToPixels(20);
-            rootLayout.setPadding(pad, pad, pad, pad);
+            // Container
+            android.widget.LinearLayout contentLayout = new android.widget.LinearLayout(activity);
+            contentLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+            int padding = Utils.dipToPixels(20);
+            contentLayout.setPadding(padding, Utils.dipToPixels(8), padding, padding);
 
-            // Message Input Label
-            TextView messageLabel = new TextView(activity);
-            messageLabel.setText("Message to schedule");
-            messageLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            messageLabel.setTextColor(DesignUtils.getPrimaryTextColor());
-            rootLayout.addView(messageLabel);
+            // 1. Message Input Section
+            TextView msgLabel = new TextView(activity);
+            msgLabel.setText("Message to schedule");
+            msgLabel.setTextSize(13);
+            msgLabel.setAlpha(0.7f);
+            msgLabel.setTextColor(DesignUtils.getPrimaryTextColor());
+            contentLayout.addView(msgLabel);
 
-            // Message Input
             EditText messageInput = new EditText(activity);
             messageInput.setText(initialText);
-            messageInput.setHint("Write something...");
-            rootLayout.addView(messageInput);
+            messageInput.setHint("Type message...");
+            messageInput.setBackground(null);
+            messageInput.setPadding(0, Utils.dipToPixels(8), 0, Utils.dipToPixels(16));
+            contentLayout.addView(messageInput);
 
-            // Delay Label
+            // Divider
+            View div1 = new View(activity);
+            div1.setBackgroundColor(0x1A000000);
+            android.widget.LinearLayout.LayoutParams divLp = new android.widget.LinearLayout.LayoutParams(-1, Utils.dipToPixels(1));
+            divLp.bottomMargin = Utils.dipToPixels(20);
+            contentLayout.addView(div1, divLp);
+
+            // 2. Delay Chips Section
             TextView delayLabel = new TextView(activity);
-            delayLabel.setText("Send after:");
-            delayLabel.setPadding(0, Utils.dipToPixels(16), 0, Utils.dipToPixels(8));
+            delayLabel.setText("Quick Delay");
+            delayLabel.setTextSize(13);
+            delayLabel.setAlpha(0.7f);
             delayLabel.setTextColor(DesignUtils.getPrimaryTextColor());
-            rootLayout.addView(delayLabel);
+            delayLabel.setPadding(0, 0, 0, Utils.dipToPixels(12));
+            contentLayout.addView(delayLabel);
 
-            // Delay Options (Radio Group)
-            android.widget.RadioGroup delayGroup = new android.widget.RadioGroup(activity);
+            android.widget.HorizontalScrollView hScroll = new android.widget.HorizontalScrollView(activity);
+            hScroll.setHorizontalScrollBarEnabled(false);
+            android.widget.LinearLayout chipContainer = new android.widget.LinearLayout(activity);
+            chipContainer.setOrientation(android.widget.LinearLayout.HORIZONTAL);
             
-            int[][] options = {{5, 5}, {10, 10}, {25, 25}, {60, 60}}; // {label, mins}
-            for (int[] opt : options) {
-                android.widget.RadioButton rb = new android.widget.RadioButton(activity);
-                rb.setText(opt[0] + " Minutes");
-                rb.setTag(opt[1]);
-                delayGroup.addView(rb);
-            }
-
-            android.widget.RadioButton rbCustom = new android.widget.RadioButton(activity);
-            rbCustom.setText("Custom Date/Time");
-            rbCustom.setTag(-1);
-            delayGroup.addView(rbCustom);
+            java.util.concurrent.atomic.AtomicInteger selectedMins = new java.util.concurrent.atomic.AtomicInteger(5);
             
-            // Set default
-            ((android.widget.RadioButton)delayGroup.getChildAt(0)).setChecked(true);
-            rootLayout.addView(delayGroup);
-
-            // Custom Picker Layout (Hidden by default)
-            android.widget.LinearLayout customPickerLayout = new android.widget.LinearLayout(activity);
-            customPickerLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
-            customPickerLayout.setVisibility(View.GONE);
-            
+            // Custom Picker Layout (init here to reference later)
+            android.widget.LinearLayout customPickerGroup = new android.widget.LinearLayout(activity);
+            customPickerGroup.setOrientation(android.widget.LinearLayout.VERTICAL);
+            customPickerGroup.setVisibility(View.GONE);
             DatePicker datePicker = new DatePicker(activity);
             datePicker.setCalendarViewShown(false);
-            datePicker.setMinDate(System.currentTimeMillis() - 1000);
-            
             TimePicker timePicker = new TimePicker(activity);
             timePicker.setIs24HourView(true);
+            customPickerGroup.addView(datePicker);
+            customPickerGroup.addView(timePicker);
+
+            Object[][] opts = {{"5m", 5}, {"10m", 10}, {"30m", 30}, {"1h", 60}, {"Custom", -1}};
+            for (Object[] opt : opts) {
+                String label = (String) opt[0];
+                int mins = (int) opt[1];
+                View chip = createChip(activity, label, mins, chipContainer, selectedMins, customPickerGroup);
+                chipContainer.addView(chip);
+                if (mins == 5) updateChipStyle((TextView)chip, true); // default
+            }
+            hScroll.addView(chipContainer);
+            contentLayout.addView(hScroll);
             
-            customPickerLayout.addView(datePicker);
-            customPickerLayout.addView(timePicker);
-            rootLayout.addView(customPickerLayout);
+            // Add custom picker group after chips
+            android.widget.LinearLayout.LayoutParams cpLp = new android.widget.LinearLayout.LayoutParams(-1, -2);
+            cpLp.topMargin = Utils.dipToPixels(16);
+            contentLayout.addView(customPickerGroup, cpLp);
 
-            // Toggle visibility based on radio selection
-            delayGroup.setOnCheckedChangeListener((group, checkedId) -> {
-                View selected = group.findViewById(checkedId);
-                if (selected != null && (int)selected.getTag() == -1) {
-                    customPickerLayout.setVisibility(View.VISIBLE);
-                } else {
-                    customPickerLayout.setVisibility(View.GONE);
+            ScrollView scrollView = new ScrollScrollView(activity);
+            scrollView.addView(contentLayout);
+
+            com.wmods.wppenhacer.xposed.core.components.AlertDialogWpp dialog = new com.wmods.wppenhacer.xposed.core.components.AlertDialogWpp(activity);
+            dialog.setTitle("Schedule Message");
+            dialog.setView(scrollView);
+            dialog.setPositiveButton("Schedule", (d, w) -> {
+                String message = messageInput.getText().toString().trim();
+                if (TextUtils.isEmpty(message)) {
+                    Utils.showToast("Message is empty", android.widget.Toast.LENGTH_SHORT);
+                    return;
                 }
+
+                long scheduledTime;
+                int mins = selectedMins.get();
+                if (mins == -1) {
+                    Calendar cal = Calendar.getInstance();
+                    cal.set(datePicker.getYear(), datePicker.getMonth(), datePicker.getDayOfMonth(),
+                            timePicker.getHour(), timePicker.getMinute(), 0);
+                    scheduledTime = cal.getTimeInMillis();
+                } else {
+                    scheduledTime = System.currentTimeMillis() + (mins * 60 * 1000L);
+                }
+
+                if (scheduledTime <= System.currentTimeMillis()) {
+                    Utils.showToast("Please select a future time", android.widget.Toast.LENGTH_SHORT);
+                    return;
+                }
+
+                saveScheduledMessage(currentUserJid.getPhoneRawString(), contactName, message, scheduledTime, isBusiness);
             });
-
-            ScrollView scrollView = new ScrollView(activity);
-            scrollView.addView(rootLayout);
-
-            AlertDialog dialog = new AlertDialog.Builder(activity)
-                    .setTitle("Schedule Message")
-                    .setView(scrollView)
-                    .setPositiveButton("Schedule", null)
-                    .setNegativeButton("Cancel", null)
-                    .create();
-
-            dialog.setOnShowListener(d -> {
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                    String message = messageInput.getText().toString().trim();
-                    if (TextUtils.isEmpty(message)) {
-                        Utils.showToast("Message cannot be empty", Toast.LENGTH_SHORT);
-                        return;
-                    }
-
-                    long scheduledTime;
-                    int checkedId = delayGroup.getCheckedRadioButtonId();
-                    View selected = delayGroup.findViewById(checkedId);
-                    int delayMins = (int) selected.getTag();
-
-                    if (delayMins == -1) {
-                        // Custom logic
-                        Calendar cal = Calendar.getInstance();
-                        cal.set(datePicker.getYear(), datePicker.getMonth(), datePicker.getDayOfMonth(),
-                                timePicker.getHour(), timePicker.getMinute(), 0);
-                        scheduledTime = cal.getTimeInMillis();
-                    } else {
-                        scheduledTime = System.currentTimeMillis() + (delayMins * 60 * 1000L);
-                    }
-
-                    if (scheduledTime <= System.currentTimeMillis()) {
-                        Utils.showToast("Please select a future time", Toast.LENGTH_SHORT);
-                        return;
-                    }
-
-                    saveScheduledMessage(currentUserJid.getPhoneRawString(), contactName, message, scheduledTime, isBusiness);
-                    dialog.dismiss();
-                });
-            });
-
+            dialog.setNegativeButton("Cancel", null);
             dialog.show();
+
         } catch (Throwable e) {
-            Utils.showToast("Error: " + e.getMessage(), Toast.LENGTH_SHORT);
+            XposedBridge.log(e);
+            Utils.showToast("Error creating dialog", android.widget.Toast.LENGTH_SHORT);
         }
+    }
+
+    private View createChip(Context context, String label, int mins, android.widget.LinearLayout container, java.util.concurrent.atomic.AtomicInteger selectedMins, View customGroup) {
+        TextView chip = new TextView(context);
+        chip.setText(label);
+        int ph = Utils.dipToPixels(16);
+        int pv = Utils.dipToPixels(8);
+        chip.setPadding(ph, pv, ph, pv);
+        chip.setGravity(android.view.Gravity.CENTER);
+        
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(-2, -2);
+        lp.rightMargin = Utils.dipToPixels(8);
+        chip.setLayoutParams(lp);
+
+        updateChipStyle(chip, false);
+
+        chip.setOnClickListener(v -> {
+            for (int i = 0; i < container.getChildCount(); i++) {
+                updateChipStyle((TextView) container.getChildAt(i), false);
+            }
+            updateChipStyle(chip, true);
+            selectedMins.set(mins);
+            customGroup.setVisibility(mins == -1 ? View.VISIBLE : View.GONE);
+        });
+        return chip;
+    }
+
+    private void updateChipStyle(TextView chip, boolean selected) {
+        int primary = DesignUtils.getUnSeenColor();
+        int bg = selected ? primary : 0x0D000000;
+        int txt = selected ? Color.WHITE : DesignUtils.getPrimaryTextColor();
+        
+        float r = Utils.dipToPixels(20);
+        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+        gd.setColor(bg);
+        gd.setCornerRadius(r);
+        if (!selected) {
+            gd.setStroke(Utils.dipToPixels(1), 0x1A000000);
+        }
+        chip.setBackground(gd);
+        chip.setTextColor(txt);
+        chip.setTypeface(null, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+    }
+    
+    // Simple scrollview subclass to avoid conflicts if needed, or just use ScrollView
+    private class ScrollScrollView extends ScrollView {
+        public ScrollScrollView(Context context) { super(context); }
     }
 
     private void saveScheduledMessage(String jid, String name, String message, long scheduledTime, boolean isBusiness) {
