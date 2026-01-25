@@ -109,6 +109,14 @@ public class ScheduledMessageService extends Service {
 
     @Override // android.app.Service
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (!shouldServiceRun(this)) {
+            Log.d(TAG, "No more active messages, stopping service and cancelling alarms");
+            cancelAlarm();
+            stopForeground(true);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
         acquireWakeLock();
         try {
             Log.d(TAG, "onStartCommand called with action: " + (intent != null ? intent.getAction() : "null"));
@@ -137,13 +145,14 @@ public class ScheduledMessageService extends Service {
                     Log.e(TAG, "Error checking/scheduling messages", e);
                 }
             }
+            
+            // Recalculate next time after checking
             long nextMsgTime = getNextMessageTime();
             scheduleNextCheck(nextMsgTime);
+            
         } catch (Exception e) {
             Log.e(TAG, "Error in onStartCommand", e);
         } finally {
-            // Keep the wake lock for a bit longer to ensure broadcasts are delivered
-            // We'll release it after a short delay or let it timeout
             if (wakeLock != null && wakeLock.isHeld()) {
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     try {
@@ -152,15 +161,10 @@ public class ScheduledMessageService extends Service {
                             Log.d(TAG, "WakeLock released after delay");
                         }
                     } catch (Exception ignored) {}
-                }, 10000); // 10 seconds delay
+                }, 5000); // Reduced delay to 5 seconds
             }
         }
         
-        if (!shouldServiceRun(this)) {
-            Log.d(TAG, "No more active messages, stopping service");
-            stopSelf();
-            return START_NOT_STICKY;
-        }
         return START_STICKY;
     }
 
@@ -170,7 +174,7 @@ public class ScheduledMessageService extends Service {
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WaEnhancer:ScheduledMessageWakeLock");
         }
         if (!wakeLock.isHeld()) {
-            wakeLock.acquire(10 * 60 * 1000L); // 10 minutes timeout for safety
+            wakeLock.acquire(5 * 60 * 1000L); // 5 minutes timeout
             Log.d(TAG, "WakeLock acquired");
         }
     }
@@ -212,30 +216,17 @@ public class ScheduledMessageService extends Service {
             sendScheduledMessagesStatus();
             return;
         }
-        long now = System.currentTimeMillis();
-        ScheduledMessage nextMessage = null;
-        long nextTime = Long.MAX_VALUE;
-        for (ScheduledMessage msg : activeMessages) {
-            long msgNextTime = msg.getNextScheduledTime();
-            Log.d(TAG, "Message " + msg.getId() + " (" + msg.getContactName() + "): nextTime=" + formatTime(msgNextTime) + ", now=" + formatTime(now) + ", diff=" + ((msgNextTime - now) / 1000) + "s, shouldSend=" + msg.shouldSendNow());
-            if (msgNextTime < nextTime && !msg.shouldSendNow()) {
-                nextTime = msgNextTime;
-                nextMessage = msg;
-            }
-        }
+
         List<ScheduledMessage> pendingMessages = this.messageStore.getPendingMessages();
         if (pendingMessages.isEmpty()) {
             Log.d(TAG, "No pending messages ready to send now");
-            updateNotification(activeMessages.size(), nextMessage);
+            updateNotificationWithActiveCount();
             return;
         }
+
         Log.d(TAG, "Found " + pendingMessages.size() + " pending messages ready to send");
-        List<Long> messageIds = new ArrayList<>();
         for (ScheduledMessage message : pendingMessages) {
-            messageIds.add(Long.valueOf(message.getId()));
-        }
-        for (Long id : messageIds) {
-            sendScheduledMessage(id.longValue());
+            sendScheduledMessage(message.getId());
         }
         updateNotificationWithActiveCount();
         sendScheduledMessagesStatus();
@@ -247,8 +238,13 @@ public class ScheduledMessageService extends Service {
         long now = System.currentTimeMillis();
         for (ScheduledMessage msg : activeMessages) {
             long msgNextTime = msg.getNextScheduledTime();
+            // We only care about future messages
             if (msgNextTime > now && msgNextTime < nextTime) {
                 nextTime = msgNextTime;
+            } else if (msgNextTime <= now) {
+                // If there's something due now or in the past that should have been sent,
+                // schedule for immediate check (1 second)
+                return now + 1000;
             }
         }
         return nextTime;
@@ -274,7 +270,26 @@ public class ScheduledMessageService extends Service {
         return sdf.format(new Date(timeMillis));
     }
 
+    private void cancelAlarm() {
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager == null) return;
+
+        Intent intent = new Intent(this, ScheduledMessageService.class);
+        intent.setAction(ACTION_CHECK_MESSAGES);
+        PendingIntent pendingIntent = PendingIntent.getService(this, 0, intent, 
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        
+        alarmManager.cancel(pendingIntent);
+        Log.d(TAG, "Alarms cancelled");
+    }
+
     private void scheduleNextCheck(long nextMessageTime) {
+        if (nextMessageTime == Long.MAX_VALUE) {
+            Log.d(TAG, "No future messages, cancelling any scheduled alarms");
+            cancelAlarm();
+            return;
+        }
+
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) return;
 
@@ -284,16 +299,15 @@ public class ScheduledMessageService extends Service {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         long now = System.currentTimeMillis();
-        long nextCheckTime = now + 30000; // Default 30s check
+        long nextCheckTime = nextMessageTime;
         
-        // If a message is scheduled sooner than 30s, schedule for that time exactly
-        if (nextMessageTime > now && nextMessageTime < nextCheckTime + 5000) {
-            nextCheckTime = nextMessageTime;
+        // Ensure the time is not in the past
+        if (nextCheckTime < now) {
+            nextCheckTime = now + 1000;
         }
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                // Using setAlarmClock is most reliable for high-priority tasks
                 AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(nextCheckTime, pendingIntent);
                 alarmManager.setAlarmClock(info, pendingIntent);
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -301,10 +315,9 @@ public class ScheduledMessageService extends Service {
             } else {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextCheckTime, pendingIntent);
             }
-            Log.d(TAG, "Next check scheduled at " + formatTime(nextCheckTime) + " using " + 
-                (Build.VERSION.SDK_INT >= 21 ? "AlarmClock" : "ExactAlarm"));
+            Log.d(TAG, "Next check SMART scheduled at " + formatTime(nextCheckTime));
         } catch (Exception e) {
-            Log.e(TAG, "Failed to schedule alarm", e);
+            Log.e(TAG, "Failed to schedule exact alarm, falling back to inexact", e);
             alarmManager.set(AlarmManager.RTC_WAKEUP, nextCheckTime, pendingIntent);
         }
     }

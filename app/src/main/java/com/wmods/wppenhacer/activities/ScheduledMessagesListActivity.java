@@ -11,6 +11,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.wmods.wppenhacer.App;
 import com.wmods.wppenhacer.R;
 import com.wmods.wppenhacer.adapter.ScheduledMessagesAdapter;
+import com.wmods.wppenhacer.services.ScheduledMessageService;
 import com.wmods.wppenhacer.xposed.core.db.ScheduledMessage;
 import com.wmods.wppenhacer.xposed.core.db.ScheduledMessageStore;
 import java.util.List;
@@ -87,6 +88,7 @@ public class ScheduledMessagesListActivity extends BaseActivity implements Sched
                 .setMessage("Are you sure you want to delete this scheduled message?")
                 .setPositiveButton("Delete", (dialog, which) -> {
                     messageStore.deleteMessage(scheduledMessage.getId());
+                    ScheduledMessageService.startService(this);
                     loadMessages();
                 })
                 .setNegativeButton("Cancel", null)
@@ -96,6 +98,7 @@ public class ScheduledMessagesListActivity extends BaseActivity implements Sched
     @Override
     public void onToggleActive(ScheduledMessage scheduledMessage, boolean isChecked) {
         messageStore.toggleActive(scheduledMessage.getId(), isChecked);
+        ScheduledMessageService.startService(this);
         loadMessages();
     }
 }
