@@ -16,6 +16,7 @@ import android.content.pm.PackageManager;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
@@ -347,18 +348,49 @@ public class Utils {
 
     @SuppressLint("MissingPermission")
     public static void showNotification(String title, String content, @Nullable PendingIntent contentIntent) {
-        var context = Utils.getApplication();
-        var notificationManager = NotificationManagerCompat.from(context);
-        var channel = new NotificationChannel("wppenhacer", "WAE Enhancer", NotificationManager.IMPORTANCE_HIGH);
-        notificationManager.createNotificationChannel(channel);
-        var notification = new NotificationCompat.Builder(context, "wppenhacer")
-                .setSmallIcon(android.R.mipmap.sym_def_app_icon)
-                .setContentTitle(title)
-                .setContentText(content)
-                .setContentIntent(contentIntent)
-                .setAutoCancel(true)
-                .setStyle(new NotificationCompat.BigTextStyle().bigText(content));
-        notificationManager.notify(new Random().nextInt(), notification.build());
+        try {
+            var context = Utils.getApplication();
+            if (context == null) return;
+
+            // Check for notifications permission on Android 13+
+            if (Build.VERSION.SDK_INT >= 33) {
+                if (androidx.core.content.ContextCompat.checkSelfPermission(context, "android.permission.POST_NOTIFICATIONS") 
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    XposedBridge.log("WaEnhancer: Notification permission not granted (Android 13+)");
+                    // We can't do much here as we are a module, but at least we know why it might not show.
+                }
+            }
+
+            var notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager == null) return;
+
+            String channelId = "wppenhacer";
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = notificationManager.getNotificationChannel(channelId);
+                if (channel == null) {
+                    channel = new NotificationChannel(channelId, "WAE Enhancer", NotificationManager.IMPORTANCE_HIGH);
+                    channel.setDescription("Notifications from WA Enhancer");
+                    notificationManager.createNotificationChannel(channel);
+                }
+            }
+
+            // Using a more reliable icon from system
+            int iconRes = android.R.drawable.ic_dialog_info; 
+            
+            var notificationBuilder = new NotificationCompat.Builder(context, channelId)
+                    .setSmallIcon(iconRes)
+                    .setContentTitle(title)
+                    .setContentText(content)
+                    .setContentIntent(contentIntent)
+                    .setAutoCancel(true)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setDefaults(NotificationCompat.DEFAULT_ALL)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(content));
+
+            notificationManager.notify(new java.util.Random().nextInt(), notificationBuilder.build());
+        } catch (Exception e) {
+            XposedBridge.log("WaEnhancer: Error showing notification: " + e.getMessage());
+        }
     }
 
     public static void openLink(Activity mActivity, String url) {

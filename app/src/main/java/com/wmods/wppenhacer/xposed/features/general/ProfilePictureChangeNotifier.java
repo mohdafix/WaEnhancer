@@ -120,17 +120,21 @@ public class ProfilePictureChangeNotifier extends Feature {
 
     private void showNotification(String title, String message, String jid) {
         try {
+            var app = Utils.getApplication();
+            if (app == null) return;
+
             PendingIntent pendingIntent = null;
             try {
                 // Create intent to open chat with the contact
                 Intent intent = new Intent();
-                intent.setClassName(Utils.getApplication().getPackageName(), "com.whatsapp.Conversation");
+                intent.setClassName(app.getPackageName(), "com.whatsapp.Conversation");
 
-                String rawJid = jid.contains("@s.whatsapp.net") ? jid : jid + "@s.whatsapp.net";
+                // Fix: Only append domain if not present. Use @s.whatsapp.net as default.
+                String rawJid = jid.contains("@") ? jid : jid + "@s.whatsapp.net";
+                
                 var jidObj = WppCore.createUserJid(rawJid);
                 if (jidObj != null) {
-                    // WhatsApp usually expects a Parcelable Jid in "jid".
-                    // If runtime type is not Parcelable, fallback to string.
+                    // WhatsApp expects Parcelable Jid in "jid" extra for most activities.
                     try {
                         intent.putExtra("jid", (Parcelable) jidObj);
                     } catch (Throwable ignored) {
@@ -148,13 +152,15 @@ public class ProfilePictureChangeNotifier extends Feature {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     flags |= PendingIntent.FLAG_IMMUTABLE;
                 }
-                pendingIntent = PendingIntent.getActivity(Utils.getApplication(), rawJid.hashCode(), intent, flags);
-            } catch (Throwable ignored) {
+                pendingIntent = PendingIntent.getActivity(app, rawJid.hashCode(), intent, flags);
+            } catch (Throwable e) {
+                log("Error preparing notification intent for " + jid + ": " + e.getMessage());
             }
 
             Utils.showNotification(title, message, pendingIntent);
+            log("Showed profile picture notification for: " + jid);
         } catch (Exception e) {
-            log("Error showing notification: " + e.getMessage());
+            log("Error in showNotification: " + e.getMessage());
         }
     }
 
