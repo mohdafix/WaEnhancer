@@ -541,4 +541,6 @@
     <string name="schedule_live_notification">Live Update Notification</string>
     <string name="schedule_live_notification_sum">Show real-time countdown for next scheduled message in notification</string>
     <string name="schedule_inactive">Inactive</string>
+    <string name="enabled">Enabled</string>
+    <string name="custom_privacy_global_status">Global Status: %s</string>
 </resources>

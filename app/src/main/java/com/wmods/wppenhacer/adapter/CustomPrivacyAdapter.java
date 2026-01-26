@@ -47,6 +47,12 @@ public class CustomPrivacyAdapter extends ArrayAdapter {
             holder = (ViewHolder) convertView.getTag();
         }
         holder.textView.setText(item.name);
+        if (item.activeOptionsCount > 0) {
+            holder.countView.setVisibility(View.VISIBLE);
+            holder.countView.setText(String.valueOf(item.activeOptionsCount));
+        } else {
+            holder.countView.setVisibility(View.GONE);
+        }
         convertView.setOnClickListener(v -> {
             // Only Groups
             if (item.number.length() > 15) {
@@ -79,11 +85,21 @@ public class CustomPrivacyAdapter extends ArrayAdapter {
         layout.setPadding(Utils.dipToPixels(25), 0, Utils.dipToPixels(25), 0);
 
         TextView textView = new TextView(getContext());
-        var layoutParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        var layoutParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT);
         layoutParams.weight = 1;
         textView.setLayoutParams(layoutParams);
+        textView.setTextColor(DesignUtils.getPrimaryTextColor());
         layout.addView(textView);
         holder.textView = textView;
+
+        TextView countView = new TextView(getContext());
+        var countParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        countParams.setMarginEnd(Utils.dipToPixels(8));
+        countView.setLayoutParams(countParams);
+        countView.setTextColor(DesignUtils.getUnSeenColor());
+        countView.setTextSize(12);
+        layout.addView(countView);
+        holder.countView = countView;
 
         Button button = new Button(getContext());
         var buttonParams = new LinearLayout.LayoutParams(Utils.dipToPixels(40), Utils.dipToPixels(40));
@@ -99,6 +115,7 @@ public class CustomPrivacyAdapter extends ArrayAdapter {
 
     static class ViewHolder {
         TextView textView;
+        TextView countView;
         Button button;
     }
 
@@ -106,6 +123,7 @@ public class CustomPrivacyAdapter extends ArrayAdapter {
         public String name;
         public String number;
         public String key;
+        public int activeOptionsCount;
     }
 
 

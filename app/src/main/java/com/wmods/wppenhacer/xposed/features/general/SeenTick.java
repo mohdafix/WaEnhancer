@@ -26,6 +26,7 @@ import com.wmods.wppenhacer.xposed.core.db.MessageStore;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
 import com.wmods.wppenhacer.xposed.features.customization.HideSeenView;
 import com.wmods.wppenhacer.xposed.features.listeners.MenuStatusListener;
+import com.wmods.wppenhacer.xposed.features.privacy.CustomPrivacy;
 import com.wmods.wppenhacer.xposed.utils.DesignUtils;
 import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
 import com.wmods.wppenhacer.xposed.utils.ResId;
@@ -393,10 +394,13 @@ public class SeenTick extends Feature {
         XposedBridge.hookMethod(messageJobMethod, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if (!prefs.getBoolean("blueonreply", false)) return;
                 var obj = messageSendClass.cast(param.thisObject);
                 var rawJid = (String) XposedHelpers.getObjectField(obj, "jid");
                 var userJid = new FMessageWpp.UserJid(WppCore.createUserJid(rawJid));
+
+                var customPrivacy = CustomPrivacy.getJSON(userJid.getPhoneNumber());
+                boolean blueOnReply = customPrivacy.optBoolean("BlueOnReply", prefs.getBoolean("blueonreply", false));
+                if (!blueOnReply) return;
 
                 if (Objects.equals(currentScreen, "status") && !userJid.isStatus()) {
                     if (statuses.isEmpty()) return;

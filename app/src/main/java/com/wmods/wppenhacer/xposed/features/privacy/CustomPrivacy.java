@@ -2,6 +2,7 @@ package com.wmods.wppenhacer.xposed.features.privacy;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
@@ -9,9 +10,12 @@ import android.util.TypedValue;
 import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -34,6 +38,10 @@ import org.luckypray.dexkit.query.enums.StringMatchType;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import de.robv.android.xposed.XC_MethodHook;
@@ -41,6 +49,16 @@ import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedHelpers;
 
 public class CustomPrivacy extends Feature {
+    private static final List<PrivacyOption> OPTIONS = Arrays.asList(
+            new PrivacyOption("HideSeen", ResId.string.hideread, ResId.string.hideread_sum, "hideread", false),
+            new PrivacyOption("HideViewStatus", ResId.string.hidestatusview, ResId.string.hidestatusview_sum, "hidestatusview", false),
+            new PrivacyOption("HideReceipt", ResId.string.hidereceipt, ResId.string.hidereceipt_sum, "hidereceipt", false),
+            new PrivacyOption("HideTyping", ResId.string.ghostmode, ResId.string.ghostmode_sum, "ghostmode_t", false),
+            new PrivacyOption("HideRecording", ResId.string.ghostmode_r, ResId.string.ghostmode_sum_r, "ghostmode_r", false),
+            new PrivacyOption("BlockCall", ResId.string.block_call, ResId.string.call_blocker_sum, "call_privacy", true),
+            new PrivacyOption("BlueOnReply", ResId.string.blueonreply, ResId.string.blueonreply_sum, "blueonreply", false)
+    );
+
     private Method chatUserJidMethod;
     private Method groupUserJidMethod;
 
@@ -178,7 +196,6 @@ public class CustomPrivacy extends Feature {
     }
 
     private void showCustomPrivacyList(Activity activity, Class<?> contactClass, Class<?> groupClass) {
-
         SharedPreferences pprefs = WppCore.getPrivPrefs();
         var maps = pprefs.getAll();
         ArrayList<CustomPrivacyAdapter.Item> list = new ArrayList<>();
@@ -196,6 +213,7 @@ public class CustomPrivacy extends Feature {
                 item.name = contactName;
                 item.number = number;
                 item.key = key;
+                item.activeOptionsCount = countActiveOptions(getJSON(number));
                 list.add(item);
             }
         }
@@ -213,12 +231,18 @@ public class CustomPrivacy extends Feature {
         builder.show();
     }
 
-
     private void showPrivacyDialog(Activity activity, boolean isChat) {
         var userJid = getUserJid(activity, isChat);
         if (userJid.isNull()) return;
-        AlertDialogWpp builder = createPrivacyDialog(activity, userJid.getPhoneNumber());
-        builder.show();
+        final String phoneNumber = userJid.getPhoneNumber();
+        final DialogBuilder dialogBuilder = new DialogBuilder(activity, phoneNumber, getJSON(phoneNumber));
+        View viewBuild = dialogBuilder.build();
+        AlertDialogWpp alertDialogWpp = new AlertDialogWpp(activity);
+        alertDialogWpp.setTitle(ResId.string.custom_privacy);
+        alertDialogWpp.setView(viewBuild);
+        alertDialogWpp.setPositiveButton("OK", (dialogInterface, i9) -> savePreferences(phoneNumber, dialogBuilder.getCheckedStates()));
+        alertDialogWpp.setNegativeButton(activity.getString(ResId.string.cancel), null);
+        alertDialogWpp.show();
     }
 
     private FMessageWpp.UserJid getUserJid(Activity activity, boolean isChat) {
@@ -229,80 +253,152 @@ public class CustomPrivacy extends Feature {
         }
     }
 
-    private AlertDialogWpp createPrivacyDialog(Activity activity, String number) {
-        AlertDialogWpp builder = new AlertDialogWpp(activity);
-        builder.setTitle(ResId.string.custom_privacy);
-
-        String[] items = {
-                activity.getString(ResId.string.hideread),
-                activity.getString(ResId.string.hidestatusview),
-                activity.getString(ResId.string.hidereceipt),
-                activity.getString(ResId.string.ghostmode),
-                activity.getString(ResId.string.ghostmode_r),
-                activity.getString(ResId.string.block_call)
-        };
-
-        String[] itemsKeys = {
-                "HideSeen", "HideViewStatus", "HideReceipt", "HideTyping", "HideRecording", "BlockCall"
-        };
-
-        boolean[] checkedItems = loadPreferences(number, itemsKeys);
-
-        builder.setMultiChoiceItems(items, checkedItems, (dialog, which, isChecked) -> checkedItems[which] = isChecked);
-        builder.setPositiveButton("OK", (dialog, which) -> savePreferences(number, itemsKeys, checkedItems));
-        builder.setNegativeButton(activity.getString(ResId.string.cancel), null);
-
-        return builder;
-    }
-
-    private boolean[] loadPreferences(String number, String[] itemsKeys) {
-        boolean[] checkedItems = new boolean[itemsKeys.length];
-        JSONObject json = CustomPrivacy.getJSON(number);
-
-        for (int i = 0; i < itemsKeys.length; i++) {
-            String globalKey = getGlobalKey(itemsKeys[i]);
-            checkedItems[i] = json.optBoolean(itemsKeys[i], getDefaultPreference(globalKey));
-        }
-
-        return checkedItems;
-    }
-
-    private String getGlobalKey(String itemKey) {
-        return switch (itemKey) {
-            case "HideSeen" -> "hideread";
-            case "HideViewStatus" -> "hidestatusview";
-            case "HideReceipt" -> "hidereceipt";
-            case "HideTyping" -> "ghostmode_t";
-            case "HideRecording" -> "ghostmode_r";
-            case "BlockCall" -> "call_privacy";
-            default -> "";
-        };
-    }
-
-    private boolean getDefaultPreference(String globalKey) {
-        if (globalKey.equals("call_privacy")) {
-            return Objects.equals(prefs.getString(globalKey, "0"), "1");
-        } else {
-            return prefs.getBoolean(globalKey, false);
-        }
-    }
-
-    private void savePreferences(String number, String[] itemsKeys, boolean[] checkedItems) {
+    private void savePreferences(String number, Map<String, Boolean> states) {
         try {
             JSONObject jsonObject = new JSONObject();
-            for (int i = 0; i < itemsKeys.length; i++) {
-                String globalKey = getGlobalKey(itemsKeys[i]);
-                if (globalKey.equals("call_privacy")) {
-                    if (Objects.equals(prefs.getString(globalKey, "0"), "1") != checkedItems[i])
-                        jsonObject.put(itemsKeys[i], checkedItems[i]);
-                } else {
-                    if (prefs.getBoolean(globalKey, false) != checkedItems[i])
-                        jsonObject.put(itemsKeys[i], checkedItems[i]);
+            for (PrivacyOption option : OPTIONS) {
+                boolean defaultValue = option.getDefaultValue(prefs);
+                Boolean currentState = states.get(option.key);
+                if (currentState != null && currentState != defaultValue) {
+                    jsonObject.put(option.key, currentState);
                 }
             }
             WppCore.setPrivJSON(number + "_privacy", jsonObject);
         } catch (Exception e) {
             Utils.showToast(e.getMessage(), Toast.LENGTH_SHORT);
+        }
+    }
+
+    private int countActiveOptions(JSONObject json) {
+        int count = 0;
+        for (PrivacyOption option : OPTIONS) {
+            boolean defaultValue = option.getDefaultValue(prefs);
+            if (json.optBoolean(option.key, defaultValue) != defaultValue) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public static class PrivacyOption {
+        public final String key;
+        public final int titleResId;
+        public final int descriptionResId;
+        public final String globalPreferenceKey;
+        public final boolean isStringPreference;
+
+        public PrivacyOption(String key, int titleResId, int descriptionResId, String globalPreferenceKey, boolean isStringPreference) {
+            this.key = key;
+            this.titleResId = titleResId;
+            this.descriptionResId = descriptionResId;
+            this.globalPreferenceKey = globalPreferenceKey;
+            this.isStringPreference = isStringPreference;
+        }
+
+        public boolean getDefaultValue(XSharedPreferences prefs) {
+            if (isStringPreference) {
+                return Objects.equals(prefs.getString(globalPreferenceKey, "0"), "1");
+            }
+            return prefs.getBoolean(globalPreferenceKey, false);
+        }
+    }
+
+    public class DialogBuilder {
+        private final Map<String, Boolean> checkedStates = new HashMap<>();
+        private final Context context;
+        private final JSONObject currentJson;
+        private final String number;
+
+        public DialogBuilder(Context context, String str, JSONObject jSONObject) {
+            this.context = context;
+            this.number = str;
+            this.currentJson = jSONObject;
+        }
+
+        @SuppressLint({"UseSwitchCompatOrMaterialCode", "SetTextI18n"})
+        private View createOptionCard(final PrivacyOption privacyOption) {
+            LinearLayout linearLayout = new LinearLayout(this.context);
+            linearLayout.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
+            layoutParams.setMargins(0, Utils.dipToPixels(4.0f), 0, Utils.dipToPixels(4.0f));
+            linearLayout.setLayoutParams(layoutParams);
+            linearLayout.setPadding(Utils.dipToPixels(16.0f), Utils.dipToPixels(12.0f), Utils.dipToPixels(16.0f), Utils.dipToPixels(12.0f));
+            
+            int bgColor = DesignUtils.isNightMode() ? 0x1AFFFFFF : 0x1A000000;
+            linearLayout.setBackground(DesignUtils.createDrawable("rc_dotline_dialog", bgColor));
+
+            LinearLayout rowLayout = new LinearLayout(this.context);
+            rowLayout.setOrientation(LinearLayout.HORIZONTAL);
+            rowLayout.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
+            rowLayout.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+            LinearLayout textLayout = new LinearLayout(this.context);
+            textLayout.setOrientation(LinearLayout.VERTICAL);
+            textLayout.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1.0f));
+
+            TextView titleView = new TextView(this.context);
+            titleView.setText(privacyOption.titleResId);
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16.0f);
+            titleView.setTypeface(null, android.graphics.Typeface.BOLD);
+            titleView.setTextColor(DesignUtils.getPrimaryTextColor());
+            textLayout.addView(titleView);
+
+            TextView descView = new TextView(this.context);
+            descView.setText(privacyOption.descriptionResId);
+            descView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.0f);
+            descView.setTextColor(DesignUtils.isNightMode() ? 0xB3FFFFFF : 0xB3000000);
+            LinearLayout.LayoutParams descParams = new LinearLayout.LayoutParams(-1, -2);
+            descParams.setMargins(0, Utils.dipToPixels(2.0f), 0, 0);
+            descView.setLayoutParams(descParams);
+            textLayout.addView(descView);
+
+            boolean defaultValue = privacyOption.getDefaultValue(prefs);
+            String statusText = context.getString(ResId.string.custom_privacy_global_status, 
+                    context.getString(defaultValue ? ResId.string.enabled : ResId.string.disabled));
+            
+            TextView globalStatusView = new TextView(this.context);
+            globalStatusView.setText(statusText);
+            globalStatusView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.0f);
+            globalStatusView.setTextColor(DesignUtils.getUnSeenColor());
+            LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(-1, -2);
+            statusParams.setMargins(0, Utils.dipToPixels(4.0f), 0, 0);
+            globalStatusView.setLayoutParams(statusParams);
+            textLayout.addView(globalStatusView);
+
+            rowLayout.addView(textLayout);
+
+            final Switch switchView = new Switch(this.context);
+            boolean currentVal = this.currentJson.optBoolean(privacyOption.key, defaultValue);
+            switchView.setChecked(currentVal);
+            this.checkedStates.put(privacyOption.key, currentVal);
+            switchView.setOnCheckedChangeListener((compoundButton, isChecked) -> this.checkedStates.put(privacyOption.key, isChecked));
+            
+            rowLayout.addView(switchView);
+            linearLayout.addView(rowLayout);
+
+            linearLayout.setOnClickListener(view -> switchView.toggle());
+
+            return linearLayout;
+        }
+
+        public View build() {
+            ScrollView scrollView = new ScrollView(this.context);
+            scrollView.setLayoutParams(new ViewGroup.LayoutParams(-1, -2));
+            LinearLayout container = new LinearLayout(this.context);
+            container.setOrientation(LinearLayout.VERTICAL);
+            container.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
+            container.setPadding(Utils.dipToPixels(16.0f), Utils.dipToPixels(8.0f), Utils.dipToPixels(16.0f), Utils.dipToPixels(8.0f));
+            
+            for (PrivacyOption option : OPTIONS) {
+                container.addView(createOptionCard(option));
+            }
+            
+            scrollView.addView(container);
+            return scrollView;
+        }
+
+        public Map<String, Boolean> getCheckedStates() {
+            return this.checkedStates;
         }
     }
 

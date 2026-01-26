@@ -23,12 +23,12 @@ public class ScheduledMessageStore extends SQLiteOpenHelper {
     private static final String COLUMN_SCHEDULED_TIME = "scheduled_time";
     private static final String COLUMN_WHATSAPP_TYPE = "whatsapp_type";
     private static final String DATABASE_NAME = "scheduled_messages.db";
-    private static final int DATABASE_VERSION = 5;
+    private static final int DATABASE_VERSION = 6;
     private static final String TABLE_NAME = "scheduled_messages";
     private static ScheduledMessageStore instance;
 
     private ScheduledMessageStore(Context context) {
-        super(context, DATABASE_NAME, (SQLiteDatabase.CursorFactory) null, 5);
+        super(context, DATABASE_NAME, (SQLiteDatabase.CursorFactory) null, 6);
     }
 
     public static synchronized ScheduledMessageStore getInstance(Context context) {
@@ -49,7 +49,7 @@ public class ScheduledMessageStore extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) throws SQLException {
-        if (oldVersion < 5) {
+        if (oldVersion < 6) {
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME);
             onCreate(db);
         }
