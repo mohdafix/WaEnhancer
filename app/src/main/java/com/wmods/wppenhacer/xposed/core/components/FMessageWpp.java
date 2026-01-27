@@ -45,6 +45,12 @@ public class FMessageWpp {
     private static Class abstractMediaMessageClass;
     private static Field broadcastField;
 
+    // New fields for robust obfuscation handling
+    private static Method jidGetRawStringMethod;
+    private static Field keyMessageIdField;
+    private static Field keyRemoteJidField;
+    private static Field keyFromMeField;
+
     private final Object fmessage;
     private final Object userJid;
     private final boolean valid;
@@ -128,6 +134,18 @@ public class FMessageWpp {
             getOriginalMessageKey = Unobfuscator.loadOriginalMessageKey(classLoader);
             abstractMediaMessageClass = Unobfuscator.loadAbstractMediaMessageClass(classLoader);
             broadcastField = Unobfuscator.loadBroadcastTagField(classLoader);
+
+            try {
+                jidGetRawStringMethod = Unobfuscator.loadJidGetRawStringMethod(classLoader);
+                keyMessageIdField = Unobfuscator.loadMessageKeyIdField(classLoader);
+                keyMessageIdField.setAccessible(true);
+                keyRemoteJidField = Unobfuscator.loadMessageKeyRemoteJidField(classLoader);
+                keyRemoteJidField.setAccessible(true);
+                keyFromMeField = Unobfuscator.loadMessageKeyFromMeField(classLoader);
+                keyFromMeField.setAccessible(true);
+            } catch (Exception e) {
+                XposedBridge.log("FMessageWpp extra init error: " + e.getMessage());
+            }
 
         } catch (Exception e) {
             XposedBridge.log("FMessageWpp init error: " + e.getMessage());
@@ -421,19 +439,51 @@ public class FMessageWpp {
                 }
 
                 // Fallbacks
-                if (!foundId) {
+                // Fallbacks using dynamic fields
+                if (!foundId && keyMessageIdField != null) {
                     try {
+                        this.messageID = (String) keyMessageIdField.get(key);
+                    } catch (Exception e) {
+                        // Fallback to hardcoded if dynamic fails (unlikely if found)
+                        try {
+                            Object val = XposedHelpers.getObjectField(key, "A01");
+                            if (val instanceof String) this.messageID = (String) val;
+                        } catch (Exception ignored) {}
+                    }
+                } else if (!foundId) {
+                     // Last resort hardcoded
+                     try {
                         Object val = XposedHelpers.getObjectField(key, "A01");
                         if (val instanceof String) this.messageID = (String) val;
                     } catch (Exception ignored) {}
                 }
-                if (!foundFromMe) {
+
+                if (!foundFromMe && keyFromMeField != null) {
+                    try {
+                        this.isFromMe = keyFromMeField.getBoolean(key);
+                    } catch (Exception e) {
+                         try {
+                            this.isFromMe = XposedHelpers.getBooleanField(key, "A02");
+                        } catch (Exception ignored) {}
+                    }
+                } else if (!foundFromMe) {
                     try {
                         this.isFromMe = XposedHelpers.getBooleanField(key, "A02");
                     } catch (Exception ignored) {}
                 }
-                if (!foundJid) {
+
+                if (!foundJid && keyRemoteJidField != null) {
                     try {
+                        Object val = keyRemoteJidField.get(key);
+                        if (val != null) this.remoteJid = new UserJid(val);
+                    } catch (Exception e) {
+                        try {
+                            Object val = XposedHelpers.getObjectField(key, "A00");
+                            if (val != null) this.remoteJid = new UserJid(val);
+                        } catch (Exception ignored) {}
+                    }
+                } else if (!foundJid) {
+                     try {
                         Object val = XposedHelpers.getObjectField(key, "A00");
                         if (val != null) this.remoteJid = new UserJid(val);
                     } catch (Exception ignored) {}
@@ -500,7 +550,11 @@ public class FMessageWpp {
 
             String raw = null;
             try {
-                raw = (String) XposedHelpers.callMethod(lidOrJid, "getRawString");
+                if (jidGetRawStringMethod != null) {
+                    raw = (String) jidGetRawStringMethod.invoke(lidOrJid);
+                } else {
+                    raw = (String) XposedHelpers.callMethod(lidOrJid, "getRawString");
+                }
             } catch (Exception e) {
                 // XposedBridge.log("UserJid ctor error: " + e.getMessage());
             }
@@ -525,7 +579,12 @@ public class FMessageWpp {
         public String getPhoneRawString() {
             if (this.phoneJid == null) return null;
             try {
-                String raw = (String) XposedHelpers.callMethod(this.phoneJid, "getRawString");
+                String raw;
+                if (jidGetRawStringMethod != null) {
+                    raw = (String) jidGetRawStringMethod.invoke(this.phoneJid);
+                } else {
+                    raw = (String) XposedHelpers.callMethod(this.phoneJid, "getRawString");
+                }
                 if (raw == null) return null;
                 return raw.replaceFirst("\\.[\\d:]+@", "@");
             } catch (Exception e) {
@@ -537,7 +596,12 @@ public class FMessageWpp {
         public String getUserRawString() {
             if (this.userJid == null) return null;
             try {
-                String raw = (String) XposedHelpers.callMethod(this.userJid, "getRawString");
+                String raw;
+                if (jidGetRawStringMethod != null) {
+                    raw = (String) jidGetRawStringMethod.invoke(this.userJid);
+                } else {
+                    raw = (String) XposedHelpers.callMethod(this.userJid, "getRawString");
+                }
                 if (raw == null) return null;
                 return raw.replaceFirst("\\.[\\d:]+@", "@");
             } catch (Exception e) {

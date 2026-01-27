@@ -3,19 +3,33 @@ package com.wmods.wppenhacer.xposed.features.general;
 import static com.wmods.wppenhacer.xposed.core.FeatureLoader.disableExpirationVersion;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
+import android.graphics.drawable.BitmapDrawable;
 import android.os.BaseBundle;
+import android.os.Build;
 import android.os.Message;
 import android.os.PowerManager;
+import android.renderscript.Allocation;
+import android.renderscript.Element;
+import android.renderscript.RenderScript;
+import android.renderscript.ScriptIntrinsicBlur;
 import android.text.TextUtils;
 import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
 import com.wmods.wppenhacer.listeners.OnMultiClickListener;
+import com.wmods.wppenhacer.xposed.core.ActivityStateRegistry;
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
@@ -93,9 +107,10 @@ public class Others extends Feature {
         propsBoolean.put(4497, menuWIcons);
         propsBoolean.put(4023, false);
         propsBoolean.put(4921, newSettings);
-        propsInteger.put(18564, newSettings ? 1 : 0);
+        propsInteger.put(18564, newSettings ? 6 : 0);
 
         propsBoolean.put(2889, floatingMenu);
+        propsBoolean.put(23289, newSettings);
 
         // new text composer
         propsBoolean.put(15708, true);
@@ -264,6 +279,10 @@ public class Others extends Feature {
 
         if (!filterSeen) {
             disableHomeFilters();
+        }
+
+        if (floatingMenu) {
+            enableBlurFloatingMenu();
         }
 
     }
@@ -511,34 +530,71 @@ public class Others extends Feature {
         });
     }
 
-    private void customPlayBackSpeed() throws Exception {
-        var voicenote_speed = prefs.getFloat("voicenote_speed", 2.0f);
-        var playBackSpeed = Unobfuscator.loadPlaybackSpeed(classLoader);
-        XposedBridge.hookMethod(playBackSpeed, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                super.beforeHookedMethod(param);
-                if ((float) param.args[1] == 2.0f) {
-                    param.args[1] = voicenote_speed;
-                }
-            }
-        });
-        var voicenoteClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "VoiceNoteProfileAvatarView");
-        var method = ReflectionUtils.findAllMethodsUsingFilter(voicenoteClass, method1 -> method1.getParameterCount() == 4 && method1.getParameterTypes()[0] == int.class && method1.getReturnType().equals(void.class));
-        XposedBridge.hookMethod(method[method.length - 1], new XC_MethodHook() {
-            @SuppressLint("SetTextI18n")
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                super.afterHookedMethod(param);
-                if ((int) param.args[0] == 3) {
-                    var view = (View) param.thisObject;
-                    var playback = (TextView) view.findViewById(Utils.getID("fast_playback_overlay", "id"));
-                    if (playback != null) {
-                        playback.setText(String.valueOf(voicenote_speed).replace(".", ",") + "×");
+    private void enableBlurFloatingMenu() {
+        if (Build.VERSION.SDK_INT >= 31) {
+            WppCore.addListenerActivity((activity, changeType) -> {
+                if (activity.getClass().getSimpleName().equals("SingleSelectedMessageActivity")) {
+                    if (changeType == WppCore.ActivityChangeState.ChangeType.RESUMED) {
+                        try {
+                            activity.getWindow().getDecorView().setBackgroundColor(0);
+                            Activity conversationActivity = ActivityStateRegistry.getActivityBySimpleName("Conversation");
+                            if (conversationActivity != null) {
+                                Window window = conversationActivity.getWindow();
+                                window.getDecorView().setRenderEffect(RenderEffect.createBlurEffect(20f, 20f, Shader.TileMode.CLAMP));
+                            }
+                        } catch (Exception e) {
+                            logDebug(e);
+                        }
+                    }
+                } else if (activity.getClass().getSimpleName().equals("Conversation")) {
+                    if (changeType == WppCore.ActivityChangeState.ChangeType.RESUMED) {
+                        activity.getWindow().getDecorView().setRenderEffect(null);
                     }
                 }
+            });
+        } else {
+            try {
+                XposedBridge.hookMethod(Unobfuscator.loadSelectedMessageOnCreated(classLoader), new XC_MethodHook() {
+                    private Bitmap blurred;
+
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        Activity activity = (Activity) param.thisObject;
+                        Activity conversationActivity = ActivityStateRegistry.getActivityBySimpleName("Conversation");
+                        if (conversationActivity != null) {
+                            View decorView = conversationActivity.getWindow().getDecorView();
+                            Bitmap bitmap = Bitmap.createBitmap(decorView.getWidth(), decorView.getHeight(), Bitmap.Config.ARGB_8888);
+                            decorView.draw(new Canvas(bitmap));
+                            this.blurred = blurBitmap(activity, bitmap, 25f);
+                        }
+                    }
+
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        Activity activity = (Activity) param.thisObject;
+                        if (blurred != null) {
+                            activity.getWindow().setBackgroundDrawable(new BitmapDrawable(activity.getResources(), blurred));
+                        }
+                    }
+                });
+            } catch (Exception e) {
+                logDebug(e);
             }
-        });
+        }
+    }
+
+    public Bitmap blurBitmap(Context context, Bitmap bitmap, float radius) {
+        Bitmap output = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.ARGB_8888);
+        RenderScript rs = RenderScript.create(context);
+        ScriptIntrinsicBlur blur = ScriptIntrinsicBlur.create(rs, Element.U8_4(rs));
+        Allocation inputAlloc = Allocation.createFromBitmap(rs, bitmap);
+        Allocation outputAlloc = Allocation.createFromBitmap(rs, output);
+        blur.setRadius(radius);
+        blur.setInput(inputAlloc);
+        blur.forEach(outputAlloc);
+        outputAlloc.copyTo(output);
+        rs.destroy();
+        return output;
     }
 
 
@@ -569,6 +625,36 @@ public class Others extends Feature {
                 var fMessage = param.getResult();
                 originFMessageField.setAccessible(true);
                 originFMessageField.setInt(fMessage, audio_type - 1);
+            }
+        });
+    }
+
+    private void customPlayBackSpeed() throws Exception {
+        var voicenote_speed = prefs.getFloat("voicenote_speed", 2.0f);
+        var playBackSpeed = Unobfuscator.loadPlaybackSpeed(classLoader);
+        XposedBridge.hookMethod(playBackSpeed, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                super.beforeHookedMethod(param);
+                if ((float) param.args[1] == 2.0f) {
+                    param.args[1] = voicenote_speed;
+                }
+            }
+        });
+        var voicenoteClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "VoiceNoteProfileAvatarView");
+        var method = ReflectionUtils.findAllMethodsUsingFilter(voicenoteClass, method1 -> method1.getParameterCount() == 4 && method1.getParameterTypes()[0] == int.class && method1.getReturnType().equals(void.class));
+        XposedBridge.hookMethod(method[method.length - 1], new XC_MethodHook() {
+            @SuppressLint("SetTextI18n")
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                super.afterHookedMethod(param);
+                if ((int) param.args[0] == 3) {
+                    var view = (View) param.thisObject;
+                    var playback = (TextView) view.findViewById(Utils.getID("fast_playback_overlay", "id"));
+                    if (playback != null) {
+                        playback.setText(String.valueOf(voicenote_speed).replace(".", ",") + "×");
+                    }
+                }
             }
         });
     }

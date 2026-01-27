@@ -752,6 +752,70 @@ public class Unobfuscator {
         });
     }
 
+    public synchronized static Method loadJidGetRawStringMethod(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getMethod(loader, () -> {
+            var jidClass = findFirstClassUsingName(loader, StringMatchType.EndsWith, "jid.Jid");
+            if (jidClass == null) throw new ClassNotFoundException("Jid class not found");
+            // Find method returning String with 0 args, likely getRawString
+            // It might be in Jid or subclasses, but Jid is the base.
+            // In most versions, Jid has abstract getRawString check, or implements it.
+            // Let's check declared methods of Jid first.
+            for (Method m : jidClass.getMethods()) { 
+                if (m.getParameterCount() == 0 && m.getReturnType().equals(String.class) && !Modifier.isStatic(m.getModifiers())) {
+                    // Check if it's "getRawString" or obfuscated
+                    // Often it's the only method returning string from Jid (besides toString)
+                    if (m.getName().equals("toString")) continue;
+                    return m;
+                }
+            }
+            throw new NoSuchMethodException("getRawString method not found in Jid");
+        });
+    }
+
+    public synchronized static Field loadMessageKeyIdField(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getField(loader, () -> {
+            var keyClass = loadMessageKeyClass(loader);
+            for (Field f : keyClass.getDeclaredFields()) {
+                if (f.getType().equals(String.class)) {
+                    return f; 
+                }
+            }
+            throw new NoSuchFieldException("MessageKey ID field not found");
+        });
+    }
+
+    public synchronized static Field loadMessageKeyRemoteJidField(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getField(loader, () -> {
+            var keyClass = loadMessageKeyClass(loader);
+            var jidClass = findFirstClassUsingName(loader, StringMatchType.EndsWith, "jid.Jid");
+            for (Field f : keyClass.getDeclaredFields()) {
+                if (jidClass.isAssignableFrom(f.getType())) {
+                    return f; 
+                }
+            }
+             throw new NoSuchFieldException("MessageKey RemoteJid field not found");
+        });
+    }
+
+    public synchronized static Field loadMessageKeyFromMeField(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getField(loader, () -> {
+            var keyClass = loadMessageKeyClass(loader);
+            for (Field f : keyClass.getDeclaredFields()) {
+                if (f.getType().equals(boolean.class)) {
+                    return f; 
+                }
+            }
+             throw new NoSuchFieldException("MessageKey FromMe field not found");
+        });
+    }
+
+    // Helper to get MessageKey class reused
+    private static Class<?> loadMessageKeyClass(ClassLoader loader) throws Exception {
+        var classList = dexkit.findClass(new FindClass().matcher(new ClassMatcher().fieldCount(3).addMethod(new MethodMatcher().addUsingString("Key").name("toString"))));
+        if (classList.isEmpty()) throw new ClassNotFoundException("MessageKey class not found");
+        return classList.get(0).getInstance(loader);
+    }
+
     public synchronized static Class<?> loadConversationRowClass(ClassLoader loader) throws Exception {
         return UnobfuscatorCache.getInstance().getClass(loader, () -> {
             var conversation_header = Utils.getID("conversation_row_participant_header_view_stub", "id");
@@ -1536,6 +1600,13 @@ public class Unobfuscator {
             var results = dexkit.findClass(FindClass.create().matcher(ClassMatcher.create().addMethod(MethodMatcher.create().addUsingNumber(filter_id))));
             if (results.isEmpty()) throw new RuntimeException("FilterView class not found");
             return results.get(0).getInstance(loader);
+        });
+    }
+
+    public synchronized static Method loadSelectedMessageOnCreated(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getMethod(loader, () -> {
+            Class<?> activityCls = loader.loadClass("com.whatsapp.conversation.selection.SingleSelectedMessageActivity");
+            return ReflectionUtils.findMethodUsingFilter(activityCls, m -> m.getName().equals("onCreate") && m.getParameterCount() == 1);
         });
     }
 

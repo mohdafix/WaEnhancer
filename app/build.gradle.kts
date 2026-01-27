@@ -170,7 +170,10 @@ tasks.withType(JavaCompile::class.java).configureEach {
     dependsOn(fixAidlGeneratedJava)
 }
 fixAidlGeneratedJava.configure {
-    dependsOn("compileBusinessReleaseAidl", "compileWhatsappReleaseAidl")
+    dependsOn(
+        "compileBusinessReleaseAidl", "compileWhatsappReleaseAidl",
+        "compileBusinessDebugAidl", "compileWhatsappDebugAidl"
+    )
 }
 
 dependencies {
