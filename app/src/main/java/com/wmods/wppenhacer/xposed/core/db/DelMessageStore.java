@@ -35,6 +35,11 @@ public class DelMessageStore extends SQLiteOpenHelper {
         }
     }
 
+    @Override
+    public void onDowngrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        // Allow downgrade without error
+    }
+
     public void insertMessage(String jid, String msgid, long timestamp) {
         try (SQLiteDatabase dbWrite = this.getWritableDatabase()) {
             ContentValues values = new ContentValues();

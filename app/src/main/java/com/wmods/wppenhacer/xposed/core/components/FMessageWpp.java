@@ -395,17 +395,31 @@ public class FMessageWpp {
             try {
                 // 1. Find MessageID (String)
                 boolean foundId = false;
-                for (Field f : key.getClass().getDeclaredFields()) {
-                    if (f.getType() == String.class) {
-                        f.setAccessible(true);
-                        try {
-                            String val = (String) f.get(key);
-                            if (val != null && val.length() > 5) {
-                                this.messageID = val;
-                                foundId = true;
-                                break;
-                            }
-                        } catch (Exception ignored) {}
+                
+                // Prioritize Unobfuscator field
+                if (keyMessageIdField != null) {
+                    try {
+                        String val = (String) keyMessageIdField.get(key);
+                        if (val != null) {
+                            this.messageID = val;
+                            foundId = true;
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                if (!foundId) {
+                    for (Field f : key.getClass().getDeclaredFields()) {
+                        if (f.getType() == String.class) {
+                            f.setAccessible(true);
+                            try {
+                                String val = (String) f.get(key);
+                                if (val != null && val.length() > 5) {
+                                    this.messageID = val;
+                                    foundId = true;
+                                    break;
+                                }
+                            } catch (Exception ignored) {}
+                        }
                     }
                 }
 
@@ -437,26 +451,11 @@ public class FMessageWpp {
                         } catch (Exception ignored) {}
                     }
                 }
-
-                // Fallbacks
-                // Fallbacks using dynamic fields
-                if (!foundId && keyMessageIdField != null) {
-                    try {
-                        this.messageID = (String) keyMessageIdField.get(key);
-                    } catch (Exception e) {
-                        // Fallback to hardcoded if dynamic fails (unlikely if found)
-                        try {
-                            Object val = XposedHelpers.getObjectField(key, "A01");
-                            if (val instanceof String) this.messageID = (String) val;
-                        } catch (Exception ignored) {}
-                    }
-                } else if (!foundId) {
                      // Last resort hardcoded
                      try {
                         Object val = XposedHelpers.getObjectField(key, "A01");
                         if (val instanceof String) this.messageID = (String) val;
                     } catch (Exception ignored) {}
-                }
 
                 if (!foundFromMe && keyFromMeField != null) {
                     try {

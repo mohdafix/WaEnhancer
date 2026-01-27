@@ -125,10 +125,27 @@ public class WppCore {
     public static void Initialize(ClassLoader loader, XSharedPreferences pref) throws Exception {
         privPrefs = Utils.getApplication().getSharedPreferences("WaGlobal", Context.MODE_PRIVATE);
         // init UserJID
-        var mSendReadClass = Unobfuscator.findFirstClassUsingName(loader, StringMatchType.EndsWith, "SendReadReceiptJob");
-        var subClass = ReflectionUtils.findConstructorUsingFilter(mSendReadClass, (constructor) -> constructor.getParameterCount() == 8).getParameterTypes()[0];
-        mGenJidClass = ReflectionUtils.findFieldUsingFilter(subClass, (field) -> Modifier.isStatic(field.getModifiers())).getType();
-        mGenJidMethod = ReflectionUtils.findMethodUsingFilter(mGenJidClass, (method) -> method.getParameterCount() == 1 && !Modifier.isStatic(method.getModifiers()));
+        try {
+            var mSendReadClass = Unobfuscator.findFirstClassUsingName(loader, StringMatchType.EndsWith, "SendReadReceiptJob");
+            var subClass = ReflectionUtils.findConstructorUsingFilter(mSendReadClass, (constructor) -> constructor.getParameterCount() == 8).getParameterTypes()[0];
+            mGenJidClass = ReflectionUtils.findFieldUsingFilter(subClass, (field) -> Modifier.isStatic(field.getModifiers())).getType();
+            mGenJidMethod = ReflectionUtils.findMethodUsingFilter(mGenJidClass, (method) -> method.getParameterCount() == 1 && !Modifier.isStatic(method.getModifiers()));
+        } catch (Throwable t) {
+            try {
+                // Fallback: Try to find static 'get' in UserJid class
+                Class<?> localUserJidClass = Unobfuscator.findFirstClassUsingName(loader, StringMatchType.EndsWith, "jid.UserJid");
+                if (localUserJidClass != null) {
+                    for (Method m : localUserJidClass.getDeclaredMethods()) {
+                        if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) && m.getParameterCount() == 1 
+                                && m.getParameterTypes()[0] == String.class && m.getReturnType() == localUserJidClass) {
+                            mGenJidMethod = m;
+                            mGenJidClass = localUserJidClass;
+                            break;
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {}
+        }
         // Bottom Dialog
         bottomDialog = Unobfuscator.loadDialogViewClass(loader);
 
@@ -648,9 +665,12 @@ public class WppCore {
 
     @Nullable
     public static Object createUserJid(@Nullable String rawjid) {
-        if (rawjid == null) return null;
-        var genInstance = XposedHelpers.newInstance(mGenJidClass);
+        if (rawjid == null || mGenJidMethod == null) return null;
         try {
+            if (java.lang.reflect.Modifier.isStatic(mGenJidMethod.getModifiers())) {
+                return mGenJidMethod.invoke(null, rawjid);
+            }
+            var genInstance = XposedHelpers.newInstance(mGenJidClass);
             return mGenJidMethod.invoke(genInstance, rawjid);
         } catch (Exception e) {
             XposedBridge.log(e);

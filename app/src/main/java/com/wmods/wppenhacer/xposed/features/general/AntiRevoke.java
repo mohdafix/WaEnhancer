@@ -78,11 +78,11 @@ public class AntiRevoke extends Feature {
     }
 
     private static void persistRevokedMessage(FMessageWpp fMessage) {
-        var messageId = fMessage.getKey().messageID;
+        var messageKey = (String) XposedHelpers.getObjectField(fMessage.getObject(), "A01");
         var stripJID = fMessage.getKey().remoteJid.getPhoneNumber();
         Set<String> messages = getRevokedMessagesForJid(fMessage);
-        messages.add(messageId);
-        DelMessageStore.getInstance(Utils.getApplication()).insertMessage(stripJID, messageId, System.currentTimeMillis());
+        messages.add(messageKey);
+        DelMessageStore.getInstance(Utils.getApplication()).insertMessage(stripJID, messageKey, System.currentTimeMillis());
     }
 
     private static Set<String> getRevokedMessagesForJid(FMessageWpp fMessage) {
@@ -115,7 +115,7 @@ public class AntiRevoke extends Feature {
                 var fMessage = new FMessageWpp(param.args[0]);
                 var messageKey = fMessage.getKey();
                 var deviceJid = fMessage.getDeviceJid();
-                var messageID = messageKey.messageID;
+                var messageID = (String) XposedHelpers.getObjectField(fMessage.getObject(), "A01");
 
                 if (WppCore.getPrivBoolean(messageID + "_delpass", false)) {
                     WppCore.removePrivKey(messageID + "_delpass");
@@ -218,12 +218,12 @@ public class AntiRevoke extends Feature {
         } catch (Exception e) {
             log(e);
         }
-        String messageId = fMessage.getKey().messageID;
+        String messageKey = (String) XposedHelpers.getObjectField(fMessage.getObject(), "A01");
         String stripJID = fMessage.getKey().remoteJid.getPhoneNumber();
         int revokeboolean = stripJID.equals("status") ? Integer.parseInt(prefs.getString("antirevokestatus", "0")) : Integer.parseInt(prefs.getString("antirevoke", "0"));
         if (revokeboolean == 0) return revokeboolean;
         var messageRevokedList = getRevokedMessagesForJid(fMessage);
-        if (!messageRevokedList.contains(messageId)) {
+        if (!messageRevokedList.contains(messageKey)) {
             try {
                 CompletableFuture.runAsync(() -> {
                     persistRevokedMessage(fMessage);
