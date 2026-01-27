@@ -49,6 +49,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
@@ -683,9 +684,9 @@ public class Others extends Feature {
     }
 
     private void filterItems(String filterItems) {
-        var itens = filterItems.split("\n");
+        List<String> activeFilters = com.wmods.wppenhacer.preference.custom.FilterItemsPreference.getActiveFilters(filterItems);
         var idsFilter = new ArrayList<Integer>();
-        for (String item : itens) {
+        for (String item : activeFilters) {
             var id = Utils.getID(item, "id");
             if (id > 0) {
                 idsFilter.add(id);

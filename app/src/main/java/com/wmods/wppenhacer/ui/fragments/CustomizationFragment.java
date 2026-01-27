@@ -20,4 +20,15 @@ public class CustomizationFragment extends BasePreferenceFragment {
         setDisplayHomeAsUpEnabled(false);
     }
 
+    @Override
+    public void onDisplayPreferenceDialog(androidx.preference.Preference preference) {
+        if (preference instanceof com.wmods.wppenhacer.preference.custom.FilterItemsPreference) {
+             androidx.fragment.app.DialogFragment dialogFragment = 
+                 com.wmods.wppenhacer.preference.custom.FilterItemsPreferenceDialog.newInstance(preference.getKey());
+             dialogFragment.setTargetFragment(this, 0);
+             dialogFragment.show(getParentFragmentManager(), "androidx.preference.PreferenceFragment.DIALOG");
+        } else {
+             super.onDisplayPreferenceDialog(preference);
+        }
+    }
 }

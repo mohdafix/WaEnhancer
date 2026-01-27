@@ -103,7 +103,7 @@
             app:key="custom_filters"
             app:title="@string/custom_appearance" />
 
-        <EditTextPreference
+        <com.wmods.wppenhacer.preference.custom.FilterItemsPreference
             android:summary="@string/filter_items_by_id_sum"
             app:dependency="custom_filters"
             app:key="filter_items"
