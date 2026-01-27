@@ -236,8 +236,8 @@ public class FeatureLoader {
     }
 
     private static void initComponents(ClassLoader loader, XSharedPreferences pref) throws Exception {
-        FMessageWpp.initialize(loader);
         WppCore.Initialize(loader, pref);
+        FMessageWpp.initialize(loader);
         DesignUtils.setPrefs(pref);
         Utils.init(loader);
         AlertDialogWpp.initDialog(loader);

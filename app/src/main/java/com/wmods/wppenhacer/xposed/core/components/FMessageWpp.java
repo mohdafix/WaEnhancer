@@ -627,17 +627,17 @@ public class FMessageWpp {
         }
 
         private boolean isInvalidJid(String rawjid) {
-            if (rawjid == null) return false;
+            if (rawjid == null) return true;
             int atIndex = rawjid.indexOf('@');
             if (atIndex == -1 || atIndex == rawjid.length() - 1) {
-                return false;
+                return true;
             }
             if (!rawjid.contains("@")) {
-                return false;
+                return true;
             }
             String[] split = rawjid.split("@");
             if (split.length != 2) {
-                return false;
+                return true;
             }
 
             // valid JIDs: s.whatsapp.net, lid, g.us, broadcast, status, newsletter
