@@ -126,9 +126,38 @@ public class ContactPickerSheet extends BottomSheetDialogFragment {
         recyclerContacts.setAdapter(adapter);
     }
 
+
+
+
+    private java.util.Map<Long, String> getContactPhotoMap() {
+        java.util.Map<Long, String> photoMap = new java.util.HashMap<>();
+        try {
+            Cursor cursor = requireContext().getContentResolver().query(
+                    ContactsContract.Contacts.CONTENT_URI,
+                    new String[]{ContactsContract.Contacts._ID, ContactsContract.Contacts.PHOTO_THUMBNAIL_URI},
+                    ContactsContract.Contacts.PHOTO_THUMBNAIL_URI + " IS NOT NULL",
+                    null,
+                    null
+            );
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    long id = cursor.getLong(0);
+                    String uri = cursor.getString(1);
+                    photoMap.put(id, uri);
+                }
+                cursor.close();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return photoMap;
+    }
+
     private List<ContactData> fetchContacts() {
         List<ContactData> contacts = new ArrayList<>();
         Set<String> seenJids = new HashSet<>();
+        // Pre-fetch all contact photos to avoid N+1 queries
+        java.util.Map<Long, String> photoMap = getContactPhotoMap();
         
         try {
             Cursor cursor = requireContext().getContentResolver().query(
@@ -136,7 +165,8 @@ public class ContactPickerSheet extends BottomSheetDialogFragment {
                 new String[]{
                     ContactsContract.Data.DISPLAY_NAME,
                     ContactsContract.CommonDataKinds.Phone.NUMBER,
-                    ContactsContract.Data.PHOTO_THUMBNAIL_URI
+                    ContactsContract.Data.PHOTO_THUMBNAIL_URI,
+                    ContactsContract.Data.CONTACT_ID
                 },
                 ContactsContract.Data.MIMETYPE + "=?",
                 new String[]{"vnd.android.cursor.item/vnd.com.whatsapp.profile"},
@@ -148,12 +178,20 @@ public class ContactPickerSheet extends BottomSheetDialogFragment {
                     String name = cursor.getString(0);
                     String phone = cursor.getString(1);
                     String photoUri = cursor.getString(2);
+                    long contactId = cursor.getLong(3);
                     
                     if (name != null && phone != null && !phone.isEmpty()) {
                         String rawPhone = phone.replaceAll("[^0-9]", "");
                         String jid = rawPhone + "@s.whatsapp.net";
                         
                         if (!seenJids.contains(jid)) {
+                            // 1. Try URI from Data row
+                            // 2. Try URI from pre-fetched Contact map
+                            // 3. Try file-based fallback
+                            if (photoUri == null && contactId > 0) {
+                                photoUri = photoMap.get(contactId);
+                            }
+
                             if (photoUri == null) {
                                 photoUri = findWhatsAppPhoto(rawPhone);
                             }
@@ -167,7 +205,6 @@ public class ContactPickerSheet extends BottomSheetDialogFragment {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
         return contacts;
     }
 

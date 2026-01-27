@@ -37,13 +37,36 @@ public class ContactPickerAdapter extends RecyclerView.Adapter<ContactPickerAdap
         if (query == null || query.isEmpty()) {
             filteredContacts.addAll(allContacts);
         } else {
-            String lowerQuery = query.toLowerCase();
+            String lowerQuery = query.toLowerCase().trim();
+            List<ContactData> prefixMatches = new ArrayList<>();
+            List<ContactData> wordMatches = new ArrayList<>();
+            List<ContactData> otherMatches = new ArrayList<>();
+
             for (ContactData contact : allContacts) {
-                if (contact.getDisplayName().toLowerCase().contains(lowerQuery) || 
-                    contact.getJid().toLowerCase().contains(lowerQuery)) {
-                    filteredContacts.add(contact);
+                String name = contact.getDisplayName().toLowerCase();
+                String jid = contact.getJid().toLowerCase();
+
+                if (name.startsWith(lowerQuery)) {
+                    prefixMatches.add(contact);
+                } else {
+                    boolean isWordMatch = false;
+                    for (String word : name.split("[\\s-]+")) {
+                        if (word.startsWith(lowerQuery)) {
+                            isWordMatch = true;
+                            break;
+                        }
+                    }
+                    if (isWordMatch) {
+                        wordMatches.add(contact);
+                    } else if (name.contains(lowerQuery) || jid.contains(lowerQuery)) {
+                        otherMatches.add(contact);
+                    }
                 }
             }
+
+            filteredContacts.addAll(prefixMatches);
+            filteredContacts.addAll(wordMatches);
+            filteredContacts.addAll(otherMatches);
         }
         notifyDataSetChanged();
     }
