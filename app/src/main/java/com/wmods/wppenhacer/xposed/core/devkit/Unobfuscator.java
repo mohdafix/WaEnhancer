@@ -811,8 +811,29 @@ public class Unobfuscator {
 
     // Helper to get MessageKey class reused
     private static Class<?> loadMessageKeyClass(ClassLoader loader) throws Exception {
-        var classList = dexkit.findClass(new FindClass().matcher(new ClassMatcher().fieldCount(3).addMethod(new MethodMatcher().addUsingString("Key").name("toString"))));
+        var query = new FindClass().matcher(new ClassMatcher().fieldCount(3).addMethod(new MethodMatcher().addUsingString("Key").name("toString")));
+        var classList = dexkit.findClass(query);
         if (classList.isEmpty()) throw new ClassNotFoundException("MessageKey class not found");
+
+        var jidClass = findFirstClassUsingName(loader, StringMatchType.EndsWith, "jid.Jid");
+
+        for (var data : classList) {
+            Class<?> cls = data.getInstance(loader);
+            boolean hasJid = false;
+            for (Field f : cls.getDeclaredFields()) {
+                 if (jidClass != null && jidClass.isAssignableFrom(f.getType())) {
+                     hasJid = true;
+                     break;
+                 }
+                 if (f.getType().getName().endsWith("Jid")) {
+                     hasJid = true;
+                     break;
+                 }
+            }
+            if (hasJid) return cls;
+        }
+        
+        // If strict check fails, return first as fallback
         return classList.get(0).getInstance(loader);
     }
 
