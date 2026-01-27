@@ -184,6 +184,11 @@ public class ShowEditMessage extends Feature {
             nestedScrollView0.addView(linearLayout);
             dialog.setContentView(nestedScrollView0);
             dialog.setCanceledOnTouchOutside(true);
+            
+            if (prefs.getBoolean("floatingmenu", false)) {
+                dialog.setBlur(true);
+            }
+            
             dialog.showDialog();
         });
     }
