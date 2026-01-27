@@ -756,18 +756,42 @@ public class Unobfuscator {
         return UnobfuscatorCache.getInstance().getMethod(loader, () -> {
             var jidClass = findFirstClassUsingName(loader, StringMatchType.EndsWith, "jid.Jid");
             if (jidClass == null) throw new ClassNotFoundException("Jid class not found");
-            // Find method returning String with 0 args, likely getRawString
-            // It might be in Jid or subclasses, but Jid is the base.
-            // In most versions, Jid has abstract getRawString check, or implements it.
-            // Let's check declared methods of Jid first.
+
+            List<Method> candidates = new ArrayList<>();
             for (Method m : jidClass.getMethods()) { 
                 if (m.getParameterCount() == 0 && m.getReturnType().equals(String.class) && !Modifier.isStatic(m.getModifiers())) {
-                    // Check if it's "getRawString" or obfuscated
-                    // Often it's the only method returning string from Jid (besides toString)
                     if (m.getName().equals("toString")) continue;
-                    return m;
+                    if (m.getDeclaringClass().equals(Object.class)) continue;
+                    candidates.add(m);
                 }
             }
+
+            // Runtime verification: Try to confirm which one returns the full JID
+            try {
+                // Ensure WppCore can create a JID. If not initialized, this might throw or return null.
+                // We use a specific test JID to verify the output.
+                String testJid = "123456@s.whatsapp.net";
+                Object dummyJid = WppCore.createUserJid(testJid);
+                
+                if (dummyJid != null) {
+                     for (Method m : candidates) {
+                         try {
+                             String res = (String) m.invoke(dummyJid);
+                             if (testJid.equals(res)) {
+                                 return m;
+                             }
+                         } catch (Exception ignored) {}
+                     }
+                }
+            } catch (Throwable t) {
+                // If WppCore is not ready or fails, we fall back to heuristics
+            }
+
+            // Fallback: If verification failed, prioritize methods declared in Jid over superclasses
+            // and maybe avoid common names if not obfuscated.
+            // For now, return the first candidate as a best guess.
+            if (!candidates.isEmpty()) return candidates.get(0);
+            
             throw new NoSuchMethodException("getRawString method not found in Jid");
         });
     }
