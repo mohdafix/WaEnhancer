@@ -188,10 +188,12 @@
     <string-array name="transcription_provider_entries">
         <item>AssemblyAI</item>
         <item>Groq AI (Whisper v3 Turbo)</item>
+        <item>Gemini AI (1.5 Flash)</item>
     </string-array>
     <string-array name="transcription_provider_values">
         <item>assemblyai</item>
         <item>groq</item>
+        <item>gemini</item>
     </string-array>
     <string-array name="animations_values">
         <item>default</item>

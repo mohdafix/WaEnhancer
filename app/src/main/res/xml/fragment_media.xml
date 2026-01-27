@@ -156,6 +156,25 @@
             app:summary="@string/groq_api_key_sum"
             app:title="@string/groq_api_key" />
 
+        <EditTextPreference
+            android:dependency="audio_transcription"
+            app:key="gemini_api_key"
+            app:summary="@string/gemini_api_key_sum"
+            app:title="@string/gemini_api_key" />
+
+        <EditTextPreference
+            android:defaultValue="gemini-1.5-flash"
+            android:dependency="audio_transcription"
+            app:key="gemini_model"
+            app:summary="@string/gemini_model_sum"
+            app:title="@string/gemini_model" />
+
+        <EditTextPreference
+            android:dependency="audio_transcription"
+            app:key="transcription_translation"
+            app:summary="@string/transcription_translation_sum"
+            app:title="@string/transcription_translation" />
+
     </PreferenceCategory>
 
     <PreferenceCategory
