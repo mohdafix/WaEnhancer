@@ -566,7 +566,7 @@ public class Others extends Feature {
                             View decorView = conversationActivity.getWindow().getDecorView();
                             Bitmap bitmap = Bitmap.createBitmap(decorView.getWidth(), decorView.getHeight(), Bitmap.Config.ARGB_8888);
                             decorView.draw(new Canvas(bitmap));
-                            this.blurred = blurBitmap(activity, bitmap, 25f);
+                            this.blurred = Utils.blurBitmap(activity, bitmap, 25f);
                         }
                     }
 
@@ -584,19 +584,7 @@ public class Others extends Feature {
         }
     }
 
-    public Bitmap blurBitmap(Context context, Bitmap bitmap, float radius) {
-        Bitmap output = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.ARGB_8888);
-        RenderScript rs = RenderScript.create(context);
-        ScriptIntrinsicBlur blur = ScriptIntrinsicBlur.create(rs, Element.U8_4(rs));
-        Allocation inputAlloc = Allocation.createFromBitmap(rs, bitmap);
-        Allocation outputAlloc = Allocation.createFromBitmap(rs, output);
-        blur.setRadius(radius);
-        blur.setInput(inputAlloc);
-        blur.forEach(outputAlloc);
-        outputAlloc.copyTo(output);
-        rs.destroy();
-        return output;
-    }
+
 
 
     private void sendAudioType(int audio_type) throws Exception {

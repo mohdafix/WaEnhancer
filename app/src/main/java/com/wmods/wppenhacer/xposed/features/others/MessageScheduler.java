@@ -227,6 +227,11 @@ public class MessageScheduler extends Feature {
             com.wmods.wppenhacer.xposed.core.components.AlertDialogWpp dialog = new com.wmods.wppenhacer.xposed.core.components.AlertDialogWpp(activity);
             dialog.setTitle("Schedule Message");
             dialog.setView(scrollView);
+            
+            if (prefs.getBoolean("floatingmenu", false)) {
+                dialog.setBlur(true);
+            }
+
             dialog.setPositiveButton("Schedule", (d, w) -> {
                 String message = messageInput.getText().toString().trim();
                 if (TextUtils.isEmpty(message)) {

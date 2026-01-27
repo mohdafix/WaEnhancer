@@ -5,7 +5,13 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
+import android.graphics.drawable.BitmapDrawable;
 import android.view.View;
+import android.view.Window;
 import android.widget.Toast;
 
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
@@ -31,6 +37,7 @@ public class AlertDialogWpp {
     private AlertDialog.Builder mAlertDialog;
     private Object mAlertDialogWpp;
     private Dialog mCreate;
+    private boolean mBlurEnabled = false;
 
     public static void initDialog(ClassLoader loader) {
         try {
@@ -162,6 +169,11 @@ public class AlertDialogWpp {
         return this;
     }
 
+    public AlertDialogWpp setBlur(boolean enabled) {
+        this.mBlurEnabled = enabled;
+        return this;
+    }
+
 
     public Dialog create() {
         if (mCreate != null) return mCreate;
@@ -185,11 +197,44 @@ public class AlertDialogWpp {
                 return;
             }
         }
+        
+        final Dialog dialog = create();
+        
+        if (mBlurEnabled && mContext instanceof Activity) {
+            final Activity activity = (Activity) mContext;
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                try {
+                    activity.getWindow().getDecorView().setRenderEffect(RenderEffect.createBlurEffect(20f, 20f, Shader.TileMode.CLAMP));
+                } catch (Exception e) {
+                    XposedBridge.log(e);
+                }
+            } else {
+                try {
+                    View decorView = activity.getWindow().getDecorView();
+                    Bitmap bitmap = Bitmap.createBitmap(decorView.getWidth(), decorView.getHeight(), Bitmap.Config.ARGB_8888);
+                    decorView.draw(new Canvas(bitmap));
+                    Bitmap blurred = Utils.blurBitmap(activity, bitmap, 25f);
+                    dialog.getWindow().setBackgroundDrawable(new BitmapDrawable(activity.getResources(), blurred));
+                    // Note: This might not look perfect as dialog window is smaller than activity, but it's a try.
+                } catch (Exception e) {
+                    XposedBridge.log(e);
+                }
+            }
+            
+            dialog.setOnDismissListener(d -> {
+                if (android.os.Build.VERSION.SDK_INT >= 31) {
+                    try {
+                        activity.getWindow().getDecorView().setRenderEffect(null);
+                    } catch (Exception ignored) {}
+                }
+            });
+        }
+
         if (isSystemDialog()) {
-            mAlertDialog.show();
+            dialog.show(); 
             return;
         }
-        create().show();
+        dialog.show();
     }
 
 }

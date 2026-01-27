@@ -77,9 +77,7 @@ public class FilterItemsPreferenceDialog extends PreferenceDialogFragmentCompat 
     public void onDialogClosed(boolean positiveResult) {
         if (positiveResult) {
             String json = FilterItemsPreference.saveItems(items);
-            if (getPreference().callChangeListener(json)) {
-                getPreference().getSharedPreferences().edit().putString(getPreference().getKey(), json).apply();
-            }
+            ((FilterItemsPreference) getPreference()).setValue(json);
         }
     }
 

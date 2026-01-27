@@ -2,6 +2,7 @@ package com.wmods.wppenhacer.preference.custom;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -33,6 +34,19 @@ public class FilterItemsPreference extends DialogPreference {
 
     public FilterItemsPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
+    }
+
+    public void setValue(String value) {
+        if (callChangeListener(value)) {
+            persistString(value);
+            notifyChanged();
+
+            // Trigger manual restart notice
+            try {
+                Intent intent = new Intent(getContext().getPackageName() + ".MANUAL_RESTART");
+                getContext().sendBroadcast(intent);
+            } catch (Exception ignored) {}
+        }
     }
     
     @Override

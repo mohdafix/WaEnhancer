@@ -3,6 +3,8 @@ package com.wmods.wppenhacer.xposed.utils;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Application;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -19,6 +21,10 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.renderscript.Allocation;
+import android.renderscript.Element;
+import android.renderscript.RenderScript;
+import android.renderscript.ScriptIntrinsicBlur;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
@@ -396,6 +402,20 @@ public class Utils {
     public static void openLink(Activity mActivity, String url) {
         Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
         mActivity.startActivity(browserIntent);
+    }
+
+    public static Bitmap blurBitmap(Context context, Bitmap bitmap, float radius) {
+        Bitmap output = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.ARGB_8888);
+        RenderScript rs = RenderScript.create(context);
+        ScriptIntrinsicBlur blur = ScriptIntrinsicBlur.create(rs, Element.U8_4(rs));
+        Allocation inputAlloc = Allocation.createFromBitmap(rs, bitmap);
+        Allocation outputAlloc = Allocation.createFromBitmap(rs, output);
+        blur.setRadius(radius);
+        blur.setInput(inputAlloc);
+        blur.forEach(outputAlloc);
+        outputAlloc.copyTo(output);
+        rs.destroy();
+        return output;
     }
 
 
