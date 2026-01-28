@@ -301,6 +301,13 @@ public class ScheduledMessageService extends Service {
         long now = System.currentTimeMillis();
         long nextCheckTime = nextMessageTime;
         
+        // Also schedule a check for 3 minutes before the message to enable the timer
+        long timerActivationTime = nextMessageTime - 180000;
+        if (timerActivationTime > now && timerActivationTime < nextCheckTime) {
+            nextCheckTime = timerActivationTime;
+            Log.d(TAG, "Scheduling early check for timer activation at " + formatTime(nextCheckTime));
+        }
+        
         // Ensure the time is not in the past
         if (nextCheckTime < now) {
             nextCheckTime = now + 1000;
@@ -417,11 +424,19 @@ public class ScheduledMessageService extends Service {
 
         if (liveUpdate && nextMessage != null) {
             long nextTime = nextMessage.getNextScheduledTime();
-            builder.setWhen(nextTime)
-                   .setUsesChronometer(true)
-                   .setPriority(NotificationCompat.PRIORITY_HIGH);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                builder.setChronometerCountDown(true);
+            long timeLeft = nextTime - System.currentTimeMillis();
+            
+            // Only show timer on the last 3 minutes (180000 ms)
+            if (timeLeft <= 180000) {
+                builder.setWhen(nextTime)
+                       .setUsesChronometer(true)
+                       .setPriority(NotificationCompat.PRIORITY_HIGH);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    builder.setChronometerCountDown(true);
+                }
+            } else {
+                builder.setWhen(nextTime)
+                       .setUsesChronometer(false);
             }
         }
 
