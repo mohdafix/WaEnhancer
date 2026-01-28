@@ -19,6 +19,7 @@ import com.wmods.wppenhacer.xposed.utils.Utils;
 
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Properties;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XSharedPreferences;
@@ -33,8 +34,11 @@ public class MenuHome extends Feature {
         super(classLoader, preferences);
     }
 
+    private Properties themeProps;
+
     @Override
     public void doHook() throws Throwable {
+        themeProps = Utils.getProperties(prefs, "custom_css", "custom_filters");
         hookMenu();
         var action = prefs.getBoolean("buttonaction", true);
 
@@ -81,10 +85,10 @@ public class MenuHome extends Feature {
         }
         var itemMenu = menu.add(0, 0, 0, ResId.string.ghost_mode);
 
-        var iconDraw = activity.getDrawable(ghostmode ? ResId.drawable.ghost_enabled : ResId.drawable.ghost_disabled);
-        if (iconDraw != null) {
-            iconDraw.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
-            itemMenu.setIcon(iconDraw);
+        var currentIcon = getIcon(activity, ghostmode, "ghost_mode", ResId.drawable.ghost_enabled, ResId.drawable.ghost_disabled);
+        if (currentIcon != null) {
+            currentIcon.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
+            itemMenu.setIcon(currentIcon);
         }
         if (newSettings) {
             itemMenu.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
@@ -95,7 +99,7 @@ public class MenuHome extends Feature {
                     .setPositiveButton(activity.getString(ResId.string.disable), (dialog, which) -> {
                         WppCore.setPrivBoolean("ghostmode", false);
                         Utils.showToast("Ghost Mode Disabled", Toast.LENGTH_SHORT);
-                        var newIcon = activity.getDrawable(ResId.drawable.ghost_disabled);
+                        var newIcon = getIcon(activity, false, "ghost_mode", ResId.drawable.ghost_enabled, ResId.drawable.ghost_disabled);
                         if (newIcon != null) {
                             newIcon.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
                             itemMenu.setIcon(newIcon);
@@ -104,7 +108,7 @@ public class MenuHome extends Feature {
                     .setNegativeButton(activity.getString(ResId.string.enable), (dialog, which) -> {
                         WppCore.setPrivBoolean("ghostmode", true);
                         Utils.showToast("Ghost Mode Enabled", Toast.LENGTH_SHORT);
-                        var newIcon = activity.getDrawable(ResId.drawable.ghost_enabled);
+                        var newIcon = getIcon(activity, true, "ghost_mode", ResId.drawable.ghost_enabled, ResId.drawable.ghost_disabled);
                         if (newIcon != null) {
                             newIcon.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
                             itemMenu.setIcon(newIcon);
@@ -178,10 +182,10 @@ public class MenuHome extends Feature {
         }
 
         MenuItem item = menu.add(0, 0, 0, activity.getString(ResId.string.freezelastseen_title));
-        var drawable = Utils.getApplication().getDrawable(freezelastseen ? ResId.drawable.eye_disabled : ResId.drawable.eye_enabled);
-        if (drawable != null) {
-            drawable.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
-            item.setIcon(drawable);
+        var currentIcon = getIcon(activity, freezelastseen, "freeze_last_seen", ResId.drawable.eye_disabled, ResId.drawable.eye_enabled);
+        if (currentIcon != null) {
+            currentIcon.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
+            item.setIcon(currentIcon);
         }
         if (newSettings) {
             item.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
@@ -194,7 +198,7 @@ public class MenuHome extends Feature {
                         .setPositiveButton(activity.getString(ResId.string.activate), (dialog, which) -> {
                             WppCore.setPrivBoolean("freezelastseen", true);
                             Utils.showToast("Freeze Last Seen Enabled", Toast.LENGTH_SHORT);
-                            var newIcon = Utils.getApplication().getDrawable(ResId.drawable.eye_disabled);
+                            var newIcon = getIcon(activity, true, "freeze_last_seen", ResId.drawable.eye_disabled, ResId.drawable.eye_enabled);
                             if (newIcon != null) {
                                 newIcon.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
                                 item.setIcon(newIcon);
@@ -206,7 +210,7 @@ public class MenuHome extends Feature {
             }
             WppCore.setPrivBoolean("freezelastseen", false);
             Utils.showToast("Freeze Last Seen Disabled", Toast.LENGTH_SHORT);
-            var newIcon = Utils.getApplication().getDrawable(ResId.drawable.eye_enabled);
+            var newIcon = getIcon(activity, false, "freeze_last_seen", ResId.drawable.eye_disabled, ResId.drawable.eye_enabled);
             if (newIcon != null) {
                 newIcon.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
                 item.setIcon(newIcon);
@@ -232,6 +236,42 @@ public class MenuHome extends Feature {
     @Override
     public String getPluginName() {
         return "Menu Home";
+    }
+
+    private android.graphics.drawable.Drawable getIcon(Activity activity, boolean enabled, String keyPrefix, int resEnabled, int resDisabled) {
+        String key = keyPrefix + (enabled ? "_on" : "_off");
+        String customIconPath = themeProps.getProperty(key);
+        if (customIconPath != null && !customIconPath.isEmpty()) {
+            
+            // Handle relative paths (e.g. ./icons/...)
+            java.io.File iconFile;
+            if (customIconPath.startsWith("./")) {
+                 String folderTheme = prefs.getString("folder_theme", "");
+                 if (!folderTheme.isEmpty()) {
+                     java.io.File downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+                     java.io.File themesBaseDir = new java.io.File(downloadDir, "WaEnhancer/themes");
+                     java.io.File themeDir = new java.io.File(themesBaseDir, folderTheme);
+                     iconFile = new java.io.File(themeDir, customIconPath.substring(2));
+                 } else {
+                     iconFile = new java.io.File(customIconPath); 
+                 }
+            } else {
+                 iconFile = new java.io.File(customIconPath);
+            }
+
+            try {
+                if (iconFile.exists()) {
+                    var drawable = android.graphics.drawable.Drawable.createFromPath(iconFile.getAbsolutePath());
+                    if (drawable != null) return drawable;
+                } else if (!customIconPath.startsWith("./")) {
+                     // Try as direct path if it wasn't relative and file check failed (just in case)
+                     var drawable = android.graphics.drawable.Drawable.createFromPath(customIconPath);
+                     if (drawable != null) return drawable;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return activity.getDrawable(enabled ? resEnabled : resDisabled);
     }
 
     public interface HomeMenuItem {
