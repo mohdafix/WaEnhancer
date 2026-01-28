@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
@@ -74,7 +75,7 @@ public class MenuHome extends Feature {
         if (!prefs.getBoolean("ghostmode", true)) {
             if (ghostmode) {
                 WppCore.setPrivBoolean("ghostmode", false);
-                Utils.doRestart(activity);
+                Utils.showToast("Ghost Mode synced. Restart WhatsApp if needed.", Toast.LENGTH_SHORT);
             }
             return;
         }
@@ -88,16 +89,26 @@ public class MenuHome extends Feature {
         if (newSettings) {
             itemMenu.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         }
-        itemMenu.setOnMenuItemClickListener(item -> {
+            itemMenu.setOnMenuItemClickListener(item -> {
             new AlertDialogWpp(activity).setTitle(activity.getString(ResId.string.ghost_mode_s, (ghostmode ? "ON" : "OFF"))).
                     setMessage(activity.getString(ResId.string.ghost_mode_message))
                     .setPositiveButton(activity.getString(ResId.string.disable), (dialog, which) -> {
                         WppCore.setPrivBoolean("ghostmode", false);
-                        Utils.doRestart(activity);
+                        Utils.showToast("Ghost Mode Disabled", Toast.LENGTH_SHORT);
+                        var newIcon = activity.getDrawable(ResId.drawable.ghost_disabled);
+                        if (newIcon != null) {
+                            newIcon.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
+                            itemMenu.setIcon(newIcon);
+                        }
                     })
                     .setNegativeButton(activity.getString(ResId.string.enable), (dialog, which) -> {
                         WppCore.setPrivBoolean("ghostmode", true);
-                        Utils.doRestart(activity);
+                        Utils.showToast("Ghost Mode Enabled", Toast.LENGTH_SHORT);
+                        var newIcon = activity.getDrawable(ResId.drawable.ghost_enabled);
+                        if (newIcon != null) {
+                            newIcon.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
+                            itemMenu.setIcon(newIcon);
+                        }
                     }).show();
             return true;
 
@@ -161,7 +172,7 @@ public class MenuHome extends Feature {
         if (!prefs.getBoolean("show_freezeLastSeen", true)) {
             if (freezelastseen) {
                 WppCore.setPrivBoolean("freezelastseen", false);
-                Utils.doRestart(activity);
+                Utils.showToast("Freeze Last Seen synced. Restart WhatsApp if needed.", Toast.LENGTH_SHORT);
             }
             return;
         }
@@ -182,14 +193,24 @@ public class MenuHome extends Feature {
                         .setMessage(activity.getString(ResId.string.freezelastseen_message))
                         .setPositiveButton(activity.getString(ResId.string.activate), (dialog, which) -> {
                             WppCore.setPrivBoolean("freezelastseen", true);
-                            Utils.doRestart(activity);
+                            Utils.showToast("Freeze Last Seen Enabled", Toast.LENGTH_SHORT);
+                            var newIcon = Utils.getApplication().getDrawable(ResId.drawable.eye_disabled);
+                            if (newIcon != null) {
+                                newIcon.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
+                                item.setIcon(newIcon);
+                            }
                         })
                         .setNegativeButton(activity.getString(ResId.string.cancel), (dialog, which) -> dialog.dismiss())
                         .create().show();
                 return true;
             }
             WppCore.setPrivBoolean("freezelastseen", false);
-            Utils.doRestart(activity);
+            Utils.showToast("Freeze Last Seen Disabled", Toast.LENGTH_SHORT);
+            var newIcon = Utils.getApplication().getDrawable(ResId.drawable.eye_enabled);
+            if (newIcon != null) {
+                newIcon.setTint(newSettings ? DesignUtils.getPrimaryTextColor() : 0xff8696a0);
+                item.setIcon(newIcon);
+            }
             return true;
         });
     }
