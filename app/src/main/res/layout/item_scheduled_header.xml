@@ -1,18 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
-<TextView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/text_header_title"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="horizontal"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingStart="16dp"
-    android:paddingTop="12dp"
-    android:paddingEnd="16dp"
-    android:paddingBottom="8dp"
-    android:text="Contact Name"
-    android:textColor="?attr/colorPrimary"
-    android:textSize="14sp"
-    android:textStyle="bold"
-    android:textAllCaps="true"
-    android:background="?android:attr/windowBackground"
-    android:drawableEnd="@android:drawable/arrow_down_float"
-    android:drawablePadding="8dp"
-    android:gravity="center_vertical" />
+    android:background="?android:attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/text_header_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="Contact Name"
+        android:textColor="?attr/colorPrimary"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/text_count_active"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/badge_background_active"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:text="2 Active"
+        android:textColor="@android:color/white"
+        android:textSize="12sp"
+        android:layout_marginEnd="4dp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/text_count_sent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/badge_background_sent"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:text="5 Sent"
+        android:textColor="@android:color/white"
+        android:textSize="12sp"
+        android:layout_marginEnd="8dp"
+        android:visibility="gone" />
+
+    <ImageView
+        android:id="@+id/image_expand"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@android:drawable/arrow_down_float"
+        app:tint="?android:attr/textColorSecondary" />
+
+</LinearLayout>

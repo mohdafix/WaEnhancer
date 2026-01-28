@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
@@ -33,8 +34,6 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
 
     private final Context context;
     private final OnMessageActionListener listener;
-    
-    // The flat list currently displayed
     private List<ListItem> items = new ArrayList<>();
     
     // Data structures for grouping
@@ -64,9 +63,9 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
                 if (!groupedData.containsKey(key)) {
                     groupedData.put(key, new ArrayList<>());
                     
-                    // Initialize state as expanded by default if new
+                    // Initialize state as collapsed by default
                     if (!expandedState.containsKey(key)) {
-                        expandedState.put(key, true);
+                        expandedState.put(key, false);
                     }
                 }
                 groupedData.get(key).add(message);
@@ -79,12 +78,24 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
         items.clear();
         for (Map.Entry<String, List<ScheduledMessage>> entry : groupedData.entrySet()) {
             String headerTitle = entry.getKey();
+            List<ScheduledMessage> msgs = entry.getValue();
             boolean isExpanded = expandedState.get(headerTitle) != null && expandedState.get(headerTitle);
             
-            items.add(new HeaderItem(headerTitle, isExpanded));
+            // Calculate Stats
+            int active = 0;
+            int sent = 0;
+            for (ScheduledMessage m : msgs) {
+                if (m.isActive() && !(m.isSent() && m.getRepeatType() == 0)) {
+                    active++;
+                } else {
+                    sent++;
+                }
+            }
+            
+            items.add(new HeaderItem(headerTitle, headerTitle, isExpanded, active, sent));
             
             if (isExpanded) {
-                for (ScheduledMessage msg : entry.getValue()) {
+                for (ScheduledMessage msg : msgs) {
                     items.add(new MessageItem(msg));
                 }
             }
@@ -136,11 +147,18 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
     }
 
     private static class HeaderItem implements ListItem {
-        String title;
+        String displayTitle;
+        String key; 
         boolean isExpanded;
-        HeaderItem(String title, boolean isExpanded) { 
-            this.title = title; 
+        int activeCount;
+        int sentCount;
+        
+        HeaderItem(String displayTitle, String key, boolean isExpanded, int activeCount, int sentCount) { 
+            this.displayTitle = displayTitle; 
+            this.key = key;
             this.isExpanded = isExpanded;
+            this.activeCount = activeCount;
+            this.sentCount = sentCount;
         }
         @Override public int getType() { return VIEW_TYPE_HEADER; }
     }
@@ -159,61 +177,45 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
 
     static class HeaderViewHolder extends RecyclerView.ViewHolder {
         TextView textTitle;
+        TextView textCountActive;
+        TextView textCountSent;
+        ImageView imageExpand;
         OnHeaderClickListener listener;
-        String currentTitle;
+        String currentKey;
 
         HeaderViewHolder(View itemView, OnHeaderClickListener listener) {
             super(itemView);
             this.listener = listener;
             textTitle = itemView.findViewById(R.id.text_header_title);
+            textCountActive = itemView.findViewById(R.id.text_count_active);
+            textCountSent = itemView.findViewById(R.id.text_count_sent);
+            imageExpand = itemView.findViewById(R.id.image_expand);
+            
             itemView.setOnClickListener(v -> {
-                if (currentTitle != null) listener.onHeaderClick(currentTitle);
+                if (currentKey != null) listener.onHeaderClick(currentKey);
             });
         }
 
         void bind(HeaderItem item) {
-            currentTitle = item.title;
-            textTitle.setText(item.title);
-            // Rotate arrow based on state (assuming arrow_down_float is pointing down)
-            // 0 -> Down (Expanded), -90 -> Right (Collapsed)
-            // Or if system drawable is static, we can just rotate.
-            textTitle.animate().rotation(0).setDuration(0).start(); // Reset
+            currentKey = item.key;
+            textTitle.setText(item.displayTitle);
             
-            // Adjust the arrow rotation to indicate state
-            // Let's assume the icon is an arrow pointing down
-            // Expanded: Point Down (0 deg)
-            // Collapsed: Point Right (-90 deg or 90 deg depending on LTR/RTL) 
-            // Better yet, just use standard rotation logic if the drawable allows it.
-            // Since we use compounddrawable, we can't easily rotate ONLY the drawable without custom view or wrappers.
-            // Simple approach: Use text color or alpha to verify it's working first, or assume user knows click = toggle.
-            
-            // For better UX:
-            if (item.isExpanded) {
-                textTitle.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_down_float, 0);
+            if (item.activeCount > 0) {
+                textCountActive.setVisibility(View.VISIBLE);
+                textCountActive.setText(item.activeCount + " Active");
             } else {
-                 // Try to find a 'right' arrow or just reuse down and maybe don't rotate to avoid complexity for now? 
-                 // Actually there isn't a guaranteed arrow_right_float public resource. 
-                 // Let's stick to arrow_down and maybe just tint it or swap it if possible.
-                 // Ideally we'd rotate the View but that rotates text too.
-                 // A common trick is to use arrow_down for expanded and arrow_up (if available) or nothing for collapsed? 
-                 // Or just use arrow_down for both but relying on the list height change.
-                 
-                 // Let's try arrow_up_float if exists, otherwise same icon.
-                textTitle.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_up_float, 0); 
-                // Note: arrow_up_float might not exist publicly. If it crashes, I'll revert.
-                // Safest fallback: use arrow_down_float for expanded, and 0 (no icon) for collapsed? No that's confusing.
-                // Let's try to assume arrow_down_float works for both for now, just toggling listing.
-                textTitle.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_down_float, 0); 
-                // Or rotate the whole view?
-                // itemView.setRotation(item.isExpanded ? 0 : -90); // BAD idea for text.
+                textCountActive.setVisibility(View.GONE);
             }
             
-            // Re-apply rotation to the compound drawable? Not possible easily.
-            // Let's manually set rotation on the TextView for now just to show state, acknowledging text rotates too? No that looks broken.
+            if (item.sentCount > 0) {
+                textCountSent.setVisibility(View.VISIBLE);
+                textCountSent.setText(item.sentCount + " Done");
+            } else {
+                textCountSent.setVisibility(View.GONE);
+            }
             
-            // Best standard quick fix: 
-            // Expanded: arrow_down
-            // Collapsed: arrow_drop_down (often smaller) or just keep same icon.
+            // Rotation animation for expand/collapse
+            imageExpand.animate().rotation(item.isExpanded ? 180 : 0).setDuration(200).start();
         }
     }
 
