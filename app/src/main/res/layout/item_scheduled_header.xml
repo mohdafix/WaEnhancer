@@ -12,4 +12,7 @@
     android:textSize="14sp"
     android:textStyle="bold"
     android:textAllCaps="true"
-    android:background="?android:attr/windowBackground" />
+    android:background="?android:attr/windowBackground"
+    android:drawableEnd="@android:drawable/arrow_down_float"
+    android:drawablePadding="8dp"
+    android:gravity="center_vertical" />

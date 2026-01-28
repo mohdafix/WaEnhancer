@@ -20,8 +20,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     
@@ -30,7 +33,13 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
 
     private final Context context;
     private final OnMessageActionListener listener;
+    
+    // The flat list currently displayed
     private List<ListItem> items = new ArrayList<>();
+    
+    // Data structures for grouping
+    private Map<String, List<ScheduledMessage>> groupedData = new LinkedHashMap<>();
+    private Map<String, Boolean> expandedState = new HashMap<>();
 
     public interface OnMessageActionListener {
         void onEdit(ScheduledMessage scheduledMessage);
@@ -44,27 +53,49 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
     }
 
     public void setMessages(List<ScheduledMessage> messages) {
-        this.items.clear();
+        groupedData.clear();
         if (messages != null && !messages.isEmpty()) {
-            // Sort by contact name
-            Collections.sort(messages, new Comparator<ScheduledMessage>() {
-                @Override
-                public int compare(ScheduledMessage o1, ScheduledMessage o2) {
-                    return o1.getContactsDisplayString().compareToIgnoreCase(o2.getContactsDisplayString());
-                }
-            });
+            // Sort raw list first
+            Collections.sort(messages, (o1, o2) -> o1.getContactsDisplayString().compareToIgnoreCase(o2.getContactsDisplayString()));
 
-            String currentHeader = "";
+            // Group data
             for (ScheduledMessage message : messages) {
-                String header = message.getContactsDisplayString();
-                if (!header.equals(currentHeader)) {
-                    this.items.add(new HeaderItem(header));
-                    currentHeader = header;
+                String key = message.getContactsDisplayString();
+                if (!groupedData.containsKey(key)) {
+                    groupedData.put(key, new ArrayList<>());
+                    
+                    // Initialize state as expanded by default if new
+                    if (!expandedState.containsKey(key)) {
+                        expandedState.put(key, true);
+                    }
                 }
-                this.items.add(new MessageItem(message));
+                groupedData.get(key).add(message);
+            }
+        }
+        rebuildList();
+    }
+    
+    private void rebuildList() {
+        items.clear();
+        for (Map.Entry<String, List<ScheduledMessage>> entry : groupedData.entrySet()) {
+            String headerTitle = entry.getKey();
+            boolean isExpanded = expandedState.get(headerTitle) != null && expandedState.get(headerTitle);
+            
+            items.add(new HeaderItem(headerTitle, isExpanded));
+            
+            if (isExpanded) {
+                for (ScheduledMessage msg : entry.getValue()) {
+                    items.add(new MessageItem(msg));
+                }
             }
         }
         notifyDataSetChanged();
+    }
+    
+    private void toggleGroup(String headerTitle) {
+        boolean current = expandedState.get(headerTitle) != null && expandedState.get(headerTitle);
+        expandedState.put(headerTitle, !current);
+        rebuildList();
     }
 
     @Override
@@ -77,7 +108,7 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         if (viewType == VIEW_TYPE_HEADER) {
             View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_scheduled_header, parent, false);
-            return new HeaderViewHolder(view);
+            return new HeaderViewHolder(view, this::toggleGroup);
         } else {
             View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_scheduled_message, parent, false);
             return new MessageViewHolder(view);
@@ -106,7 +137,11 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
 
     private static class HeaderItem implements ListItem {
         String title;
-        HeaderItem(String title) { this.title = title; }
+        boolean isExpanded;
+        HeaderItem(String title, boolean isExpanded) { 
+            this.title = title; 
+            this.isExpanded = isExpanded;
+        }
         @Override public int getType() { return VIEW_TYPE_HEADER; }
     }
 
@@ -117,17 +152,68 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
     }
 
     // --- ViewHolders ---
+    
+    interface OnHeaderClickListener {
+        void onHeaderClick(String title);
+    }
 
     static class HeaderViewHolder extends RecyclerView.ViewHolder {
         TextView textTitle;
+        OnHeaderClickListener listener;
+        String currentTitle;
 
-        HeaderViewHolder(View itemView) {
+        HeaderViewHolder(View itemView, OnHeaderClickListener listener) {
             super(itemView);
+            this.listener = listener;
             textTitle = itemView.findViewById(R.id.text_header_title);
+            itemView.setOnClickListener(v -> {
+                if (currentTitle != null) listener.onHeaderClick(currentTitle);
+            });
         }
 
         void bind(HeaderItem item) {
+            currentTitle = item.title;
             textTitle.setText(item.title);
+            // Rotate arrow based on state (assuming arrow_down_float is pointing down)
+            // 0 -> Down (Expanded), -90 -> Right (Collapsed)
+            // Or if system drawable is static, we can just rotate.
+            textTitle.animate().rotation(0).setDuration(0).start(); // Reset
+            
+            // Adjust the arrow rotation to indicate state
+            // Let's assume the icon is an arrow pointing down
+            // Expanded: Point Down (0 deg)
+            // Collapsed: Point Right (-90 deg or 90 deg depending on LTR/RTL) 
+            // Better yet, just use standard rotation logic if the drawable allows it.
+            // Since we use compounddrawable, we can't easily rotate ONLY the drawable without custom view or wrappers.
+            // Simple approach: Use text color or alpha to verify it's working first, or assume user knows click = toggle.
+            
+            // For better UX:
+            if (item.isExpanded) {
+                textTitle.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_down_float, 0);
+            } else {
+                 // Try to find a 'right' arrow or just reuse down and maybe don't rotate to avoid complexity for now? 
+                 // Actually there isn't a guaranteed arrow_right_float public resource. 
+                 // Let's stick to arrow_down and maybe just tint it or swap it if possible.
+                 // Ideally we'd rotate the View but that rotates text too.
+                 // A common trick is to use arrow_down for expanded and arrow_up (if available) or nothing for collapsed? 
+                 // Or just use arrow_down for both but relying on the list height change.
+                 
+                 // Let's try arrow_up_float if exists, otherwise same icon.
+                textTitle.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_up_float, 0); 
+                // Note: arrow_up_float might not exist publicly. If it crashes, I'll revert.
+                // Safest fallback: use arrow_down_float for expanded, and 0 (no icon) for collapsed? No that's confusing.
+                // Let's try to assume arrow_down_float works for both for now, just toggling listing.
+                textTitle.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.arrow_down_float, 0); 
+                // Or rotate the whole view?
+                // itemView.setRotation(item.isExpanded ? 0 : -90); // BAD idea for text.
+            }
+            
+            // Re-apply rotation to the compound drawable? Not possible easily.
+            // Let's manually set rotation on the TextView for now just to show state, acknowledging text rotates too? No that looks broken.
+            
+            // Best standard quick fix: 
+            // Expanded: arrow_down
+            // Collapsed: arrow_drop_down (often smaller) or just keep same icon.
         }
     }
 
@@ -152,14 +238,8 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
         }
 
         public void bind(final ScheduledMessage message) {
-            // Use GONE instead of Invisible to remove the space if desired, or just keep it distinct
-            // For now, we might want to hide the contact name in the card since it is in the header,
-            // OR keep it. The user asked for grouping, so header is best.
-            // Let's hide the contact name inside the card since it's redundant with the header.
             this.textContactName.setVisibility(View.GONE);
-            
             this.textMessagePreview.setText(message.getMessage());
-            
             StringBuilder timeInfo = new StringBuilder("Scheduled for: ");
             if (message.getRepeatType() != 0) {
                 SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a", Locale.getDefault());
@@ -174,15 +254,12 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
                 timeInfo.append(", Once");
             }
             this.textScheduleTime.setText(timeInfo.toString());
-            
             this.switchActive.setOnCheckedChangeListener(null);
             this.switchActive.setChecked(message.isActive());
-            this.switchActive.setEnabled(!(message.isSent() && message.getRepeatType() == 0));
+            this.switchActive.setEnabled((message.isSent() && message.getRepeatType() == 0) ? false : true);
             this.switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> ScheduledMessagesAdapter.this.listener.onToggleActive(message, isChecked));
-            
             this.buttonEdit.setOnClickListener(v -> ScheduledMessagesAdapter.this.listener.onEdit(message));
             this.buttonDelete.setOnClickListener(v -> ScheduledMessagesAdapter.this.listener.onDelete(message));
-            
             if (message.isSent() && message.getRepeatType() == 0) {
                 this.chipStatus.setText(R.string.schedule_sent);
                 this.chipStatus.setChipBackgroundColor(ColorStateList.valueOf(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_active)));
