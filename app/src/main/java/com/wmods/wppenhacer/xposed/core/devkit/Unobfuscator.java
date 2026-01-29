@@ -13,6 +13,9 @@ import android.view.MenuInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 import androidx.annotation.Nullable;
 
@@ -1448,6 +1451,235 @@ public class Unobfuscator {
             return method;
         });
     }
+
+    public synchronized static Method loadSendMediaUserAction(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getMethod(loader, () -> {
+            // STRATEGY: Find the class via the known Text Message Sender
+            // Then scan its methods for the CORRECT Media Sender signature.
+            
+            // 1. Get the class containing UserActions
+            Method textSendMethod = loadUserActionsTextMessageSending(loader);
+            if (textSendMethod == null) {
+                XposedBridge.log("WaEnhancer: Critical - TextSendMethod not found, cannot locate UserActions class.");
+                throw new RuntimeException("TextSendMethod not found");
+            }
+            
+            Class<?> userActionsClass = textSendMethod.getDeclaringClass();
+            XposedBridge.log("WaEnhancer: UserActions class identified: " + userActionsClass.getName());
+
+            // 2. Scan for Media Send Method (Corrected Logic)
+            // Target: public static X.1Vk X.358.A00(X.358, X.OG7, X.10d, ..., List, ..., String, ..., boolean...)
+            // Attributes:
+            // - Static
+            // - First param is the UserActions class (X.358)
+            // - Has List (Recipients)
+            // - Has String (Caption)
+            // - Has >= 2 booleans
+            // - Param count >= 10
+            
+            List<Method> candidates = new ArrayList<>();
+            for (Method m : userActionsClass.getDeclaredMethods()) {
+                // Rule 1: MUST be static
+                if (!Modifier.isStatic(m.getModifiers())) continue;
+
+                Class<?>[] params = m.getParameterTypes();
+                
+                // Rule 2: Param count check
+                if (params.length < 10) continue;
+                
+                // Rule 3: First param must be the UserActions class itself
+                if (params[0] != userActionsClass) continue;
+
+                // Rule 4: Check for specific types
+                boolean hasList = false;
+                boolean hasString = false;
+                int booleanCount = 0;
+
+                for (Class<?> p : params) {
+                    if (List.class.isAssignableFrom(p)) hasList = true;
+                    else if (String.class.isAssignableFrom(p)) hasString = true;
+                    else if (boolean.class.isAssignableFrom(p)) booleanCount++;
+                }
+
+                if (hasList && hasString && booleanCount >= 2) {
+                    candidates.add(m);
+                }
+            }
+
+            if (candidates.isEmpty()) {
+                XposedBridge.log("WaEnhancer: No media send candidates found in " + userActionsClass.getName());
+                // Dump methods again only if absolutely needed for debugging
+                for (Method m : userActionsClass.getDeclaredMethods()) {
+                     XposedBridge.log("WaEnhancer: Dump Method: " + m);
+                }
+                throw new NoSuchMethodException("MediaSendUserAction not found");
+            }
+
+            // Return the best match (likely only one)
+            Method bestMatch = candidates.get(0);
+            
+            XposedBridge.log("WaEnhancer: Resolved Media UserAction Method: " + bestMatch);
+            XposedBridge.log("WaEnhancer: Signature: " + Arrays.toString(bestMatch.getParameterTypes()));
+            
+            return bestMatch;
+        });
+    }
+
+    public synchronized static Method[] loadMediaPipelineMethods(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getMethods(loader, () -> {
+            // 1. Get UserActions class
+            Method textSendMethod = loadUserActionsTextMessageSending(loader);
+            if (textSendMethod == null) throw new RuntimeException("TextSendMethod not found");
+            Class<?> userActionsClass = textSendMethod.getDeclaringClass();
+
+            Method builder = null; // A02 (High param count, Long, String, List)
+            Method wrapper = null; // A03 (Low param count, String, List)
+
+            // Scavenge methods
+            for (Method m : userActionsClass.getDeclaredMethods()) {
+                if (Modifier.isStatic(m.getModifiers())) continue;
+                if (!ArrayList.class.isAssignableFrom(m.getReturnType())) continue;
+
+                Class<?>[] params = m.getParameterTypes();
+                int paramCount = params.length;
+
+                // HEURISTIC: Builder usually has many params (file, mime, size, width, height, etc.)
+                // Dump showed 19 params for A02
+                if (paramCount >= 10) {
+                    boolean hasLong = false;
+                    boolean hasString = false;
+                    boolean hasList = false;
+                    for (Class<?> p : params) {
+                        if (Long.class.isAssignableFrom(p) || long.class.isAssignableFrom(p)) hasLong = true;
+                        if (String.class.isAssignableFrom(p)) hasString = true;
+                        if (List.class.isAssignableFrom(p)) hasList = true;
+                    }
+                    if (hasLong && hasString && hasList) {
+                        builder = m;
+                    }
+                } 
+                // HEURISTIC: Wrapper usually has fewer params (list, caption, flags)
+                // Dump showed 7 params for A03
+                else if (paramCount >= 3) {
+                    boolean hasString = false;
+                    boolean hasList = false;
+                    for (Class<?> p : params) {
+                        if (String.class.isAssignableFrom(p)) hasString = true;
+                        if (List.class.isAssignableFrom(p)) hasList = true;
+                    }
+                    if (hasString && hasList) {
+                        wrapper = m;
+                    }
+                }
+            }
+            
+            if (builder == null) XposedBridge.log("WaEnhancer: Media Builder (A02) not found in " + userActionsClass.getName());
+            else XposedBridge.log("WaEnhancer: Found Media Builder: " + builder);
+
+            if (wrapper == null) XposedBridge.log("WaEnhancer: Media Wrapper (A03) not found in " + userActionsClass.getName());
+            else XposedBridge.log("WaEnhancer: Found Media Wrapper: " + wrapper);
+
+            return new Method[]{builder, wrapper};
+        });
+    }
+
+    public synchronized static Constructor<?> loadMediaEntryConstructor(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getConstructor(loader, () -> {
+            // STRATEGY: 
+            // 1. Get Builder (A02) from Pipeline
+            Method[] pipeline = loadMediaPipelineMethods(loader);
+            Method builder = pipeline[0];
+            if (builder == null) throw new RuntimeException("Media Builder A02 not found, cannot trace MediaEntry");
+
+            // 2. Target MediaEntry Class explicitly
+            // From logs: A02(X.31m, X.1mV, X.1Od, ...)
+            // Index 2 is the MediaEntry class (X.1Od).
+            Class<?>[] params = builder.getParameterTypes();
+            if (params.length < 3) throw new RuntimeException("A02 param count too low");
+            
+            Class<?> mediaEntryClass = params[2];
+            XposedBridge.log("WaEnhancer: Targeted possible MediaEntry class: " + mediaEntryClass.getName());
+
+            // 3. Find Constructor
+            // Looking for (File, String mime, ...) or (String path, ...) or (Uri, ...)
+            Constructor<?> bestCtor = null;
+            
+            for (Constructor<?> c : mediaEntryClass.getConstructors()) {
+                 Class<?>[] cParams = c.getParameterTypes();
+                 if (cParams.length > 0) {
+                     boolean hasFile = false;
+                     boolean hasString = false;
+                     for(Class<?> cp : cParams) {
+                         if (File.class.isAssignableFrom(cp)) hasFile = true;
+                         if (String.class.isAssignableFrom(cp)) hasString = true;
+                     }
+                     
+                     // Priority to File
+                     if (hasFile) {
+                         bestCtor = c;
+                         break; // Found preferred
+                     }
+                     // Fallback to String (assumed path) if File not found yet
+                     if (hasString && bestCtor == null) {
+                         bestCtor = c;
+                     }
+                 }
+            }
+            
+            if (bestCtor != null) {
+                 XposedBridge.log("WaEnhancer: Resolved MediaEntry Constructor: " + bestCtor);
+                 return bestCtor;
+            } 
+            
+            // Fallback: Check for (Object, int, long) pattern seen in logs: X.1Od(X.1Rw, int, long)
+            for (Constructor<?> c : mediaEntryClass.getConstructors()) {
+                Class<?>[] cParams = c.getParameterTypes();
+                if (cParams.length == 3) {
+                     if (int.class.isAssignableFrom(cParams[1]) && long.class.isAssignableFrom(cParams[2])) {
+                         XposedBridge.log("WaEnhancer: Resolved MediaEntry Constructor (Pattern Match): " + c);
+                         return c;
+                     }
+                }
+            }
+
+            XposedBridge.log("WaEnhancer: Failed to find valid constructor for " + mediaEntryClass.getName());
+            for (Constructor<?> c : mediaEntryClass.getConstructors()) {
+                XposedBridge.log("WaEnhancer: Dump Ctor: " + c);
+            }
+            throw new RuntimeException("MediaEntry Constructor not found");
+        });
+    }
+
+    public synchronized static Constructor<?> loadMediaSourceConstructor(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getConstructor(loader, () -> {
+            // Prerequisite: MediaEntry Constructor must be loaded to know the Source class
+            Constructor<?> entryCtor = loadMediaEntryConstructor(loader);
+            Class<?>[] params = entryCtor.getParameterTypes();
+            // Expecting (X.1Rw, int, long)
+            if (params.length < 1) throw new RuntimeException("MediaEntry ctor has no params");
+            
+            Class<?> sourceClass = params[0];
+            XposedBridge.log("WaEnhancer: Identified MediaSource class: " + sourceClass.getName());
+            
+            // Find Source Constructor (File or String)
+            for (Constructor<?> c : sourceClass.getConstructors()) {
+                 Class<?>[] cParams = c.getParameterTypes();
+                 if (cParams.length > 0) {
+                     for(Class<?> cp : cParams) {
+                         if (File.class.isAssignableFrom(cp)) return c; // Found File ctor
+                         if (String.class.isAssignableFrom(cp)) return c; // Found String ctor
+                     }
+                 }
+            }
+            
+            XposedBridge.log("WaEnhancer: MediaSource ctor not found for " + sourceClass.getName());
+             for (Constructor<?> c : sourceClass.getConstructors()) {
+                XposedBridge.log("WaEnhancer: Dump Source Ctor: " + c);
+            }
+            return null;
+        });
+    }
+
 
     public synchronized static Method loadGroupAdminMethod(ClassLoader loader) throws Exception {
         return UnobfuscatorCache.getInstance().getMethod(loader, () -> {

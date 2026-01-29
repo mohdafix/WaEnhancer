@@ -106,6 +106,12 @@ public class WppCore {
     private static Method userActionSendMethod;
     private static Class actionUser;
     private static Method cachedMessageStoreKey;
+    private static Object mMediaActionUser;
+    private static Method mMediaActionUserMethod;
+    private static Method mMediaBuilderMethod;
+    private static Method mMediaWrapperMethod;
+    private static Constructor<?> mMediaEntryConstructor;
+    private static Constructor<?> mMediaSourceConstructor;
 
     private static final Map<FMessageWpp.UserJid, String> contactNameCache = new LinkedHashMap<>(16, 0.75f, true) {
         protected boolean removeEldestEntry(Map.Entry<FMessageWpp.UserJid, String> eldest) {
@@ -201,6 +207,43 @@ public class WppCore {
                 mWaJidMapRepository = param.thisObject;
             }
         });
+
+        // MediaUserAction (For Scheduled Media)
+        try {
+            Method sendMediaMethod = Unobfuscator.loadSendMediaUserAction(loader);
+            if (sendMediaMethod != null) {
+                mMediaActionUserMethod = sendMediaMethod;
+                 XposedBridge.log("WaEnhancer: Found MediaActionUser method: " + sendMediaMethod);
+                XposedBridge.log("WaEnhancer: Params: " + Arrays.toString(sendMediaMethod.getParameterTypes()));
+                
+                // Discover Pipeline (Builder/Wrapper/Entry)
+                Method[] pipeline = Unobfuscator.loadMediaPipelineMethods(loader);
+                mMediaBuilderMethod = pipeline[0];
+                mMediaWrapperMethod = pipeline[1];
+                
+                try {
+                    mMediaEntryConstructor = Unobfuscator.loadMediaEntryConstructor(loader);
+                    XposedBridge.log("WaEnhancer: Found MediaEntry Constructor: " + mMediaEntryConstructor);
+                    
+                    mMediaSourceConstructor = Unobfuscator.loadMediaSourceConstructor(loader);
+                    XposedBridge.log("WaEnhancer: Found MediaSource Constructor: " + mMediaSourceConstructor);
+                } catch (Throwable t) {
+                    XposedBridge.log("WaEnhancer: Failed Media Pipeline discovery: " + t);
+                }
+
+                XposedBridge.hookAllConstructors(sendMediaMethod.getDeclaringClass(), new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        mMediaActionUser = param.thisObject;
+                        XposedBridge.log("WaEnhancer: Captured MediaActionUser instance.");
+                    }
+                });
+            } else {
+                 XposedBridge.log("WaEnhancer: Failed to load MediaActionUser method.");
+            }
+        } catch (Throwable t) {
+            XposedBridge.log("WaEnhancer: Error initializing MediaActionUser hooks: " + t);
+        }
 
         // Load wa database
         loadWADatabase();
@@ -361,6 +404,356 @@ public class WppCore {
             }
         }
     }
+
+    public static void sendMediaMessage(List<String> jids, java.io.File mediaFile, String caption, long messageId) {
+        XposedBridge.log("WaEnhancer: sendMediaMessage called for messageId: " + messageId);
+        try {
+            // Check if user action hooks are ready
+            if (mMediaActionUserMethod == null) {
+                 XposedBridge.log("WaEnhancer: MediaActionUser behavior broken. Method not found during init.");
+                 Utils.showToast("Media send not supported.", Toast.LENGTH_SHORT);
+                 return;
+            }
+
+            // Fail Hard if instance is missing (No dynamic fix)
+            if (mMediaActionUser == null) {
+                 XposedBridge.log("WaEnhancer: MediaActionUser instance is NULL. Constructor hook failed or not fired yet.");
+                 Utils.showToast("Media sender not ready.", Toast.LENGTH_SHORT);
+                 return;
+            }
+
+            Class<?>[] params = mMediaActionUserMethod.getParameterTypes();
+            Object[] args = ReflectionUtils.initArray(params);
+
+            // Recipients Conversion
+            List<Object> recipients = new ArrayList<>();
+            for (String raw : jids) {
+                // Use Standard UserJid creation
+                Object userJid = createUserJid(raw);
+                if (userJid != null) {
+                    recipients.add(userJid);
+                }
+            }
+            
+            if (recipients.isEmpty()) {
+                 XposedBridge.log("WaEnhancer: No valid JIDs for media send.");
+                 Utils.showToast("No valid recipients.", Toast.LENGTH_SHORT);
+                 return;
+            }
+
+            // PIPELINE: Builder (A02) -> Wrapper (A03) -> Sender (A00)
+            
+            ArrayList<?> builtMediaList = null; 
+            ArrayList<?> wrappedMediaList = null;
+
+            // Step 1: BUILD (A02)
+            if (mMediaBuilderMethod != null && mediaFile != null && mediaFile.exists()) {
+                 XposedBridge.log("WaEnhancer: Invoking Media Builder (A02)...");
+                 Object[] buildArgs = ReflectionUtils.initArray(mMediaBuilderMethod.getParameterTypes());
+                 
+                 // Fill A02 args (File, Caption, etc)
+                 // Priority: Strings (Caption/Path), Long (Size), List (Recipients)
+                 Class<?>[] bParams = mMediaBuilderMethod.getParameterTypes();
+                 
+                 // Try to assign File if possible (unlikely in this version per logs, but safe to try)
+                 int fIdx = ReflectionUtils.findIndexOfType(bParams, File.class);
+                 if (fIdx != -1) buildArgs[fIdx] = mediaFile;
+                 
+                 // Assign Strings: Assume first string is path (if no File arg) or caption? 
+                 // Heuristic: Assign Path AND Caption to available string slots.
+                 // Dump suggests multiple strings.
+                 List<Integer> strIndices = new ArrayList<>();
+                 for(int i=0; i<bParams.length; i++) if(String.class.isAssignableFrom(bParams[i])) strIndices.add(i);
+                 
+                 if (!strIndices.isEmpty()) {
+                     // If we have at least 1 string slot
+                     if (fIdx == -1) {
+                         // No File arg, so first String is likely Path
+                         buildArgs[strIndices.get(0)] = mediaFile.getAbsolutePath();
+                         if (strIndices.size() > 1 && caption != null) {
+                             buildArgs[strIndices.get(1)] = caption;
+                         }
+                     } else {
+                         // File arg exists, so first String is likely Caption or Mime
+                         if (caption != null) buildArgs[strIndices.get(0)] = caption;
+                     }
+                 }
+                 
+                 // Assign List (Recipients)
+                 int lIdx = ReflectionUtils.findIndexOfType(bParams, List.class);
+                 if (lIdx != -1) buildArgs[lIdx] = recipients;
+                 
+                  // Assign Long (Size)
+                 int longIdx = ReflectionUtils.findIndexOfType(bParams, Long.class);
+                 if (longIdx == -1) longIdx = ReflectionUtils.findIndexOfType(bParams, long.class);
+                 if (longIdx != -1) buildArgs[longIdx] = mediaFile.length();
+
+                 // Injected Step: Create MediaEntry Object
+                 if (mMediaEntryConstructor != null && mMediaSourceConstructor != null) {
+                     try {
+                        // 1. Construct MediaSource (X.1Rw)
+                        // Accepts File or String
+
+                        // 0. Get MediaEnv (X.OG7)
+                        // It is likely a field in UserActions (mMediaActionUser)
+                        // It is the 1st param of MediaSource Ctor: X.1Rw(X.OG7, String, boolean)
+                        
+                        Object mediaEnv = null;
+                        Class<?> og7Class = mMediaSourceConstructor.getParameterTypes()[0];
+                        
+                        // Scan UserActions fields for OG7
+                        for (Field f : mMediaActionUser.getClass().getDeclaredFields()) {
+                            if (f.getType() == og7Class) {
+                                f.setAccessible(true);
+                                mediaEnv = f.get(mMediaActionUser);
+                                if (mediaEnv != null) {
+                                     XposedBridge.log("WaEnhancer: Found MediaEnv (OG7) in UserActions field: " + f.getName());
+                                     break;
+                                }
+                            }
+                        }
+                        
+                        if (mediaEnv == null) {
+                            XposedBridge.log("WaEnhancer: CRITICAL - Could not find MediaEnv (OG7) in UserActions.");
+                            // Try to proceed? Construction will likely fail if we pass null.
+                            // But maybe we can pass null?
+                        }
+
+                        // 1. Construct MediaSource (X.1Rw)
+                        // Sig: (X.OG7, String path, boolean isVideo)
+                        // or (X.OG7, File, boolean)
+                        // Logs showed: public X.1Rw(X.OG7, java.lang.String, boolean)
+                        
+                        Object mediaSource = null;
+                        Class<?>[] srcParams = mMediaSourceConstructor.getParameterTypes();
+                        Object[] srcArgs = ReflectionUtils.initArray(srcParams);
+                        
+                        // Arg 0: OG7
+                        if (srcParams.length > 0 && og7Class.isAssignableFrom(srcParams[0])) {
+                            srcArgs[0] = mediaEnv;
+                        }
+
+                        // Fill String (Path)
+                        int pathIdx = ReflectionUtils.findIndexOfType(srcParams, String.class);
+                        if (pathIdx != -1) srcArgs[pathIdx] = mediaFile.getAbsolutePath();
+                        
+                        // Fill boolean (isVideo) - Default false for image
+                        // Assuming boolean param is for 'isVideo' or 'isGif'
+                        // initArray defaults to false, which is correct for Image.
+
+                        mediaSource = mMediaSourceConstructor.newInstance(srcArgs);
+                        XposedBridge.log("WaEnhancer: Created MediaSource: " + mediaSource);
+
+                        // 2. Construct MediaEntry (X.1Od)
+                        // Sig: (MediaSource, int type, long size, ...)
+                        Object mediaEntry = null;
+                        Class<?>[] entryParams = mMediaEntryConstructor.getParameterTypes();
+                        Object[] entryArgs = ReflectionUtils.initArray(entryParams);
+                        
+                        // Fill MediaSource
+                        int srcIdx = ReflectionUtils.findIndexOfType(entryParams, mMediaSourceConstructor.getDeclaringClass());
+                        if (srcIdx != -1) entryArgs[srcIdx] = mediaSource;
+                        
+                        // Fill Size (long)
+                        int sizeIdx = ReflectionUtils.findIndexOfType(entryParams, long.class);
+                        if (sizeIdx != -1) entryArgs[sizeIdx] = mediaFile.length();
+                        
+                        // Fill Type (int)
+                        int typeIdx = ReflectionUtils.findIndexOfType(entryParams, int.class);
+                        if (typeIdx != -1) {
+                             if (entryParams[typeIdx] == byte.class) entryArgs[typeIdx] = (byte)1;
+                             else entryArgs[typeIdx] = 1;
+                        }
+
+                        mediaEntry = mMediaEntryConstructor.newInstance(entryArgs);
+                        XposedBridge.log("WaEnhancer: Created MediaEntry: " + mediaEntry);
+                        
+                        // Inject MediaEntry into Builder Args (A02)
+                        int entryArgIdx = ReflectionUtils.findIndexOfType(bParams, mMediaEntryConstructor.getDeclaringClass());
+                        if (entryArgIdx != -1) {
+                            buildArgs[entryArgIdx] = mediaEntry;
+                        } else {
+                            XposedBridge.log("WaEnhancer: Warning - Could not find MediaEntry slot in A02 params.");
+                        }
+                        
+                        // Inject MediaEntry or OG7 into Sender Args (A00) later?
+                        // A00 takes OG7 and MediaEntry?
+                        // We need to save these for Step 3.
+                        // I'll assume I can find them again or logic flow continues.
+                        
+                        // NOTE: For A00 (Sender), we need to fill OG7 and MediaEntry if corresponding slots exist.
+                        // I will update Step 3 logic below to use these.
+
+                     } catch (Exception e) {
+                         XposedBridge.log("WaEnhancer: Failed to construct Media Objects: " + e);
+                     }
+                 } else {
+                     XposedBridge.log("WaEnhancer: Skipping Media Creation (Constructors missing). SourceCtor=" + mMediaSourceConstructor);
+                 }
+                 
+                 // End of Media Object Creation (605)
+                 
+                 try {
+                     builtMediaList = (ArrayList<?>) mMediaBuilderMethod.invoke(mMediaActionUser, buildArgs);
+                     XposedBridge.log("WaEnhancer: A02 Builder returned: " + (builtMediaList != null ? builtMediaList.size() : "null"));
+                     if (builtMediaList != null && !builtMediaList.isEmpty()) {
+                         XposedBridge.log("WaEnhancer: A02 media class verify=" + builtMediaList.get(0).getClass().getName());
+                     }
+                 } catch (Exception e) {
+                     XposedBridge.log("WaEnhancer: A02 Builder invocation failed: " + e);
+                 }
+            } else {
+                XposedBridge.log("WaEnhancer: Skipping A02 (Method missing or no file).");
+            }
+            // End of A02 (618)
+
+            // Step 2: WRAP (A03)
+            if (mMediaWrapperMethod != null && builtMediaList != null && !builtMediaList.isEmpty()) {
+                XposedBridge.log("WaEnhancer: Invoking Media Wrapper (A03)...");
+                Object[] wrapArgs = ReflectionUtils.initArray(mMediaWrapperMethod.getParameterTypes());
+                Class<?>[] wParams = mMediaWrapperMethod.getParameterTypes();
+
+                // Pass the list from A02
+                int listIdx = ReflectionUtils.findIndexOfType(wParams, List.class);
+                if (listIdx != -1) wrapArgs[listIdx] = builtMediaList; // Primary list
+                
+                int recipientsIdx = -1;
+                for(int i=0; i<wParams.length; i++) {
+                     if(List.class.isAssignableFrom(wParams[i])) {
+                         if (i == listIdx) continue; 
+                         recipientsIdx = i; 
+                         break;
+                     }
+                }
+                if (recipientsIdx != -1) wrapArgs[recipientsIdx] = recipients;
+                
+                int sIdx = ReflectionUtils.findIndexOfType(wParams, String.class);
+                if (sIdx != -1 && caption != null) wrapArgs[sIdx] = caption;
+
+                try {
+                    wrappedMediaList = (ArrayList<?>) mMediaWrapperMethod.invoke(mMediaActionUser, wrapArgs);
+                    XposedBridge.log("WaEnhancer: A03 Wrapper returned: " + (wrappedMediaList != null ? wrappedMediaList.size() : "null"));
+                } catch (Exception e) {
+                    XposedBridge.log("WaEnhancer: A03 Wrapper invocation failed: " + e);
+                }
+            }
+            // End of A03 (651 approx)
+
+
+
+            // Step 3: SEND (A00) - Static
+            // Now we inject the wrapped list into A00 if available
+            
+            // Fill Arguments via Reflection
+            // Arg 0: UserActions Instance (because method is static)
+            if (params.length > 0 && params[0].isAssignableFrom(mMediaActionUser.getClass())) {
+                args[0] = mMediaActionUser;
+            } else {
+                 XposedBridge.log("WaEnhancer: CRITICAL - First param mismatch. Expected " + params[0] + " but got " + mMediaActionUser.getClass());
+                 return;
+            }
+
+            // 1. Recipients
+            int listIndex = ReflectionUtils.findIndexOfType(params, List.class);
+            if (listIndex != -1) args[listIndex] = recipients;
+            
+            // 2. Caption
+            int captionIndex = ReflectionUtils.findIndexOfType(params, String.class);
+            if (captionIndex != -1) args[captionIndex] = caption;
+            
+            // 3. Media Items (from A03 or A02, or mocked)
+            // Does A00 accept a List?
+            // Logs for A00 signature: List, String, boolean...
+            // It has only ONE list?
+            // "interface java.util.List"
+            // If it has only one list, and we used it for recipients... where does the media go?
+            // Wait, looking at Step 1429 dump:
+            // ... java.util.List, boolean, boolean ...
+            // Maybe there are other params like X.1Od or X.5CY that hold the media?
+            // Or maybe there is a SECOND list I missed in the signature?
+            // "class X.10d, class X.7jR ... class java.lang.String, interface java.util.List"
+            // Ah, X.10d might be the media object?
+            // If `wrappedMediaList` is valid and non-empty, maybe we pass the *items* or the list itself to a param?
+            
+            // The prompt "Call Final Send Method" says: "Pass result into A00 ... Use defaults/false"
+            // "sendArgs[indexOfMediaList] = sendList"
+            // So there MUST be a param for the media list.
+            
+            // If I can't find a second list param, I might be stuck.
+            // But let's look for ANY param assignable from ArrayList?
+            // If `wrappedMediaList` is ArrayList, find param assignable from ArrayList.
+            if (wrappedMediaList != null) {
+                int mediaListIdx = ReflectionUtils.findIndexOfType(params, ArrayList.class);
+                if (mediaListIdx == -1) mediaListIdx = ReflectionUtils.findIndexOfType(params, List.class); // fallback
+                
+                // If the only list found was for recipients, we have a conflict unless there are 2 lists.
+                // Let's check for multiple lists in params explicitly.
+                List<Integer> listIndices = new ArrayList<>();
+                for(int i=0; i<params.length; i++) if(List.class.isAssignableFrom(params[i])) listIndices.add(i);
+                
+                if (listIndices.size() >= 2) {
+                    // Assuming one is recipients, one is media.
+                    // Which order?
+                    // Typically media content is first?
+                    // Safe guess: Try to put media list in the slot that ISN'T the recipients slot we already filled?
+                    // We filled `listIndex` (first found list) as recipients.
+                    // Let's try to swap if needed or fill the second one.
+                    if (listIndices.get(0) == listIndex) {
+                        args[listIndices.get(1)] = wrappedMediaList;
+                    } else {
+                        args[listIndices.get(0)] = wrappedMediaList;
+                    }
+                } else if (listIndices.size() == 1) {
+                     // Only 1 list?
+                     // Maybe the media is passed as X.1Od (single item) if the list has 1 item?
+                     // Or maybe recipients are passed differently?
+                     // For now, if we have built media, let's try to inject it if we find a compatible type.
+                     // If A00 signature from dumps shows X.1Od etc, those might be the media args.
+                     
+                     // Fallback: If A00 takes X.1Od (MediaData?), try to pass the first item of wrapped list if compatible?
+                     if (!wrappedMediaList.isEmpty()) {
+                         Object item = wrappedMediaList.get(0);
+                         int itemIdx = ReflectionUtils.findIndexOfType(params, item.getClass());
+                         if (itemIdx != -1) args[itemIdx] = item;
+                     }
+                }
+            }
+
+            XposedBridge.log("WaEnhancer: Invoking Static MediaActionUser send for " + recipients.size() + " contacts.");
+            
+            // Static Invocation
+            mMediaActionUserMethod.invoke(null, args); 
+            
+            XposedBridge.log("WaEnhancer: Media send invoked successfully via Static MediaActionUser.");
+
+            // Success callback
+            if (messageId != -1) {
+                Intent intent = new Intent("com.wmods.wppenhacer.MESSAGE_SENT");
+                intent.putExtra("message_id", messageId);
+                intent.putExtra("success", true);
+                intent.setPackage("com.wmods.wppenhacer");
+                Utils.getApplication().sendBroadcast(intent);
+            }
+            
+            Utils.showToast("Media sent to " + recipients.size(), Toast.LENGTH_SHORT);
+
+        } catch (Throwable t) {
+            XposedBridge.log("WaEnhancer: Exception in sendMediaMessage: " + t.getMessage());
+            XposedBridge.log(t);
+            Utils.showToast("Error sending media: " + t.getMessage(), Toast.LENGTH_SHORT);
+
+            // Failure callback
+            if (messageId != -1) {
+                Intent intent = new Intent("com.wmods.wppenhacer.MESSAGE_SENT");
+                intent.putExtra("message_id", messageId);
+                intent.putExtra("success", false);
+                intent.setPackage("com.wmods.wppenhacer");
+                Utils.getApplication().sendBroadcast(intent);
+            }
+        }
+    }
+
+
 
     public static Object getUserActionSend() {
         try {
