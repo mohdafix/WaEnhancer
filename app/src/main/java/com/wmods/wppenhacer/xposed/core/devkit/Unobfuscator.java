@@ -1458,6 +1458,25 @@ public class Unobfuscator {
         });
     }
 
+    public synchronized static Method loadNotifyUpdatePhotoMethod(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getMethod(loader, () -> {
+            String[] signatures = {
+                "handle_notification",
+                "handle_picture",
+                "handle_avatar",
+                "handle_photo",
+                "app/xmpp/recv/handle_notification",
+                "notification/handle_avatar",
+                "profile_picture_notification"
+            };
+            for (String sig : signatures) {
+                var method = findFirstMethodUsingStrings(loader, StringMatchType.Contains, sig);
+                if (method != null) return method;
+            }
+            throw new RuntimeException("NotifyUpdatePhoto method not found");
+        });
+    }
+
     public synchronized static Method loadJidFactory(ClassLoader loader) throws Exception {
         return UnobfuscatorCache.getInstance().getMethod(loader, () -> {
             var method = findFirstMethodUsingStrings(loader, StringMatchType.Contains, "lid_me", "status_me", "s.whatsapp.net");

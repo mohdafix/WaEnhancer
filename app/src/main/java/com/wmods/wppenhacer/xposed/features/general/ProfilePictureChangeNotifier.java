@@ -9,6 +9,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
+import java.lang.reflect.Method;
+
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.components.WaContactWpp;
@@ -49,6 +51,28 @@ public class ProfilePictureChangeNotifier extends Feature {
 
         // Hook into contact item binding to detect profile picture changes
         ContactItemListener.contactListeners.add(new ProfilePictureChangeListener());
+
+        // PROACTIVE REAL-TIME HOOK
+        try {
+            Method notifyMethod = Unobfuscator.loadNotifyUpdatePhotoMethod(classLoader);
+            if (notifyMethod != null) {
+                XposedBridge.log("WaEnhancer: Hooking notifyUpdatePhotoMethod: " + notifyMethod.getName());
+                XposedBridge.hookMethod(notifyMethod, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        // Scan arguments for Jid objects
+                        if (param.args == null) return;
+                        for (Object arg : param.args) {
+                            if (arg != null && arg.getClass().getName().contains("jid")) {
+                                WppCore.notifyUpdatePhotoProfile(arg);
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (Throwable t) {
+            XposedBridge.log("WaEnhancer: Error hooking real-time profile updates: " + t);
+        }
     }
 
     private android.content.SharedPreferences getHashPrefs() {

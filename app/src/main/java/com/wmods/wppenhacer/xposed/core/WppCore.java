@@ -872,4 +872,29 @@ public class WppCore {
     }
 
 
+    public static void notifyUpdatePhotoProfile(Object jidObj) {
+        try {
+            if (jidObj == null) return;
+            XposedBridge.log("WaEnhancer: notifyUpdatePhotoProfile triggered for: " + jidObj);
+            
+            // Broadcast to features
+            Intent intent = new Intent("com.wmods.wppenhacer.PROFILE_PHOTO_UPDATED");
+            // Try to extract raw string or pass the object
+            String rawJid = jidObj.toString();
+            intent.putExtra("jid", rawJid);
+            Utils.getApplication().sendBroadcast(intent);
+        } catch (Throwable t) {
+            XposedBridge.log("WaEnhancer: Error in notifyUpdatePhotoProfile: " + t);
+        }
+    }
+
+    public static String generateRandomString(int length) {
+        String characters = "0123456789ABCDEF";
+        StringBuilder sb = new StringBuilder();
+        java.util.Random random = new java.util.Random();
+        for (int i = 0; i < length; i++) {
+            sb.append(characters.charAt(random.nextInt(characters.length())));
+        }
+        return sb.toString();
+    }
 }
