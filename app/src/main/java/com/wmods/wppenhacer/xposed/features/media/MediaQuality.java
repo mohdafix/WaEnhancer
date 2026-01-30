@@ -52,33 +52,50 @@ public class MediaQuality extends Feature {
 
             Others.propsBoolean.put(5549, true); // Use bitrate from json to force video high quality
 
-            var jsonProperty = Unobfuscator.loadPropsJsonMethod(classLoader);
+            var processVideoQualityClass = Unobfuscator.loadProcessVideoQualityClass(classLoader);
+            var processVideoQualityFields = Unobfuscator.loadProcessVideoQualityFields(classLoader);
 
-            AtomicReference<XC_MethodHook.Unhook> jsonPropertyHook = new AtomicReference<>();
-
-            var unhooked = XposedBridge.hookMethod(jsonProperty, new XC_MethodHook() {
+            XposedBridge.hookAllConstructors(processVideoQualityClass, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    var value = ReflectionUtils.getArg(param.args, Integer.class, 0);
-                    if (value == 5550) {
-                        JSONObject videoBitrateData = new JSONObject();
-                        String[] resolutions = {"360", "480", "720", "1080"};
-                        for (String resolution : resolutions) {
-                            JSONObject resolutionData = new JSONObject();
-                            resolutionData.put("min_bitrate", 3000);
-                            resolutionData.put("max_bitrate", 96000);
-                            resolutionData.put("null_bitrate", 96000);
-                            resolutionData.put("min_bandwidth", 1);
-                            resolutionData.put("max_bandwidth", 1);
-                            videoBitrateData.put(resolution, resolutionData);
-                        }
-                        param.setResult(videoBitrateData);
-                    } else if (value == 9705) {
-                        param.setResult(new JSONObject());
-                    }
+                    Field videoMaxEdge = processVideoQualityFields.get("videoMaxEdge");
+                    videoMaxEdge.setInt(param.thisObject, 8000);
+                    Field videoMaxBitrate = processVideoQualityFields.get("videoMaxBitrate");
+                    videoMaxBitrate.setInt(param.thisObject, 96000000);
                 }
             });
-            jsonPropertyHook.set(unhooked);
+
+
+//            var jsonProperty = Unobfuscator.loadPropsJsonMethod(classLoader);
+//
+//            AtomicReference<XC_MethodHook.Unhook> jsonPropertyHook = new AtomicReference<>();
+//
+//            var unhooked = XposedBridge.hookMethod(jsonProperty, new XC_MethodHook() {
+//                @Override
+//                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+//                    var value = ReflectionUtils.getArg(param.args, Integer.class, 0);
+//                    if (value == 5550) {
+//                        JSONObject videoBitrateData = new JSONObject();
+//                        String[] resolutions = {"360", "480", "720", "1080"};
+//                        int[] minBitrates = {1500, 2500, 10000, 16000};
+//                        int[] maxBitrates = {2500, 4000, 16000, 24000};
+//                        for (int i = 0; i < resolutions.length; i++) {
+//                            String resolution = resolutions[i];
+//                            JSONObject resolutionData = new JSONObject();
+//                            resolutionData.put("min_bitrate", minBitrates[i]);
+//                            resolutionData.put("max_bitrate", maxBitrates[i]);
+//                            resolutionData.put("null_bitrate", maxBitrates[i]);
+//                            resolutionData.put("min_bandwidth", 1);
+//                            resolutionData.put("max_bandwidth", 1);
+//                            videoBitrateData.put(resolution, resolutionData);
+//                        }
+//                        param.setResult(videoBitrateData);
+//                    } else if (value == 9705) {
+//                        param.setResult(new JSONObject());
+//                    }
+//                }
+//            });
+//            jsonPropertyHook.set(unhooked);
 
             // Hook for Dimension Swapping (Fix Horizontal Video)
             var videoMethod = Unobfuscator.loadMediaQualityVideoMethod2(classLoader);
@@ -118,14 +135,11 @@ public class MediaQuality extends Feature {
                             // Newer/different version logic using JSON or map?
                             if (isEnum) {
                                 // Fallback reading from args?
-                                // The user code snippet reads from index 0, 1, 2 of found integers?
                                 var intParams = ReflectionUtils.findInstancesOfType(param.args, Integer.class);
                                 if (intParams.size() >= 3) {
-                                    width = intParams.get(0).second;
-                                    height = intParams.get(1).second; // Actually might be intParams.get(1)
-                                    // The snippet had: width=0.second, height2=1.second, height=2.second (rotation?)
-                                    // height here means rotation
-                                    rotation = intParams.get(2).second;
+                                    width = intParams.get(intParams.size() - 3).second;
+                                    height = intParams.get(intParams.size() - 2).second;
+                                    rotation = intParams.get(intParams.size() - 1).second;
                                 } else {
                                     return; // Cannot determine
                                 }
@@ -141,7 +155,6 @@ public class MediaQuality extends Feature {
                             height = mediaFields.get("heightPx").getInt(param.args[0]);
                             rotation = mediaFields.get("rotationAngle").getInt(param.args[0]);
                         }
-
                         var targetWidthField = mediaTranscodeParams.get("targetWidth");
                         var targetHeightField = mediaTranscodeParams.get("targetHeight");
                         
@@ -163,6 +176,7 @@ public class MediaQuality extends Feature {
                        if (frameRateField != null) frameRateField.setInt(resizeVideo, 60);
                     }
                 }
+
             });
 
 
