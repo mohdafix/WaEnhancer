@@ -31,6 +31,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Vi
     private boolean isSelectionMode = false;
     private final Set<Integer> selectedPositions = new HashSet<>();
     private OnSelectionChangeListener selectionChangeListener;
+    private boolean isGroupedMode = false; // Track if showing grouped items
 
     public interface OnRecordingActionListener {
         void onPlay(Recording recording);
@@ -49,6 +50,17 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Vi
 
     public void setSelectionChangeListener(OnSelectionChangeListener listener) {
         this.selectionChangeListener = listener;
+    }
+    
+    public void setGroupedMode(boolean groupedMode) {
+        if (this.isGroupedMode != groupedMode) {
+            this.isGroupedMode = groupedMode;
+            notifyDataSetChanged();
+        }
+    }
+    
+    public boolean isGroupedMode() {
+        return isGroupedMode;
     }
 
     public void setRecordings(List<Recording> recordings) {
@@ -140,13 +152,12 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Vi
             holder.phoneNumber.setVisibility(View.GONE);
         }
         
-        // Duration - hide for grouped view (empty duration)
-        String duration = recording.getFormattedDuration();
-        if (duration == null || duration.isEmpty()) {
+        // Duration - HIDE only for grouped items, SHOW for individual items
+        if (isGroupedMode) {
             holder.duration.setVisibility(View.GONE);
         } else {
             holder.duration.setVisibility(View.VISIBLE);
-            holder.duration.setText(duration);
+            holder.duration.setText(recording.getFormattedDuration());
         }
         
         // Details: size and date
@@ -162,8 +173,22 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Vi
             holder.card.setChecked(selectedPositions.contains(position));
         } else {
             holder.checkbox.setVisibility(View.GONE);
-            holder.actionsContainer.setVisibility(View.VISIBLE);
             holder.card.setChecked(false);
+            
+            // Show/hide action buttons based on grouped mode
+            if (isGroupedMode) {
+                // In grouped mode: only show delete button, hide play and share
+                holder.actionsContainer.setVisibility(View.VISIBLE);
+                holder.btnPlay.setVisibility(View.GONE);
+                holder.btnShare.setVisibility(View.GONE);
+                holder.btnDelete.setVisibility(View.VISIBLE);
+            } else {
+                // In individual mode: show all action buttons
+                holder.actionsContainer.setVisibility(View.VISIBLE);
+                holder.btnPlay.setVisibility(View.VISIBLE);
+                holder.btnShare.setVisibility(View.VISIBLE);
+                holder.btnDelete.setVisibility(View.VISIBLE);
+            }
         }
         
         // Click handling
@@ -176,7 +201,7 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Vi
         });
         
         holder.itemView.setOnLongClickListener(v -> {
-            if (!isSelectionMode) {
+            if (!isSelectionMode && !isGroupedMode) {
                 listener.onLongPress(recording, position);
             }
             return true;

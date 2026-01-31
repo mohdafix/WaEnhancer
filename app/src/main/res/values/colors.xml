@@ -54,6 +54,24 @@
     <color name="text_secondary">#757575</color>
     <color name="text_on_gradient">#FFFFFF</color>
     
+    <!-- Material 3 Expressive Color Tokens -->
+    <color name="m3_surface_bright">#FFFBFE</color>
+    <color name="m3_surface_dim">#141218</color>
+    <color name="m3_surface_container_lowest">#FFFFFF</color>
+    <color name="m3_surface_container_low">#F7F2FA</color>
+    <color name="m3_surface_container">#F3EDF7</color>
+    <color name="m3_surface_container_high">#ECE6F0</color>
+    <color name="m3_surface_container_highest">#E6E0E9</color>
+    <color name="m3_on_surface_variant">#49454F</color>
+    <color name="m3_outline">#79747E</color>
+    <color name="m3_outline_variant">#CAC4D0</color>
+    
+    <!-- Tonal Surface Colors for Light Theme -->
+    <color name="surface_tonal_1">#F7F2FA</color>
+    <color name="surface_tonal_2">#F3EDF7</color>
+    <color name="surface_tonal_3">#ECE6F0</color>
+    <color name="surface_tonal_4">#E6E0E9</color>
+    
     <!-- Scheduler Colors -->
     <color name="success_color">#4CAF50</color>
     <color name="inactive_color">#757575</color>

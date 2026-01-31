@@ -300,6 +300,7 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
                 if (getActivity() != null) {
                     getActivity().runOnUiThread(() -> {
                         if (isAdded() && binding != null) {
+                            adapter.setGroupedMode(true); // Set grouped mode
                             adapter.setRecordings(contactItems);
                         }
                     });
@@ -310,9 +311,11 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
             List<Recording> filtered = allRecordings.stream()
                     .filter(r -> r.getGroupKey().equals(currentContactFilter))
                     .collect(Collectors.toList());
+            adapter.setGroupedMode(false); // Not in grouped mode
             adapter.setRecordings(filtered);
         } else {
             // Normal list view
+            adapter.setGroupedMode(false); // Not in grouped mode
             adapter.setRecordings(allRecordings);
         }
     }
@@ -391,25 +394,54 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
 
     @Override
     public void onShare(Recording recording) {
-        if (isGroupByContact && currentContactFilter == null) return;
+        // Share not available for grouped items
+        if (isGroupByContact && currentContactFilter == null) {
+            Toast.makeText(requireContext(), "Sharing not available for grouped items", Toast.LENGTH_SHORT).show();
+            return;
+        }
         shareRecording(recording.getFile());
     }
 
     @Override
     public void onDelete(Recording recording) {
-        if (isGroupByContact && currentContactFilter == null) return;
-        new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.delete_confirmation)
-                .setMessage(recording.getFile().getName())
-                .setPositiveButton(android.R.string.yes, (dialog, which) -> {
-                    if (recording.getFile().delete()) {
+        if (isGroupByContact && currentContactFilter == null) {
+            // In grouped mode - delete ALL recordings for this contact
+            String groupKey = recording.getGroupKey();
+            List<Recording> recordingsToDelete = allRecordings.stream()
+                    .filter(r -> r.getGroupKey().equals(groupKey))
+                    .collect(Collectors.toList());
+            
+            int count = recordingsToDelete.size();
+            new AlertDialog.Builder(requireContext())
+                    .setTitle(R.string.delete_confirmation)
+                    .setMessage("Delete " + count + " recordings for " + groupKey + "?")
+                    .setPositiveButton(android.R.string.yes, (dialog, which) -> {
+                        int deleted = 0;
+                        for (Recording rec : recordingsToDelete) {
+                            if (rec.getFile().delete()) {
+                                deleted++;
+                            }
+                        }
+                        Toast.makeText(requireContext(), "Deleted " + deleted + " recordings", Toast.LENGTH_SHORT).show();
                         loadRecordings();
-                    } else {
-                        Toast.makeText(requireContext(), "Failed to delete", Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton(android.R.string.no, null)
-                .show();
+                    })
+                    .setNegativeButton(android.R.string.no, null)
+                    .show();
+        } else {
+            // Individual mode - delete single recording
+            new AlertDialog.Builder(requireContext())
+                    .setTitle(R.string.delete_confirmation)
+                    .setMessage(recording.getFile().getName())
+                    .setPositiveButton(android.R.string.yes, (dialog, which) -> {
+                        if (recording.getFile().delete()) {
+                            loadRecordings();
+                        } else {
+                            Toast.makeText(requireContext(), "Failed to delete", Toast.LENGTH_SHORT).show();
+                        }
+                    })
+                    .setNegativeButton(android.R.string.no, null)
+                    .show();
+        }
     }
 
     @Override
