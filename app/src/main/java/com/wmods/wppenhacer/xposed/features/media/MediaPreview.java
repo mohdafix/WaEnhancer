@@ -13,6 +13,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -289,16 +290,32 @@ public class MediaPreview extends Feature {
     // ================= IMAGE =================
 
     private void showImage(Context context) {
+        Dialog dialog = new Dialog(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+
+        FrameLayout root = new FrameLayout(context);
+        root.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        root.setBackgroundColor(Color.BLACK);
 
         ImageView imageView = new ImageView(context);
-        imageView.setBackgroundColor(Color.BLACK);
+        imageView.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
         imageView.setImageBitmap(BitmapFactory.decodeFile(filePath.getAbsolutePath()));
         imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        root.addView(imageView);
 
-        AlertDialog dialog = new AlertDialog.Builder(context)
-                .setView(imageView)
-                .create();
-
+        dialog.setContentView(root);
         dialog.setOnDismissListener(d -> cleanup());
         dialog.show();
     }
@@ -309,16 +326,26 @@ public class MediaPreview extends Feature {
         
         videoDialog = new Dialog(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         videoDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        
+        Window window = videoDialog.getWindow();
+        if (window != null) {
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
 
         FrameLayout root = new FrameLayout(context);
+        root.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
         root.setBackgroundColor(Color.BLACK);
 
         VideoView videoView = new VideoView(context);
         videoView.setVideoURI(Uri.fromFile(filePath));
         
         FrameLayout.LayoutParams videoParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
                 Gravity.CENTER
         );
         videoView.setLayoutParams(videoParams);

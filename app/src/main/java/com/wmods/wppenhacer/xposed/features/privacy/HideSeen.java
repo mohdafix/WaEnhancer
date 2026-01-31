@@ -194,8 +194,9 @@ public class HideSeen extends Feature {
     }
 
     private boolean isValidChatContext(Method outsideMethod, Method hideViewInChatMethod) {
-        if (WppCore.getCurrentConversation() != WppCore.getCurrentActivity()) return false;
-        return !ReflectionUtils.isCalledFromMethod(outsideMethod) && ReflectionUtils.isCalledFromMethod(hideViewInChatMethod);
+        return WppCore.getCurrentConversation() == WppCore.getCurrentActivity()
+                && !ReflectionUtils.isCalledFromMethod(outsideMethod)
+                && ReflectionUtils.isCalledFromMethod(hideViewInChatMethod);
     }
 
     private boolean isAlreadyHidden(FMessageWpp.Key keyMessage, FMessageWpp fMessage) {

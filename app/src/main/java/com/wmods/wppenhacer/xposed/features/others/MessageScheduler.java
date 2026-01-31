@@ -198,10 +198,18 @@ public class MessageScheduler extends Feature {
             android.widget.LinearLayout customPickerGroup = new android.widget.LinearLayout(activity);
             customPickerGroup.setOrientation(android.widget.LinearLayout.VERTICAL);
             customPickerGroup.setVisibility(View.GONE);
+            
             DatePicker datePicker = new DatePicker(activity);
             datePicker.setCalendarViewShown(false);
-            TimePicker timePicker = new TimePicker(activity);
+            
+            // Use themed context for TimePicker to support dark mode
+            Context themedContext = new android.view.ContextThemeWrapper(
+                activity, 
+                android.R.style.Theme_DeviceDefault
+            );
+            TimePicker timePicker = new TimePicker(themedContext);
             timePicker.setIs24HourView(true);
+            
             customPickerGroup.addView(datePicker);
             customPickerGroup.addView(timePicker);
 

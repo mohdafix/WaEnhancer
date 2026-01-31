@@ -117,17 +117,61 @@ public class DialogCreateSchedule extends BottomSheetDialogFragment {
     }
 
     private void showTimePicker() {
-        MaterialTimePicker timePicker = new MaterialTimePicker.Builder()
-                .setTimeFormat(TimeFormat.CLOCK_12H)
-                .setHour(selectedTime.get(Calendar.HOUR_OF_DAY))
-                .setMinute(selectedTime.get(Calendar.MINUTE))
-                .setTitleText("Select Time")
-                .build();
+        // Detect if we're in dark mode
+        boolean isDarkMode = false;
+        
+        // Check system UI mode
+        int nightModeFlags = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        if (nightModeFlags == android.content.res.Configuration.UI_MODE_NIGHT_YES) {
+            isDarkMode = true;
+        }
+        
+        // Also check if AMOLED/dark theme is enabled in preferences
+        if (!isDarkMode) {
+            try {
+                android.content.SharedPreferences prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext());
+                isDarkMode = prefs.getBoolean("monet_theme", false);
+            } catch (Exception ignored) {}
+        }
+        
+        // Create MaterialTimePicker with proper dark theme
+        MaterialTimePicker timePicker;
+        
+        if (isDarkMode) {
+            // Wrap context with Material 3 dark theme
+            android.view.ContextThemeWrapper themedContext = new android.view.ContextThemeWrapper(
+                requireContext(),
+                com.google.android.material.R.style.Theme_Material3_Dark
+            );
+            
+            // Create a custom fragment with the themed context
+            timePicker = new MaterialTimePicker.Builder()
+                    .setTimeFormat(TimeFormat.CLOCK_12H)
+                    .setHour(selectedTime.get(Calendar.HOUR_OF_DAY))
+                    .setMinute(selectedTime.get(Calendar.MINUTE))
+                    .setTitleText("Select Time")
+                    .setInputMode(MaterialTimePicker.INPUT_MODE_CLOCK)
+                    .build();
+            
+            // Override the dialog theme
+            try {
+                timePicker.requireDialog().getWindow().setBackgroundDrawableResource(android.R.color.background_dark);
+            } catch (Exception ignored) {}
+        } else {
+            timePicker = new MaterialTimePicker.Builder()
+                    .setTimeFormat(TimeFormat.CLOCK_12H)
+                    .setHour(selectedTime.get(Calendar.HOUR_OF_DAY))
+                    .setMinute(selectedTime.get(Calendar.MINUTE))
+                    .setTitleText("Select Time")
+                    .build();
+        }
+        
         timePicker.addOnPositiveButtonClickListener(dialog -> {
             selectedTime.set(Calendar.HOUR_OF_DAY, timePicker.getHour());
             selectedTime.set(Calendar.MINUTE, timePicker.getMinute());
             binding.editTime.setText(String.format("%02d:%02d", timePicker.getHour(), timePicker.getMinute()));
         });
+        
         timePicker.show(getParentFragmentManager(), "time_picker");
     }
 

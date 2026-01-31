@@ -36,6 +36,9 @@
         <item name="android:windowEnterTransition">@android:transition/fade</item>
         <item name="android:windowExitTransition">@android:transition/fade</item>
         <item name="toolbarStyle">@style/ModernToolbarStyle</item>
+        
+        <!-- Material Time Picker Theme -->
+        <item name="materialTimePickerTheme">@style/ThemeOverlay.Material3.MaterialTimePicker</item>
     </style>
 
     <style name="Theme.Light" parent="Base.AppTheme.Light" />
@@ -73,6 +76,9 @@
         <item name="android:windowEnterTransition">@android:transition/fade</item>
         <item name="android:windowExitTransition">@android:transition/fade</item>
         <item name="toolbarStyle">@style/ModernToolbarStyle</item>
+        
+        <!-- Material Time Picker Theme for Dark Mode -->
+        <item name="materialTimePickerTheme">@style/ThemeOverlay.Material3.MaterialTimePicker</item>
     </style>
 
     <style name="MyActionBar" parent="@style/Widget.Material3.ActionBar.Solid">

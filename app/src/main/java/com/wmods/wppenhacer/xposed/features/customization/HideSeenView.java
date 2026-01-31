@@ -2,6 +2,9 @@ package com.wmods.wppenhacer.xposed.features.customization;
 
 import android.annotation.SuppressLint;
 import android.graphics.Color;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.LruCache;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CursorAdapter;
@@ -17,13 +20,197 @@ import com.wmods.wppenhacer.xposed.core.db.MessageHistory;
 import com.wmods.wppenhacer.xposed.features.listeners.ConversationItemListener;
 import com.wmods.wppenhacer.xposed.utils.Utils;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XSharedPreferences;
-import de.robv.android.xposed.XposedBridge; // Add this for logging if you need it
+import de.robv.android.xposed.XposedBridge;
 
 public class HideSeenView extends Feature {
 
+    // Cache configuration
+    private static final int JID_CACHE_SIZE = 30;
+    private static final long REFRESH_DEBOUNCE_MS = 80;
+    private static final Object CACHE_LOCK = new Object();
+
+    // LRU cache for JID-based message status
+    private static final LruCache<String, JidSeenCache> jidCache = new LruCache<String, JidSeenCache>(JID_CACHE_SIZE) {
+        @Override
+        protected void entryRemoved(boolean evicted, String key, JidSeenCache oldValue, JidSeenCache newValue) {
+            loadedMessageType.remove(key);
+            loadedViewOnceType.remove(key);
+        }
+    };
+
+    // Threading and refresh control
+    private static final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private static final AtomicBoolean refreshScheduled = new AtomicBoolean(false);
+    private static final ExecutorService cacheExecutor = Executors.newFixedThreadPool(2);
+
+    // Loading state trackers
+    private static final ConcurrentHashMap<String, Boolean> loadingMessageType = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Boolean> loadingViewOnceType = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Boolean> loadedMessageType = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Boolean> loadedViewOnceType = new ConcurrentHashMap<>();
+
+    // Cache data structure
+    private static class JidSeenCache {
+        Map<String, Boolean> messageStatus = new HashMap<>();
+        Map<String, Boolean> viewOnceStatus = new HashMap<>();
+    }
+
     public HideSeenView(ClassLoader loader, XSharedPreferences preferences) {
         super(loader, preferences);
+    }
+
+    @Override
+    public void doHook() throws Throwable {
+        if (!prefs.getBoolean("hide_seen_view", false)) return;
+
+        // Hook into MessageHistory.updateViewedMessage to invalidate cache when DB changes
+        try {
+            var updateMethod = MessageHistory.class.getDeclaredMethod(
+                "updateViewedMessage", 
+                String.class, 
+                String.class, 
+                MessageHistory.MessageType.class, 
+                boolean.class
+            );
+            
+            XposedBridge.hookMethod(updateMethod, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
+                    String jid = (String) param.args[0];
+                    String messageId = (String) param.args[1];
+                    MessageHistory.MessageType type = (MessageHistory.MessageType) param.args[2];
+                    boolean viewed = (boolean) param.args[3];
+                    
+                    // Update cache and refresh UI
+                    handleHideSeenChanged(jid, messageId, type, viewed);
+                }
+            });
+        } catch (Exception e) {
+            logDebug("Failed to hook updateViewedMessage: " + e.getMessage());
+        }
+
+        // Register conversation listener
+        ConversationItemListener.conversationListeners.add(new ConversationItemListener.OnConversationItemListener() {
+            @Override
+            public void onItemBind(FMessageWpp fMessage, ViewGroup viewGroup) {
+                if (fMessage == null || !fMessage.isValid()) return;
+                
+                FMessageWpp.Key key = fMessage.getKey();
+                if (key == null || key.isFromMe) return;
+
+                updateBubbleView(fMessage, viewGroup);
+            }
+        });
+    }
+
+    // ================= CACHE MANAGEMENT =================
+
+    private static void ensureCacheLoaded(String jid, MessageHistory.MessageType type) {
+        ConcurrentHashMap<String, Boolean> loadingMap = 
+            (type == MessageHistory.MessageType.MESSAGE_TYPE) ? loadingMessageType : loadingViewOnceType;
+        ConcurrentHashMap<String, Boolean> loadedMap = 
+            (type == MessageHistory.MessageType.MESSAGE_TYPE) ? loadedMessageType : loadedViewOnceType;
+
+        // Only load if not already loaded or loading
+        if (!loadedMap.containsKey(jid) && loadingMap.putIfAbsent(jid, Boolean.TRUE) == null) {
+            cacheExecutor.execute(() -> {
+                try {
+                    Map<String, Boolean> statusMap = loadStatusMap(jid, type);
+
+                    synchronized (CACHE_LOCK) {
+                        JidSeenCache cache = jidCache.get(jid);
+                        if (cache == null) {
+                            cache = new JidSeenCache();
+                            jidCache.put(jid, cache);
+                        }
+
+                        if (type == MessageHistory.MessageType.MESSAGE_TYPE) {
+                            cache.messageStatus = statusMap;
+                        } else {
+                            cache.viewOnceStatus = statusMap;
+                        }
+                    }
+
+                    loadedMap.put(jid, Boolean.TRUE);
+                    requestRefresh();
+                } finally {
+                    loadingMap.remove(jid);
+                }
+            });
+        }
+    }
+
+    private static Map<String, Boolean> loadStatusMap(String jid, MessageHistory.MessageType type) {
+        Map<String, Boolean> map = new HashMap<>();
+
+        // Load hidden messages
+        List<MessageHistory.MessageSeenItem> hiddenMessages = 
+            MessageHistory.getInstance().getHideSeenMessages(jid, type, true);
+        if (hiddenMessages != null) {
+            for (MessageHistory.MessageSeenItem item : hiddenMessages) {
+                map.put(item.message, Boolean.TRUE);
+            }
+        }
+
+        // Load viewed messages
+        List<MessageHistory.MessageSeenItem> viewedMessages = 
+            MessageHistory.getInstance().getHideSeenMessages(jid, type, false);
+        if (viewedMessages != null) {
+            for (MessageHistory.MessageSeenItem item : viewedMessages) {
+                map.put(item.message, Boolean.FALSE);
+            }
+        }
+
+        return map;
+    }
+
+    private static Boolean getCachedStatus(String jid, String messageId, MessageHistory.MessageType type) {
+        synchronized (CACHE_LOCK) {
+            JidSeenCache cache = jidCache.get(jid);
+            if (cache == null) return null;
+
+            Map<String, Boolean> statusMap = 
+                (type == MessageHistory.MessageType.MESSAGE_TYPE) ? cache.messageStatus : cache.viewOnceStatus;
+            return statusMap.get(messageId);
+        }
+    }
+
+    private static void handleHideSeenChanged(String jid, String messageId, MessageHistory.MessageType type, boolean viewed) {
+        synchronized (CACHE_LOCK) {
+            JidSeenCache cache = jidCache.get(jid);
+            if (cache == null) {
+                cache = new JidSeenCache();
+                jidCache.put(jid, cache);
+            }
+
+            if (type == MessageHistory.MessageType.MESSAGE_TYPE) {
+                cache.messageStatus.put(messageId, viewed);
+            } else {
+                cache.viewOnceStatus.put(messageId, viewed);
+            }
+        }
+        requestRefresh();
+    }
+
+    // ================= UI UPDATE =================
+
+    private static void requestRefresh() {
+        if (refreshScheduled.compareAndSet(false, true)) {
+            mainHandler.postDelayed(() -> {
+                refreshScheduled.set(false);
+                updateAllBubbleViews();
+            }, REFRESH_DEBOUNCE_MS);
+        }
     }
 
     public static void updateAllBubbleViews() {
@@ -33,53 +220,30 @@ public class HideSeenView extends Feature {
         }
     }
 
-    @Override
-    public void doHook() throws Throwable {
-        if (!prefs.getBoolean("hide_seen_view", false)) return;
-
-        // Register listener
-        ConversationItemListener.conversationListeners.add(new ConversationItemListener.OnConversationItemListener() {
-            @Override
-            public void onItemBind(FMessageWpp fMessage, ViewGroup viewGroup) {
-                // --- THE FIX IS HERE ---
-                // 1. First, check if the FMessageWpp object was constructed successfully.
-                // If it's invalid (due to being an unexpected type), we must stop immediately.
-                if (fMessage == null || !fMessage.isValid()) {
-                    return;
-                }
-
-                // 2. Now it's safe to call getKey(). Check the key as well for safety.
-                FMessageWpp.Key key = fMessage.getKey();
-                if (key == null) {
-                    return;
-                }
-
-                // 3. Now you can safely access key.isFromMe without risk of a crash
-                if (key.isFromMe) return;
-
-                updateBubbleView(fMessage, viewGroup);
-            }
-        });
-    }
-
     @SuppressLint("ResourceType")
-    private static void updateBubbleView(FMessageWpp fmessage, View viewGroup) {
-        // This method is now safe because it's only called after isValid() and getKey() checks.
-        var userJid = fmessage.getKey().remoteJid;
-        var messageId = fmessage.getKey().messageID;
+    private static void updateBubbleView(FMessageWpp fMessage, View viewGroup) {
+        var userJid = fMessage.getKey().remoteJid;
+        var messageId = fMessage.getKey().messageID;
 
         if (userJid.isNull()) return;
 
-        // ... the rest of your updateBubbleView method remains unchanged ...
-        ImageView view = viewGroup.findViewById(Utils.getID("view_once_control_icon", "id"));
-        if (view != null) {
-            var messageOnce = MessageHistory.getInstance().getHideSeenMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.VIEW_ONCE_TYPE);
-            if (messageOnce != null) {
-                view.setColorFilter(messageOnce.viewed ? Color.GREEN : Color.RED);
+        String jid = userJid.getPhoneRawString();
+
+        // Update view-once indicator
+        ImageView viewOnceIcon = viewGroup.findViewById(Utils.getID("view_once_control_icon", "id"));
+        if (viewOnceIcon != null) {
+            MessageHistory.MessageType viewOnceType = MessageHistory.MessageType.VIEW_ONCE_TYPE;
+            Boolean cachedStatus = getCachedStatus(jid, messageId, viewOnceType);
+
+            if (cachedStatus == null) {
+                ensureCacheLoaded(jid, viewOnceType);
+                viewOnceIcon.setColorFilter(null);
             } else {
-                view.setColorFilter(null);
+                viewOnceIcon.setColorFilter(cachedStatus ? Color.GREEN : Color.RED);
             }
         }
+
+        // Update message status indicator
         ViewGroup dateWrapper = viewGroup.findViewById(Utils.getID("date_wrapper", "id"));
         if (dateWrapper != null) {
             TextView status = dateWrapper.findViewById(0xf7ff2001);
@@ -89,12 +253,16 @@ public class HideSeenView extends Feature {
                 status.setTextSize(8);
                 dateWrapper.addView(status);
             }
-            var message = MessageHistory.getInstance().getHideSeenMessage(userJid.getPhoneRawString(), messageId, MessageHistory.MessageType.MESSAGE_TYPE);
-            if (message != null) {
-                status.setVisibility(View.VISIBLE);
-                status.setText(message.viewed ? "\uD83D\uDFE2" : "\uD83D\uDD34");
-            } else {
+
+            MessageHistory.MessageType messageType = MessageHistory.MessageType.MESSAGE_TYPE;
+            Boolean cachedStatus = getCachedStatus(jid, messageId, messageType);
+
+            if (cachedStatus == null) {
+                ensureCacheLoaded(jid, messageType);
                 status.setVisibility(View.GONE);
+            } else {
+                status.setVisibility(View.VISIBLE);
+                status.setText(cachedStatus ? "\uD83D\uDFE2" : "\uD83D\uDD34");
             }
         }
     }
