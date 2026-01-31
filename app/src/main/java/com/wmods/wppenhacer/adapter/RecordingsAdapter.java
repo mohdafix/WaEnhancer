@@ -157,7 +157,9 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Vi
             holder.duration.setVisibility(View.GONE);
         } else {
             holder.duration.setVisibility(View.VISIBLE);
-            holder.duration.setText(recording.getFormattedDuration());
+            // Trigger lazy loading of duration first, then display it
+            long durationMs = recording.getDuration();
+            holder.duration.setText(formatDuration(durationMs));
         }
         
         // Details: size and date
@@ -247,5 +249,20 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Vi
             btnShare = itemView.findViewById(R.id.btn_share);
             btnDelete = itemView.findViewById(R.id.btn_delete);
         }
+    }
+    
+    /**
+     * Format duration in milliseconds to readable string
+     */
+    private static String formatDuration(long durationMs) {
+        long seconds = durationMs / 1000;
+        long minutes = seconds / 60;
+        seconds = seconds % 60;
+        if (minutes >= 60) {
+            long hours = minutes / 60;
+            minutes = minutes % 60;
+            return String.format("%d:%02d:%02d", hours, minutes, seconds);
+        }
+        return String.format("%d:%02d", minutes, seconds);
     }
 }
