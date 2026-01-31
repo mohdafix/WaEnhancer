@@ -78,6 +78,15 @@ public class BaseActivity extends AppCompatActivity implements SharedPreferences
             return insets;
         });
     }
+    
+    /**
+     * Set status bar color - call this after applyCustomHeaderColor() 
+     * to ensure status bar has proper color during scrolling
+     */
+    protected void setStatusBarColor(int color) {
+        Window window = getWindow();
+        window.setStatusBarColor(color);
+    }
 
     @Override
     protected void onDestroy() {
@@ -169,6 +178,10 @@ public class BaseActivity extends AppCompatActivity implements SharedPreferences
             // Toolbar background is transparent since AppBarLayout has the gradient
             toolbar.setBackgroundColor(Color.TRANSPARENT);
         }
+        
+        // Set status bar to secondary color to match gradient edge
+        // This prevents white status bar when scrolling content up
+        getWindow().setStatusBarColor(secondaryColor);
 
         if ("custom".equals(themeColor)) {
             int customColor = primaryColor;
