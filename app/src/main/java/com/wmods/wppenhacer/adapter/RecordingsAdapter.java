@@ -140,8 +140,14 @@ public class RecordingsAdapter extends RecyclerView.Adapter<RecordingsAdapter.Vi
             holder.phoneNumber.setVisibility(View.GONE);
         }
         
-        // Duration
-        holder.duration.setText(recording.getFormattedDuration());
+        // Duration - hide for grouped view (empty duration)
+        String duration = recording.getFormattedDuration();
+        if (duration == null || duration.isEmpty()) {
+            holder.duration.setVisibility(View.GONE);
+        } else {
+            holder.duration.setVisibility(View.VISIBLE);
+            holder.duration.setText(duration);
+        }
         
         // Details: size and date
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault());

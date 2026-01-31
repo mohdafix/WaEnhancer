@@ -150,13 +150,20 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
             cachedBaseDirs != null &&
             cachedBaseDirs.equals(dirsSnapshot) &&
             (now - cacheTimestamp) < CACHE_VALIDITY_MS) {
-            // Use cached data
-            allRecordings = new ArrayList<>(cachedRecordings);
-            showLoading(false);
-            binding.emptyView.setVisibility(allRecordings.isEmpty() ? View.VISIBLE : View.GONE);
-            binding.recyclerView.setVisibility(allRecordings.isEmpty() ? View.GONE : View.VISIBLE);
-            applySort();
-            updateDisplayList();
+            // Use cached data but process on background thread to avoid UI lag
+            loadExecutor.execute(() -> {
+                allRecordings = new ArrayList<>(cachedRecordings);
+                // Apply sort on background thread (avoid getDuration() lag on main thread)
+                applySort();
+                
+                activity.runOnUiThread(() -> {
+                    if (!isAdded() || binding == null) return;
+                    showLoading(false);
+                    binding.emptyView.setVisibility(allRecordings.isEmpty() ? View.VISIBLE : View.GONE);
+                    binding.recyclerView.setVisibility(allRecordings.isEmpty() ? View.GONE : View.VISIBLE);
+                    updateDisplayList();
+                });
+            });
             return;
         }
 
@@ -238,57 +245,66 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
     private void updateDisplayList() {
         if (isGroupByContact && currentContactFilter == null) {
             // Show grouped by contact list (pseudo-folders)
-            Map<String, List<Recording>> groups = allRecordings.stream()
-                    .collect(Collectors.groupingBy(Recording::getGroupKey));
+            // Run grouping on background thread to avoid UI lag
+            loadExecutor.execute(() -> {
+                Map<String, List<Recording>> groups = allRecordings.stream()
+                        .collect(Collectors.groupingBy(Recording::getGroupKey));
 
-            List<Recording> contactItems = new ArrayList<>();
-            groups.forEach((name, recs) -> {
-                if (recs == null || recs.isEmpty()) return;
+                List<Recording> contactItems = new ArrayList<>();
+                groups.forEach((name, recs) -> {
+                    if (recs == null || recs.isEmpty()) return;
 
-                long totalDuration = 0L;
-                long latestDate = 0L;
-                for (Recording r : recs) {
-                    totalDuration += r.getDuration();
-                    if (r.getDate() > latestDate) latestDate = r.getDate();
+                    // Only use date for grouping, NOT duration (to avoid lazy loading on main thread)
+                    long latestDate = 0L;
+                    for (Recording r : recs) {
+                        if (r.getDate() > latestDate) latestDate = r.getDate();
+                    }
+
+                    final long latestDateFinal = latestDate;
+                    final int countFinal = recs.size();
+
+                    // We create a dummy recording to represent the group
+                    Recording groupItem = new Recording(recs.get(0).getFile(), requireContext()) {
+                        @Override
+                        public String getFormattedSize() {
+                            return countFinal + " recordings";
+                        }
+
+                        @Override
+                        public String getFormattedDuration() {
+                            return ""; // Skip duration calculation for grouped view to avoid lag
+                        }
+
+                        @Override
+                        public long getDuration() {
+                            return 0; // Skip duration for grouped view
+                        }
+
+                        @Override
+                        public long getDate() {
+                            return latestDateFinal;
+                        }
+
+                        @Override
+                        public String getPhoneNumber() {
+                            // In grouped mode we don\'t want a secondary line (looks like a folder list)
+                            return null;
+                        }
+                    };
+                    contactItems.add(groupItem);
+                });
+
+                contactItems.sort(getGroupedSortComparator());
+                
+                // Update UI on main thread
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        if (isAdded() && binding != null) {
+                            adapter.setRecordings(contactItems);
+                        }
+                    });
                 }
-
-                final long totalDurationFinal = totalDuration;
-                final long latestDateFinal = latestDate;
-                final int countFinal = recs.size();
-
-                // We create a dummy recording to represent the group
-                Recording groupItem = new Recording(recs.get(0).getFile(), requireContext()) {
-                    @Override
-                    public String getFormattedSize() {
-                        return countFinal + " recordings";
-                    }
-
-                    @Override
-                    public String getFormattedDuration() {
-                        return formatDuration(totalDurationFinal);
-                    }
-
-                    @Override
-                    public long getDuration() {
-                        return totalDurationFinal;
-                    }
-
-                    @Override
-                    public long getDate() {
-                        return latestDateFinal;
-                    }
-
-                    @Override
-                    public String getPhoneNumber() {
-                        // In grouped mode we don't want a secondary line (looks like a folder list)
-                        return null;
-                    }
-                };
-                contactItems.add(groupItem);
             });
-
-            contactItems.sort(getGroupedSortComparator());
-            adapter.setRecordings(contactItems);
         } else if (currentContactFilter != null) {
             // Show recordings for specific contact
             List<Recording> filtered = allRecordings.stream()
@@ -302,12 +318,11 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
     }
 
     private Comparator<Recording> getGroupedSortComparator() {
+        // For grouped view, never use duration sorting to avoid lazy loading on main thread
         return switch (currentSortType) {
             case 1 -> Comparator.comparingLong(Recording::getDate).reversed()
                     .thenComparing(Recording::getContactName, String.CASE_INSENSITIVE_ORDER);
-            case 2 -> Comparator.comparing(Recording::getContactName, String.CASE_INSENSITIVE_ORDER);
-            case 3 -> Comparator.comparingLong(Recording::getDuration).reversed()
-                    .thenComparing(Recording::getContactName, String.CASE_INSENSITIVE_ORDER);
+            case 2, 3 -> Comparator.comparing(Recording::getContactName, String.CASE_INSENSITIVE_ORDER);
             case 4 -> Comparator.comparing(Recording::getContactName, String.CASE_INSENSITIVE_ORDER)
                     .thenComparingLong(Recording::getDate).reversed();
             default -> Comparator.comparing(Recording::getContactName, String.CASE_INSENSITIVE_ORDER);
