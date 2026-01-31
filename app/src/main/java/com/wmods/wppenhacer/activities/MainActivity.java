@@ -158,11 +158,6 @@ public class MainActivity extends BaseActivity {
 
         checkPermissions();
         handleSearchIntent(getIntent());
-
-        checkPermissions();
-        handleSearchIntent(getIntent());
-        
-        // Back callback moved to top of onCreate for predictive back support
         updateBackCallbackState();
     }
 
@@ -402,8 +397,8 @@ public class MainActivity extends BaseActivity {
 
     @Override
     public boolean onSupportNavigateUp() {
-        onBackPressed();
-        return super.onSupportNavigateUp();
+        getOnBackPressedDispatcher().onBackPressed();
+        return true;
     }
 
     // This inner class was not part of the conflict, but is required for the file to be complete.

@@ -17,6 +17,10 @@ import android.widget.ImageView;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.preference.PreferenceManager;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -41,6 +45,10 @@ public class BaseActivity extends AppCompatActivity implements SharedPreferences
     @Override
     protected void onPostCreate(@Nullable Bundle savedInstanceState) {
         super.onPostCreate(savedInstanceState);
+        
+        // Configure edge-to-edge for Android 15+ (mandatory on Android 16)
+        configureEdgeToEdge();
+        
         applyCustomHeaderColor();
         
         var sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
@@ -50,6 +58,25 @@ public class BaseActivity extends AppCompatActivity implements SharedPreferences
             lastCustomColor = customColor;
             applyColorToViews(getWindow().getDecorView(), customColor);
         }
+    }
+
+    private void configureEdgeToEdge() {
+        Window window = getWindow();
+        
+        // Enable edge-to-edge (mandatory for Android 16)
+        WindowCompat.setDecorFitsSystemWindows(window, false);
+        
+        // Configure system bars appearance
+        WindowInsetsControllerCompat controller = new WindowInsetsControllerCompat(window, window.getDecorView());
+        controller.setAppearanceLightStatusBars(false);
+        controller.setAppearanceLightNavigationBars(true);
+        
+        // Apply window insets to adjust content padding
+        ViewCompat.setOnApplyWindowInsetsListener(window.getDecorView(), (v, insets) -> {
+            var systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, 0, systemBars.right, systemBars.bottom);
+            return insets;
+        });
     }
 
     @Override
@@ -127,15 +154,20 @@ public class BaseActivity extends AppCompatActivity implements SharedPreferences
             }
         }
 
-        Window window = getWindow();
-        window.setStatusBarColor(secondaryColor);
-
-        View toolbar = findViewById(R.id.toolbar);
-        if (toolbar != null) {
+        // Apply gradient to both AppBarLayout and toolbar for edge-to-edge support
+        // AppBarLayout extends into status bar area with fitsSystemWindows
+        View appBarLayout = findViewById(R.id.appBarLayout);
+        if (appBarLayout != null) {
             GradientDrawable gradient = new GradientDrawable(
                     GradientDrawable.Orientation.TL_BR,
                     new int[]{primaryColor, secondaryColor});
-            toolbar.setBackground(gradient);
+            appBarLayout.setBackground(gradient);
+        }
+
+        View toolbar = findViewById(R.id.toolbar);
+        if (toolbar != null) {
+            // Toolbar background is transparent since AppBarLayout has the gradient
+            toolbar.setBackgroundColor(Color.TRANSPARENT);
         }
 
         if ("custom".equals(themeColor)) {

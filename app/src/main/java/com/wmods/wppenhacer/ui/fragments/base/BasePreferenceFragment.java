@@ -46,6 +46,33 @@ public abstract class BasePreferenceFragment extends PreferenceFragmentCompat im
     }
 
     @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        
+        // Register predictive back callback using viewLifecycleOwner for proper lifecycle handling
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // Check if this fragment has a child fragment manager with back stack
+                if (getChildFragmentManager().getBackStackEntryCount() > 0) {
+                    getChildFragmentManager().popBackStack();
+                    return;
+                }
+                
+                // Check if parent fragment manager has back stack entries for this fragment
+                if (getParentFragmentManager().getBackStackEntryCount() > 0) {
+                    getParentFragmentManager().popBackStack();
+                    return;
+                }
+                
+                // No back stack to pop, disable this callback and let activity handle it
+                setEnabled(false);
+                requireActivity().getOnBackPressedDispatcher().onBackPressed();
+            }
+        });
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
         setDisplayHomeAsUpEnabled(true);
