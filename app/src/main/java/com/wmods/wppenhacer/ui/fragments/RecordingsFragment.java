@@ -50,6 +50,12 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
 
     private final ExecutorService loadExecutor = Executors.newSingleThreadExecutor();
     private Future<?> loadFuture;
+    
+    // Cache to avoid re-scanning directories
+    private static List<Recording> cachedRecordings = null;
+    private static long cacheTimestamp = 0;
+    private static final long CACHE_VALIDITY_MS = 5000; // Cache valid for 5 seconds
+    private static List<File> cachedBaseDirs = null;
 
     @Nullable
     @Override
@@ -138,19 +144,38 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
         final var appContext = context.getApplicationContext();
         final var dirsSnapshot = new ArrayList<>(baseDirs);
 
+        // Check if cache is valid
+        long now = System.currentTimeMillis();
+        if (cachedRecordings != null && 
+            cachedBaseDirs != null &&
+            cachedBaseDirs.equals(dirsSnapshot) &&
+            (now - cacheTimestamp) < CACHE_VALIDITY_MS) {
+            // Use cached data
+            allRecordings = new ArrayList<>(cachedRecordings);
+            showLoading(false);
+            binding.emptyView.setVisibility(allRecordings.isEmpty() ? View.VISIBLE : View.GONE);
+            binding.recyclerView.setVisibility(allRecordings.isEmpty() ? View.GONE : View.VISIBLE);
+            applySort();
+            updateDisplayList();
+            return;
+        }
+
         showLoading(true);
 
         loadFuture = loadExecutor.submit(() -> {
-            List<Recording> recordings = new ArrayList<>();
-
-            for (File baseDir : dirsSnapshot) {
-                if (Thread.currentThread().isInterrupted()) return;
-                if (baseDir.exists() && baseDir.isDirectory()) {
-                    traverseDirectory(baseDir, recordings, appContext);
-                }
-            }
+            // Use parallel stream for faster directory scanning
+            // Each directory is scanned in parallel, significantly improving performance
+            List<Recording> recordings = dirsSnapshot.parallelStream()
+                .filter(dir -> dir.exists() && dir.isDirectory())
+                .flatMap(dir -> scanDirectoryParallel(dir, appContext).stream())
+                .collect(Collectors.toList());
 
             if (Thread.currentThread().isInterrupted()) return;
+
+            // Update cache
+            cachedRecordings = new ArrayList<>(recordings);
+            cachedBaseDirs = new ArrayList<>(dirsSnapshot);
+            cacheTimestamp = System.currentTimeMillis();
 
             activity.runOnUiThread(() -> {
                 if (!isAdded() || binding == null) return;
@@ -169,6 +194,35 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
                 }
             });
         });
+    }
+    
+    /**
+     * Parallel directory scanner - finds all recording files in a directory
+     * Uses efficient file filtering without loading metadata
+     */
+    private List<Recording> scanDirectoryParallel(File dir, android.content.Context context) {
+        List<Recording> recordings = new ArrayList<>();
+        File[] files = dir.listFiles();
+        if (files == null) return recordings;
+        
+        // Quick filter for recording files only
+        for (File file : files) {
+            if (Thread.currentThread().isInterrupted()) return recordings;
+            
+            if (file.isDirectory()) {
+                // Recursively scan subdirectories
+                recordings.addAll(scanDirectoryParallel(file, context));
+            } else {
+                String name = file.getName().toLowerCase();
+                // Fast extension check without regex
+                if (name.endsWith(".wav") || name.endsWith(".mp3") || 
+                    name.endsWith(".aac") || name.endsWith(".m4a") || name.endsWith(".mp4")) {
+                    // Create Recording without loading duration (lazy loading)
+                    recordings.add(new Recording(file, context));
+                }
+            }
+        }
+        return recordings;
     }
 
     private void showLoading(boolean loading) {
@@ -272,22 +326,7 @@ public class RecordingsFragment extends Fragment implements RecordingsAdapter.On
         return String.format("%d:%02d", minutes, seconds);
     }
 
-    private void traverseDirectory(File dir, List<Recording> out, android.content.Context context) {
-        File[] files = dir.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (Thread.currentThread().isInterrupted()) return;
-                if (file.isDirectory()) {
-                    traverseDirectory(file, out, context);
-                } else {
-                    String name = file.getName().toLowerCase();
-                    if (name.endsWith(".wav") || name.endsWith(".mp3") || name.endsWith(".aac") || name.endsWith(".m4a") || name.endsWith(".mp4")) {
-                        out.add(new Recording(file, context));
-                    }
-                }
-            }
-        }
-    }
+    // Note: traverseDirectory replaced by scanDirectoryParallel for better performance
 
     private void applySort() {
         switch (currentSortType) {

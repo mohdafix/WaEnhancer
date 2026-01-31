@@ -16,9 +16,10 @@ public class Recording {
     private final File file;
     private String phoneNumber;
     private String contactName;
-    private long duration; // in milliseconds
+    private volatile long duration = -1; // -1 means not loaded yet, in milliseconds
     private final long date;
     private final long size;
+    private final transient Context context; // transient to avoid serialization issues
 
     // UPDATED PATTERN: Now includes .m4a
     // Matches: Call_NameOrNumber_YYYYMMDD_HHMMSS.(wav|m4a)
@@ -26,12 +27,11 @@ public class Recording {
 
     public Recording(File file, Context context) {
         this.file = file;
+        this.context = context;
         this.date = file.lastModified();
         this.size = file.length();
-
         extractInfoFromFilename();
-        // UPDATED: Pass context to parse duration for M4A files
-        parseDuration(context);
+        // Duration is now loaded lazily - not parsed in constructor
     }
 
     private void extractInfoFromFilename() {
@@ -55,11 +55,12 @@ public class Recording {
     }
 
     /**
-     * UPDATED: Now handles both WAV and M4A formats.
-     * For M4A, it uses MediaMetadataRetriever.
-     * For WAV, it reads the header.
+     * UPDATED: Now handles both WAV and M4A formats with lazy loading.
+     * For M4A, it uses MediaMetadataRetriever (slower, loaded on demand).
+     * For WAV, it reads the header (fast, also loaded on demand).
+     * This method is called lazily when getDuration() is first accessed.
      */
-    private void parseDuration(Context context) {
+    private void parseDuration() {
         if (!file.exists() || file.length() < 100) { // M4A headers are larger
             duration = 0;
             return;
@@ -68,24 +69,27 @@ public class Recording {
         String filename = file.getName();
         if (filename.endsWith(".m4a") || filename.endsWith(".mp4")) {
             // Use MediaMetadataRetriever for M4A/MP4 files
-            try (MediaMetadataRetriever retriever = new MediaMetadataRetriever()) {
-                // Use URI for better compatibility, especially with FileProvider
-                retriever.setDataSource(context, Uri.fromFile(file));
-                String durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
-                if (durationStr != null) {
-                    duration = Long.parseLong(durationStr);
+            if (context != null) {
+                try (MediaMetadataRetriever retriever = new MediaMetadataRetriever()) {
+                    // Use URI for better compatibility, especially with FileProvider
+                    retriever.setDataSource(context, Uri.fromFile(file));
+                    String durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+                    if (durationStr != null) {
+                        duration = Long.parseLong(durationStr);
+                    } else {
+                        duration = 0;
+                    }
+                } catch (Exception e) {
+                    duration = 0;
                 }
-            } catch (Exception e) {
-                // Fallback to a simple estimation if it fails
-                duration = estimateDurationForM4A();
+            } else {
+                duration = 0;
             }
             return;
         }
 
         // Original logic for WAV files
         if (filename.endsWith(".wav")) {
-            // The rest of your original parseDuration logic for WAV
-            // ... (I'll paste it here for completeness)
             try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r")) {
                 byte[] header = new byte[44];
                 raf.read(header);
@@ -106,6 +110,9 @@ public class Recording {
             } catch (Exception e) {
                 duration = estimateDurationForWav();
             }
+        } else {
+            // Unknown format
+            duration = 0;
         }
     }
 
@@ -127,7 +134,22 @@ public class Recording {
     public File getFile() { return file; }
     public String getPhoneNumber() { return phoneNumber; }
     public String getContactName() { return contactName; }
-    public long getDuration() { return duration; }
+    
+    /**
+     * Lazy loading of duration - only parses when first accessed
+     * This significantly improves loading performance for large recording lists
+     */
+    public long getDuration() { 
+        if (duration < 0) {
+            synchronized (this) {
+                if (duration < 0) {
+                    parseDuration();
+                }
+            }
+        }
+        return duration; 
+    }
+    
     public long getDate() { return date; }
     public long getSize() { return size; }
 
