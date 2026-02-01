@@ -50,17 +50,22 @@ public class AudioSpeedControl extends Feature {
         if (!prefs.getBoolean("audio_speed_control", true)) return;
 
         // Hook playback speed setter
-        XposedBridge.hookMethod(
-            Unobfuscator.loadPlaybackSpeed(classLoader),
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
-                    if (changed.get()) {
-                        param.args[1] = audioSpeed.get();
+        try {
+            XposedBridge.hookMethod(
+                Unobfuscator.loadPlaybackSpeed(classLoader),
+                new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if (changed.get()) {
+                            param.args[1] = audioSpeed.get();
+                        }
                     }
                 }
-            }
-        );
+            );
+        } catch (Exception e) {
+            XposedBridge.log("AudioSpeedControl: Failed to hook playback speed - " + e.getMessage());
+            // Continue without playback speed control
+        }
 
         // Hook audio duration display to show custom speed
         try {
