@@ -63,21 +63,27 @@ public class AudioSpeedControl extends Feature {
         );
 
         // Hook audio duration display to show custom speed
-        Class<?> audioPlayerClass = Unobfuscator.findFirstClassUsingName(
-            classLoader, 
-            StringMatchType.EndsWith, 
-            "AudioPlayer"
-        );
-        
-        Method[] updateMethods = ReflectionUtils.findAllMethodsUsingFilter(
-            audioPlayerClass,
-            method -> method.getParameterCount() == 4 
-                && method.getParameterTypes()[0] == Integer.TYPE 
-                && method.getReturnType().equals(Void.TYPE)
-        );
+        try {
+            Class<?> audioPlayerClass = Unobfuscator.findFirstClassUsingName(
+                classLoader, 
+                StringMatchType.EndsWith, 
+                "AudioPlayer"
+            );
+            
+            if (audioPlayerClass == null) {
+                XposedBridge.log("AudioSpeedControl: AudioPlayer class not found, UI will not be added");
+                return;
+            }
+            
+            Method[] updateMethods = ReflectionUtils.findAllMethodsUsingFilter(
+                audioPlayerClass,
+                method -> method.getParameterCount() == 4 
+                    && method.getParameterTypes()[0] == Integer.TYPE 
+                    && method.getReturnType().equals(Void.TYPE)
+            );
 
-        if (updateMethods.length > 0) {
-            XposedBridge.hookMethod(updateMethods[updateMethods.length - 1], new XC_MethodHook() {
+            if (updateMethods.length > 0) {
+                XposedBridge.hookMethod(updateMethods[updateMethods.length - 1], new XC_MethodHook() {
                 @Override
                 @SuppressLint("SetTextI18n")
                 protected void afterHookedMethod(MethodHookParam param) {
@@ -94,6 +100,10 @@ public class AudioSpeedControl extends Feature {
                     }
                 }
             });
+        }
+        } catch (Exception e) {
+            XposedBridge.log("AudioSpeedControl: Failed to hook AudioPlayer - " + e.getMessage());
+            // Continue without the duration display hook
         }
 
         // Add UI controls to conversation items

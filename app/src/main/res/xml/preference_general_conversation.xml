@@ -132,9 +132,9 @@
             app:title="@string/google_translate" />
 
         <rikka.material.preference.MaterialSwitchPreference
-            app:defaultValue="true"
+            app:defaultValue="false"
             app:key="audio_speed_control"
-            app:summary="Add speed control UI to audio/voice messages"
+            app:summary="Add speed control UI to audio/voice messages (Experimental - may not work on all WhatsApp versions)"
             app:title="Audio Speed Control" />
 
         <rikka.material.preference.MaterialSwitchPreference
