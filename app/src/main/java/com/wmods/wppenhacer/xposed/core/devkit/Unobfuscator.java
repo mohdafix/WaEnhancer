@@ -2421,4 +2421,17 @@ public class Unobfuscator {
             return methods.get(0).getMethodInstance(classLoader);
         });
     }
+
+    public static Method loadSendMediaUserAction(ClassLoader classLoader) throws Exception {
+        return UnobfuscatorCache.getInstance().getMethod(classLoader, () -> {
+            // TODO: Replace "MEDIA_SEND_STRING" with the actual obfuscated string from WhatsApp
+            // This string should identify the media sending method
+            // You can find it by decompiling WhatsApp and looking for the media action user class
+            Method method = findFirstMethodUsingStrings(classLoader, StringMatchType.Contains, "MEDIA_SEND_STRING");
+            if (method != null) {
+                return method;
+            }
+            throw new NoSuchMethodException("loadSendMediaUserAction method not found");
+        });
+    }
 }

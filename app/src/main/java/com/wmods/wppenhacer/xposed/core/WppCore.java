@@ -106,6 +106,10 @@ public class WppCore {
     private static Method userActionSendMethod;
     private static Class actionUser;
     private static Method cachedMessageStoreKey;
+    
+    // Media sending support
+    private static Object mMediaActionUser;
+    private static Method mMediaActionUserMethod;
 
     private static final Map<FMessageWpp.UserJid, String> contactNameCache = new LinkedHashMap<>(16, 0.75f, true) {
         protected boolean removeEldestEntry(Map.Entry<FMessageWpp.UserJid, String> eldest) {
@@ -201,6 +205,21 @@ public class WppCore {
                 mWaJidMapRepository = param.thisObject;
             }
         });
+
+        // MediaActionUser for sending images/videos
+        try {
+            mMediaActionUserMethod = Unobfuscator.loadSendMediaUserAction(loader);
+            XposedBridge.log("MediaActionUser method: " + mMediaActionUserMethod.getName());
+            XposedBridge.hookAllConstructors(mMediaActionUserMethod.getDeclaringClass(), new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    mMediaActionUser = param.thisObject;
+                }
+            });
+        } catch (Exception e) {
+            XposedBridge.log("Warning: Could not load MediaActionUser: " + e.getMessage());
+        }
+
 
         // Load wa database
         loadWADatabase();
@@ -380,6 +399,117 @@ public class WppCore {
             XposedBridge.log(e);
         }
         return mUserActionSend;
+    }
+
+    public static boolean sendImageMessage(List<String> jids, String caption, File imageFile, long messageId) {
+        XposedBridge.log("WaEnhancer: sendImageMessage called for messageId: " + messageId);
+        try {
+            if (mMediaActionUserMethod == null) {
+                XposedBridge.log("WaEnhancer: mMediaActionUserMethod is null!");
+                Utils.showToast("Media sending not available", Toast.LENGTH_SHORT);
+                return false;
+            }
+
+            if (imageFile == null || !imageFile.exists()) {
+                XposedBridge.log("WaEnhancer: Image file is null or doesn't exist");
+                Utils.showToast("Image file not found", Toast.LENGTH_SHORT);
+                return false;
+            }
+
+            XposedBridge.log("WaEnhancer: Using media method: " + mMediaActionUserMethod.getName());
+
+            // Create UserJid list
+            List<Object> userJidList = new ArrayList<>();
+            for (String jid : jids) {
+                Object userJid = createUserJid(jid);
+                if (userJid != null) {
+                    userJidList.add(userJid);
+                } else {
+                    XposedBridge.log("WaEnhancer: Failed to create UserJID for: " + jid);
+                }
+            }
+
+            if (userJidList.isEmpty()) {
+                XposedBridge.log("WaEnhancer: No valid JIDs found");
+                Utils.showToast("No valid contacts", Toast.LENGTH_SHORT);
+                return false;
+            }
+
+            // Prepare method parameters
+            Class<?>[] params = mMediaActionUserMethod.getParameterTypes();
+            Object[] args = new Object[params.length];
+            for (int i = 0; i < args.length; i++) {
+                args[i] = ReflectionUtils.getDefaultValue(params[i]);
+            }
+
+            // Set parameters based on type
+            int listIndex = ReflectionUtils.findIndexOfType(params, List.class);
+            if (listIndex != -1) args[listIndex] = userJidList;
+
+            int stringIndex = ReflectionUtils.findIndexOfType(params, String.class);
+            if (stringIndex != -1) args[stringIndex] = caption != null ? caption : "";
+
+            int fileIndex = ReflectionUtils.findIndexOfType(params, File.class);
+            if (fileIndex != -1) args[fileIndex] = imageFile;
+
+            // Get or create media action instance
+            Object mediaActionInstance = getMediaActionUser();
+            if (mediaActionInstance == null) {
+                XposedBridge.log("WaEnhancer: mediaActionInstance is null!");
+                throw new Exception("MediaActionUser instance is null");
+            }
+
+            XposedBridge.log("WaEnhancer: Invoking media method...");
+            mMediaActionUserMethod.invoke(mediaActionInstance, args);
+            XposedBridge.log("WaEnhancer: Media sent successfully");
+
+            // Success callback
+            if (messageId != -1) {
+                Intent intent = new Intent("com.wmods.wppenhacer.MESSAGE_SENT");
+                intent.putExtra("message_id", messageId);
+                intent.putExtra("success", true);
+                intent.setPackage("com.wmods.wppenhacer");
+                Utils.getApplication().sendBroadcast(intent);
+            }
+
+            Utils.showToast("Media sent to " + userJidList.size() + " contacts", Toast.LENGTH_SHORT);
+            return true;
+
+        } catch (Exception e) {
+            XposedBridge.log("WaEnhancer: Exception in sendImageMessage: " + e.getMessage());
+            XposedBridge.log(e);
+            Utils.showToast("Error sending media: " + e.getMessage(), Toast.LENGTH_SHORT);
+
+            // Failure callback
+            if (messageId != -1) {
+                Intent intent = new Intent("com.wmods.wppenhacer.MESSAGE_SENT");
+                intent.putExtra("message_id", messageId);
+                intent.putExtra("success", false);
+                intent.setPackage("com.wmods.wppenhacer");
+                Utils.getApplication().sendBroadcast(intent);
+            }
+            return false;
+        }
+    }
+
+    private static Object getMediaActionUser() {
+        try {
+            if (mMediaActionUser == null) {
+                XposedBridge.log("WaEnhancer: mMediaActionUser is null, attempting to instantiate...");
+                Class<?> clazz = mMediaActionUserMethod.getDeclaringClass();
+                Constructor<?>[] constructors = clazz.getConstructors();
+                if (constructors.length == 0) {
+                    XposedBridge.log("WaEnhancer: No public constructors found for MediaActionUser");
+                    return null;
+                }
+                mMediaActionUser = constructors[0].newInstance();
+                XposedBridge.log("WaEnhancer: New MediaActionUser instance created");
+            }
+        } catch (Exception e) {
+            XposedBridge.log("WaEnhancer: Failed to instantiate MediaActionUser: " + e.getMessage());
+            XposedBridge.log(e);
+        }
+        return mMediaActionUser;
     }
 
     public static void sendReaction(String s, Object objMessage) {

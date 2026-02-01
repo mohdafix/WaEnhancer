@@ -43,12 +43,32 @@ public class ScheduledMessageSender extends Feature {
                     List<String> jids = intent.getStringArrayListExtra("contact_jids");
                     String message = intent.getStringExtra("message");
                     long messageId = intent.getLongExtra("message_id", -1);
+                    String mediaPath = intent.getStringExtra("media_path");
                     
-                    if (jids != null && !jids.isEmpty() && message != null) {
-                        XposedBridge.log("ScheduledMessageSender: Sending message to " + jids.size() + " contacts");
+                    if (jids == null || jids.isEmpty()) {
+                        XposedBridge.log("ScheduledMessageSender: No contacts specified");
+                        return;
+                    }
+                    
+                    // Check if this is a media message
+                    if (mediaPath != null && !mediaPath.isEmpty()) {
+                        XposedBridge.log("ScheduledMessageSender: Sending media message to " + jids.size() + " contacts");
+                        java.io.File mediaFile = new java.io.File(mediaPath);
+                        
+                        if (!mediaFile.exists()) {
+                            XposedBridge.log("ScheduledMessageSender: Media file not found: " + mediaPath);
+                            Utils.showToast("Media file not found", android.widget.Toast.LENGTH_SHORT);
+                            return;
+                        }
+                        
+                        String caption = message != null ? message : "";
+                        WppCore.sendImageMessage(jids, caption, mediaFile, messageId);
+                    } else if (message != null) {
+                        // Text message
+                        XposedBridge.log("ScheduledMessageSender: Sending text message to " + jids.size() + " contacts");
                         WppCore.sendMessage(jids, message, messageId);
                     } else {
-                        XposedBridge.log("ScheduledMessageSender: Missing data in broadcast");
+                        XposedBridge.log("ScheduledMessageSender: Missing both message and media");
                     }
                 }
             }
