@@ -119,26 +119,49 @@ public class AudioSpeedControl extends Feature {
                 try {
                     // Only add to voice messages
                     if (viewGroup.findViewWithTag(SPEED_TAG) != null) return;
-                    if (viewGroup.findViewById(Utils.getID("voice_note_btn", "id")) == null) return;
+                    
+                    View voiceNoteBtn = viewGroup.findViewById(Utils.getID("voice_note_btn", "id"));
+                    if (voiceNoteBtn == null) {
+                        // Not a voice note, or ID changed
+                        return;
+                    }
 
                     TextView durationText = viewGroup.findViewById(Utils.getID("duration", "id"));
-                    if (durationText == null) return;
+                    if (durationText == null) {
+                         XposedBridge.log("AudioSpeedControl: Duration text not found");
+                         return;
+                    }
+
+                    XposedBridge.log("AudioSpeedControl: Found voice note message, adding UI...");
 
                     AtomicBoolean isVisible = new AtomicBoolean(false);
                     ViewGroup messageContainer = viewGroup.findViewById(Utils.getID("message_container", "id"));
+                    if (messageContainer == null) {
+                         XposedBridge.log("AudioSpeedControl: Message container not found");
+                         return;
+                    }
+                    
                     Context context = messageContainer.getContext();
 
                     // Create speed control container
                     LinearLayout speedContainer = createSpeedControl(context, durationText, isVisible);
                     
                     // Insert after audio player
-                    ViewGroup audioParent = (ViewGroup) viewGroup
-                        .findViewById(Utils.getID("audio_player", "id"))
-                        .getParent();
+                    View audioPlayer = viewGroup.findViewById(Utils.getID("audio_player", "id"));
+                    if (audioPlayer == null) {
+                        XposedBridge.log("AudioSpeedControl: Audio player view not found");
+                        return;
+                    }
+                    
+                    ViewGroup audioParent = (ViewGroup) audioPlayer.getParent();
                     int insertIndex = messageContainer.indexOfChild(audioParent) + 1;
+                    if (insertIndex <= 0) insertIndex = messageContainer.getChildCount();
+                    
                     messageContainer.addView(speedContainer, insertIndex);
+                    XposedBridge.log("AudioSpeedControl: UI added successfully");
 
                 } catch (Throwable e) {
+                    XposedBridge.log("AudioSpeedControl: Error adding UI - " + e.getMessage());
                     logDebug(e);
                 }
             }
