@@ -217,8 +217,9 @@ public class AudioSpeedControl extends Feature {
             @Override public void onStopTrackingTouch(SeekBar seekBar) {}
         });
 
-        // Toggle visibility on long press of duration text
-        durationText.setOnLongClickListener(v -> {
+        // Toggle visibility on click of duration text
+        durationText.setClickable(true);
+        durationText.setOnClickListener(v -> {
             if (container.getVisibility() == View.GONE) {
                 container.clearAnimation();
                 container.setVisibility(View.VISIBLE);
@@ -236,7 +237,6 @@ public class AudioSpeedControl extends Feature {
                     container.setVisibility(View.GONE);
                 }
             }
-            return true;
         });
 
         return container;
