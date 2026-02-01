@@ -185,15 +185,15 @@ public class MediaQuality extends Feature {
                 Others.propsInteger.put(594, 8000);
                 Others.propsInteger.put(12852, 8000);
             } else {
-                Others.propsInteger.put(594, 0);
-                Others.propsInteger.put(12852, 0);
+                Others.propsInteger.put(594, 1920);
+                Others.propsInteger.put(12852, 1920);
             }
 
              // Non-HD video must be sent in HD resolution
-             Others.propsInteger.put(4686, 5000);
-             Others.propsInteger.put(3654, 5000);
-             Others.propsInteger.put(3183, 5000); // Stories
-             Others.propsInteger.put(4685, 5000); // Stories
+             Others.propsInteger.put(4686, 1280);
+             Others.propsInteger.put(3654, 1280);
+             Others.propsInteger.put(3183, 1280); // Stories
+             Others.propsInteger.put(4685, 1280); // Stories
 
             // Max bitrate
             Others.propsInteger.put(3755, 96000);
