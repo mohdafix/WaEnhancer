@@ -130,7 +130,7 @@ public class AudioSpeedControl extends Feature {
                     Context context = messageContainer.getContext();
 
                     // Create speed control container
-                    LinearLayout speedContainer = createSpeedControl(context, durationText, isVisible);
+                    LinearLayout speedContainer = createSpeedControl(context, durationText, isVisible, messageContainer);
                     
                     // Insert after audio player
                     ViewGroup audioParent = (ViewGroup) viewGroup
@@ -149,7 +149,8 @@ public class AudioSpeedControl extends Feature {
     private LinearLayout createSpeedControl(
         Context context, 
         TextView durationText,
-        AtomicBoolean isVisible
+        AtomicBoolean isVisible,
+        ViewGroup messageContainer
     ) {
         LinearLayout container = new LinearLayout(context);
         container.setOrientation(LinearLayout.HORIZONTAL);
@@ -216,30 +217,72 @@ public class AudioSpeedControl extends Feature {
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {}
         });
-
-        // Toggle visibility on click of duration text
-        durationText.setClickable(true);
-        durationText.setOnClickListener(v -> {
-            if (container.getVisibility() == View.GONE) {
-                container.clearAnimation();
-                container.setVisibility(View.VISIBLE);
-                if (slideIn != null) {
-                    container.startAnimation(slideIn);
-                }
-                isVisible.set(true);
-            } else {
-                changed.set(false);
-                isVisible.set(false);
-                container.clearAnimation();
-                if (slideOut != null) {
-                    container.startAnimation(slideOut);
+        // Find the speed button (1x, 1.5x, 2x)
+        TextView speedButton = findSpeedButton(messageContainer);
+        
+        if (speedButton != null) {
+            speedButton.setOnLongClickListener(v -> {
+                if (container.getVisibility() == View.GONE) {
+                    container.clearAnimation();
+                    container.setVisibility(View.VISIBLE);
+                    if (slideIn != null) {
+                        container.startAnimation(slideIn);
+                    }
+                    isVisible.set(true);
                 } else {
-                    container.setVisibility(View.GONE);
+                    changed.set(false);
+                    isVisible.set(false);
+                    container.clearAnimation();
+                    if (slideOut != null) {
+                        container.startAnimation(slideOut);
+                    } else {
+                        container.setVisibility(View.GONE);
+                    }
                 }
-            }
-        });
+                return true;
+            });
+        } else {
+            // Fallback to duration text if speed button not found
+            durationText.setClickable(true);
+            durationText.setOnLongClickListener(v -> {
+                 if (container.getVisibility() == View.GONE) {
+                    container.clearAnimation();
+                    container.setVisibility(View.VISIBLE);
+                    if (slideIn != null) {
+                        container.startAnimation(slideIn);
+                    }
+                    isVisible.set(true);
+                } else {
+                    changed.set(false);
+                    isVisible.set(false);
+                    container.clearAnimation();
+                    if (slideOut != null) {
+                        container.startAnimation(slideOut);
+                    } else {
+                        container.setVisibility(View.GONE);
+                    }
+                }
+                return true;
+            });
+        }
 
         return container;
+    }
+
+    private TextView findSpeedButton(ViewGroup root) {
+        for (int i = 0; i < root.getChildCount(); i++) {
+            View child = root.getChildAt(i);
+            if (child instanceof TextView) {
+                String text = ((TextView) child).getText().toString();
+                if (text.matches("[0-9]+(\\.?[0-9])?x")) { // Matches 1x, 1.5x, 2x
+                    return (TextView) child;
+                }
+            } else if (child instanceof ViewGroup) {
+                TextView found = findSpeedButton((ViewGroup) child);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     @NonNull
