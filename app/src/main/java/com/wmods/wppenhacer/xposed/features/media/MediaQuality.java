@@ -113,10 +113,14 @@ public class MediaQuality extends Feature {
                         isEnum = true;
                         var hightResolution = Enum.valueOf((Class<Enum>) enumObj.getClass(), "RESOLUTION_1080P");
                         isHighResolution = hightResolution == enumObj;
+                        XposedBridge.log("MediaQuality: Enum resolution detected: " + enumObj.name() + ", isHighRes=" + isHighResolution);
                     } else {
                         isHighResolution = (int) param.args[1] == 3;
+                        XposedBridge.log("MediaQuality: Integer resolution detected: " + param.args[1] + ", isHighRes=" + isHighResolution);
                     }
+                    
                     if (isHighResolution) {
+                        XposedBridge.log("MediaQuality: High resolution video detected, realResolution=" + realResolution);
 
                         if (realResolution) {
                             int width;
@@ -139,13 +143,21 @@ public class MediaQuality extends Feature {
                                 height = mediaFields.get("heightPx").getInt(param.args[0]);
                                 rotationAngle = mediaFields.get("rotationAngle").getInt(param.args[0]);
                             }
+                            
+                            XposedBridge.log("MediaQuality: Original dimensions - width=" + width + ", height=" + height + ", rotation=" + rotationAngle);
+                            
                             var targetWidthField = mediaTranscodeParams.get("targetWidth");
                             var targetHeightField = mediaTranscodeParams.get("targetHeight");
 
                             var inverted = rotationAngle == 90 || rotationAngle == 270;
+                            
+                            int finalWidth = inverted ? height : width;
+                            int finalHeight = inverted ? width : height;
+                            
+                            XposedBridge.log("MediaQuality: Inverted=" + inverted + ", setting targetWidth=" + finalWidth + ", targetHeight=" + finalHeight);
 
-                            targetHeightField.setInt(resizeVideo, inverted ? width : height);
-                            targetWidthField.setInt(resizeVideo, inverted ? height : width);
+                            targetHeightField.setInt(resizeVideo, finalHeight);
+                            targetWidthField.setInt(resizeVideo, finalWidth);
 
                         }
                     }
