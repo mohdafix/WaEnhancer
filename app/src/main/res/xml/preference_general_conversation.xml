@@ -132,6 +132,12 @@
             app:title="@string/google_translate" />
 
         <rikka.material.preference.MaterialSwitchPreference
+            app:defaultValue="true"
+            app:key="audio_speed_control"
+            app:summary="Add speed control UI to audio/voice messages"
+            app:title="Audio Speed Control" />
+
+        <rikka.material.preference.MaterialSwitchPreference
             app:key="verify_blocked_contact"
             app:summary="@string/show_contact_blocked_sum"
             app:title="@string/show_contact_blocked" />
