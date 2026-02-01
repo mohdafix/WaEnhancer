@@ -93,14 +93,18 @@ public class MediaPreview extends Feature {
                     Unobfuscator.loadVideoViewContainerClass(classLoader),
                     new PreviewButtonHook(true)
             );
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            XposedBridge.log("MediaPreview: Failed to hook video view container - " + e.getMessage());
+        }
 
         try {
             XposedBridge.hookAllConstructors(
                     Unobfuscator.loadImageVewContainerClass(classLoader),
                     new PreviewButtonHook(false)
             );
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) {
+            XposedBridge.log("MediaPreview: Failed to hook image view container - " + e.getMessage());
+        }
     }
 
     // ================= PREVIEW BUTTON =================
