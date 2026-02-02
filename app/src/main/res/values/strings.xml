@@ -549,4 +549,5 @@
     <string name="schedule_inactive">Inactive</string>
     <string name="enabled">Enabled</string>
     <string name="custom_privacy_global_status">Global Status: %s</string>
+    <string name="profile_picture_has_been_updated">%s updated their profile picture</string>
 </resources>

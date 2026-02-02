@@ -32,6 +32,9 @@ public class ScheduledMessageHelper {
         intent.putExtra("message", message.getMessage());
         intent.putExtra(ScheduledMessageService.EXTRA_MESSAGE_ID, messageId);
         intent.putExtra("whatsapp_type", message.getWhatsappType());
+        if (message.hasImage()) {
+            intent.putExtra("image_path", message.getImagePath());
+        }
         String targetPackage = getTargetPackage(context, message);
         boolean sent = false;
         try {

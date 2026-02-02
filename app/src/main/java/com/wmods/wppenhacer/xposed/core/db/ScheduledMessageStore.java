@@ -22,13 +22,14 @@ public class ScheduledMessageStore extends SQLiteOpenHelper {
     private static final String COLUMN_REPEAT_TYPE = "repeat_type";
     private static final String COLUMN_SCHEDULED_TIME = "scheduled_time";
     private static final String COLUMN_WHATSAPP_TYPE = "whatsapp_type";
+    private static final String COLUMN_MEDIA_PATH = "media_path";
     private static final String DATABASE_NAME = "scheduled_messages.db";
-    private static final int DATABASE_VERSION = 6;
+    private static final int DATABASE_VERSION = 7;
     private static final String TABLE_NAME = "scheduled_messages";
     private static ScheduledMessageStore instance;
 
     private ScheduledMessageStore(Context context) {
-        super(context, DATABASE_NAME, (SQLiteDatabase.CursorFactory) null, 6);
+        super(context, DATABASE_NAME, (SQLiteDatabase.CursorFactory) null, 7);
     }
 
     public static synchronized ScheduledMessageStore getInstance(Context context) {
@@ -44,7 +45,7 @@ public class ScheduledMessageStore extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) throws SQLException {
-        db.execSQL("CREATE TABLE scheduled_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, contact_jids TEXT NOT NULL, contact_names TEXT NOT NULL, message TEXT NOT NULL, scheduled_time INTEGER NOT NULL, repeat_type INTEGER NOT NULL DEFAULT 0, repeat_days INTEGER NOT NULL DEFAULT 0, is_active INTEGER NOT NULL DEFAULT 1, is_sent INTEGER NOT NULL DEFAULT 0, last_sent_time INTEGER NOT NULL DEFAULT 0, created_time INTEGER NOT NULL, whatsapp_type INTEGER NOT NULL DEFAULT 0)");
+        db.execSQL("CREATE TABLE scheduled_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, contact_jids TEXT NOT NULL, contact_names TEXT NOT NULL, message TEXT NOT NULL, scheduled_time INTEGER NOT NULL, repeat_type INTEGER NOT NULL DEFAULT 0, repeat_days INTEGER NOT NULL DEFAULT 0, is_active INTEGER NOT NULL DEFAULT 1, is_sent INTEGER NOT NULL DEFAULT 0, last_sent_time INTEGER NOT NULL DEFAULT 0, created_time INTEGER NOT NULL, whatsapp_type INTEGER NOT NULL DEFAULT 0, media_path TEXT)");
     }
 
     @Override
@@ -52,6 +53,10 @@ public class ScheduledMessageStore extends SQLiteOpenHelper {
         if (oldVersion < 6) {
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME);
             onCreate(db);
+        } else if (oldVersion < 7) {
+             try {
+                db.execSQL("ALTER TABLE scheduled_messages ADD COLUMN media_path TEXT");
+            } catch (Exception ignored) {}
         }
     }
 
@@ -69,6 +74,7 @@ public class ScheduledMessageStore extends SQLiteOpenHelper {
         contentValues.put(COLUMN_LAST_SENT_TIME, Long.valueOf(scheduledMessage.getLastSentTime()));
         contentValues.put(COLUMN_CREATED_TIME, Long.valueOf(scheduledMessage.getCreatedTime()));
         contentValues.put(COLUMN_WHATSAPP_TYPE, Integer.valueOf(scheduledMessage.getWhatsappType()));
+        contentValues.put(COLUMN_MEDIA_PATH, scheduledMessage.getImagePath());
         long jInsert = writableDatabase.insert(TABLE_NAME, null, contentValues);
         scheduledMessage.setId(jInsert);
         return jInsert;
@@ -87,6 +93,7 @@ public class ScheduledMessageStore extends SQLiteOpenHelper {
         contentValues.put(COLUMN_IS_SENT, Integer.valueOf(scheduledMessage.isSent() ? 1 : 0));
         contentValues.put(COLUMN_LAST_SENT_TIME, Long.valueOf(scheduledMessage.getLastSentTime()));
         contentValues.put(COLUMN_WHATSAPP_TYPE, Integer.valueOf(scheduledMessage.getWhatsappType()));
+        contentValues.put(COLUMN_MEDIA_PATH, scheduledMessage.getImagePath());
         return writableDatabase.update(TABLE_NAME, contentValues, "id = ?", new String[]{String.valueOf(scheduledMessage.getId())}) > 0;
     }
 
@@ -206,6 +213,8 @@ public class ScheduledMessageStore extends SQLiteOpenHelper {
         int lastSentIndex = cursor.getColumnIndex(COLUMN_LAST_SENT_TIME);
         int createdIndex = cursor.getColumnIndex(COLUMN_CREATED_TIME);
         int whatsappTypeIndex = cursor.getColumnIndex(COLUMN_WHATSAPP_TYPE);
+        int mediaPathIndex = cursor.getColumnIndex(COLUMN_MEDIA_PATH);
+
         String namesJson = "[]";
         if (jidsIndex >= 0) {
             jidsJson = cursor.getString(jidsIndex);
@@ -234,6 +243,11 @@ public class ScheduledMessageStore extends SQLiteOpenHelper {
             i2 = i;
             z = false;
         }
-        return new ScheduledMessage(j, listJsonToList, listJsonToList2, string, j2, i3, i2, z, cursor.getInt(sentIndex) == 1, cursor.getLong(lastSentIndex), cursor.getLong(createdIndex), whatsappTypeIndex >= 0 ? cursor.getInt(whatsappTypeIndex) : 0);
+        String mediaPath = null;
+        if (mediaPathIndex >= 0) {
+            mediaPath = cursor.getString(mediaPathIndex);
+        }
+
+        return new ScheduledMessage(j, listJsonToList, listJsonToList2, string, j2, i3, i2, z, cursor.getInt(sentIndex) == 1, cursor.getLong(lastSentIndex), cursor.getLong(createdIndex), whatsappTypeIndex >= 0 ? cursor.getInt(whatsappTypeIndex) : 0, mediaPath);
     }
 }

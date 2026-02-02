@@ -416,6 +416,22 @@ public class WppCore {
                 return false;
             }
 
+            // Copy image to WhatsApp-accessible location
+            File accessibleFile = copyImageToWhatsAppCache(imageFile);
+            if (accessibleFile == null) {
+                // If copy failed, try using original if readable
+                if (imageFile.canRead()) {
+                    accessibleFile = imageFile;
+                    XposedBridge.log("WaEnhancer: Using original file (readable)");
+                } else {
+                    XposedBridge.log("WaEnhancer: Cannot access image file");
+                    Utils.showToast("Cannot access image file", Toast.LENGTH_SHORT);
+                    return false;
+                }
+            } else {
+                XposedBridge.log("WaEnhancer: Image copied to: " + accessibleFile.getAbsolutePath());
+            }
+
             XposedBridge.log("WaEnhancer: Using media method: " + mMediaActionUserMethod.getName());
 
             // Create UserJid list
@@ -435,14 +451,11 @@ public class WppCore {
                 return false;
             }
 
-            // Prepare method parameters
+            // Prepare method parameters - initialize ALL parameters with defaults first
             Class<?>[] params = mMediaActionUserMethod.getParameterTypes();
-            Object[] args = new Object[params.length];
-            for (int i = 0; i < args.length; i++) {
-                args[i] = ReflectionUtils.getDefaultValue(params[i]);
-            }
+            Object[] args = ReflectionUtils.initArray(params);
 
-            // Set parameters based on type
+            // Then set only the parameters we know
             int listIndex = ReflectionUtils.findIndexOfType(params, List.class);
             if (listIndex != -1) args[listIndex] = userJidList;
 
@@ -450,7 +463,39 @@ public class WppCore {
             if (stringIndex != -1) args[stringIndex] = caption != null ? caption : "";
 
             int fileIndex = ReflectionUtils.findIndexOfType(params, File.class);
-            if (fileIndex != -1) args[fileIndex] = imageFile;
+            int uriIndex = ReflectionUtils.findIndexOfType(params, android.net.Uri.class);
+            
+            if (fileIndex != -1) {
+                args[fileIndex] = imageFile;
+                XposedBridge.log("WaEnhancer: File parameter found at index: " + fileIndex);
+            } else if (uriIndex != -1) {
+                args[uriIndex] = android.net.Uri.fromFile(imageFile);
+                XposedBridge.log("WaEnhancer: Using Uri parameter at index: " + uriIndex);
+            } else {
+                // No File/Uri - this is the new WhatsApp API
+                // The media info is in the first parameter (X.1Od type)
+                XposedBridge.log("WaEnhancer: No File/Uri parameter - using new WhatsApp API");
+                XposedBridge.log("WaEnhancer: Image file: " + imageFile.getAbsolutePath());
+                
+                // WhatsApp 2.26.3.79+ doesn't have File parameter in media methods
+                // The API has changed to use internal media objects (X.1Od with constructor: X.1Rw, int, long)
+                // We need to construct X.1Od from X.1Rw (database row), but this requires deep integration
+                
+                XposedBridge.log("WaEnhancer: Media scheduling not yet supported for WhatsApp " + 
+                    android.os.Build.VERSION.RELEASE);
+                XposedBridge.log("WaEnhancer: Falling back to caption-only message");
+                
+                // Send caption as text message
+                if (caption != null && !caption.isEmpty()) {
+                    Utils.showToast("Media scheduling not yet supported. Sending caption as text.", Toast.LENGTH_LONG);
+                    sendMessage(jids, caption, messageId);
+                } else {
+                    Utils.showToast("Media scheduling not yet supported in this WhatsApp version.", Toast.LENGTH_LONG);
+                    String fallbackMsg = "[Scheduled media: " + accessibleFile.getName() + "]";
+                    sendMessage(jids, fallbackMsg, messageId);
+                }
+                return true;
+            }
 
             // Get or create media action instance
             Object mediaActionInstance = getMediaActionUser();
@@ -476,7 +521,19 @@ public class WppCore {
             return true;
 
         } catch (Exception e) {
-            XposedBridge.log("WaEnhancer: Exception in sendImageMessage: " + e.getMessage());
+            String errorMsg = e.getMessage();
+            if (e instanceof java.lang.reflect.InvocationTargetException) {
+                Throwable cause = ((java.lang.reflect.InvocationTargetException) e).getTargetException();
+                if (cause != null) {
+                    errorMsg = "InvocationTarget: " + cause.getClass().getName() + ": " + cause.getMessage();
+                    XposedBridge.log("WaEnhancer: Exception in sendImageMessage: " + errorMsg);
+                    XposedBridge.log(cause);
+                } else {
+                    XposedBridge.log("WaEnhancer: InvocationTargetException with null cause");
+                }
+            } else {
+                XposedBridge.log("WaEnhancer: Exception in sendImageMessage: " + errorMsg);
+            }
             XposedBridge.log(e);
             Utils.showToast("Error sending media: " + e.getMessage(), Toast.LENGTH_SHORT);
 
@@ -489,6 +546,47 @@ public class WppCore {
                 Utils.getApplication().sendBroadcast(intent);
             }
             return false;
+        }
+    }
+
+    private static File copyImageToWhatsAppCache(File sourceFile) {
+        try {
+            // Create WhatsApp Pictures directory
+            File waDir = new File(android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_PICTURES), "WhatsApp");
+            if (!waDir.exists()) {
+                waDir.mkdirs();
+            }
+            
+            // Create destination file with timestamp
+            File destFile = new File(waDir, "WA_" + System.currentTimeMillis() + "_" + sourceFile.getName());
+            
+            // Try to copy using file streams
+            try (java.io.FileInputStream fis = new java.io.FileInputStream(sourceFile);
+                 java.io.FileOutputStream fos = new java.io.FileOutputStream(destFile)) {
+                
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
+                }
+                fos.flush();
+            }
+            
+            // Make file readable
+            destFile.setReadable(true, false);
+            destFile.setWritable(true, false);
+            
+            // Scan file to make it visible
+            Utils.scanFile(destFile);
+            
+            XposedBridge.log("WaEnhancer: Copied " + sourceFile.getAbsolutePath() + " to " + destFile.getAbsolutePath());
+            return destFile;
+            
+        } catch (Exception e) {
+            XposedBridge.log("WaEnhancer: Failed to copy image: " + e.getMessage());
+            XposedBridge.log(e);
+            return null;
         }
     }
 

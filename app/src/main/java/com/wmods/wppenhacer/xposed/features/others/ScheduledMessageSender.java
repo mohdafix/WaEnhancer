@@ -43,7 +43,7 @@ public class ScheduledMessageSender extends Feature {
                     List<String> jids = intent.getStringArrayListExtra("contact_jids");
                     String message = intent.getStringExtra("message");
                     long messageId = intent.getLongExtra("message_id", -1);
-                    String mediaPath = intent.getStringExtra("media_path");
+                    String imagePath = intent.getStringExtra("image_path");
                     
                     if (jids == null || jids.isEmpty()) {
                         XposedBridge.log("ScheduledMessageSender: No contacts specified");
@@ -51,12 +51,12 @@ public class ScheduledMessageSender extends Feature {
                     }
                     
                     // Check if this is a media message
-                    if (mediaPath != null && !mediaPath.isEmpty()) {
+                    if (imagePath != null && !imagePath.isEmpty()) {
                         XposedBridge.log("ScheduledMessageSender: Sending media message to " + jids.size() + " contacts");
-                        java.io.File mediaFile = new java.io.File(mediaPath);
+                        java.io.File mediaFile = new java.io.File(imagePath);
                         
                         if (!mediaFile.exists()) {
-                            XposedBridge.log("ScheduledMessageSender: Media file not found: " + mediaPath);
+                            XposedBridge.log("ScheduledMessageSender: Media file not found: " + imagePath);
                             Utils.showToast("Media file not found", android.widget.Toast.LENGTH_SHORT);
                             return;
                         }

@@ -62,7 +62,6 @@ import com.wmods.wppenhacer.xposed.features.media.MediaQuality;
 import com.wmods.wppenhacer.xposed.features.media.StatusDownload;
 import com.wmods.wppenhacer.xposed.features.media.VideoCallRecording;
 import com.wmods.wppenhacer.xposed.features.others.ActivityController;
-import com.wmods.wppenhacer.xposed.features.others.AudioSpeedControl;
 import com.wmods.wppenhacer.xposed.features.others.AudioTranscript;
 import com.wmods.wppenhacer.xposed.features.others.Channels;
 import com.wmods.wppenhacer.xposed.features.others.ChatFilters;
@@ -382,7 +381,6 @@ Others.class,
                  AntiWa.class,
                 CustomPrivacy.class,
                 AudioTranscript.class,
-                AudioSpeedControl.class,
                 GoogleTranslate.class,
                 ContactBlockedVerify.class,
                 CallRecording.class,

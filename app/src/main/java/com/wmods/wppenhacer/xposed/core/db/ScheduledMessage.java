@@ -37,6 +37,8 @@ public class ScheduledMessage {
     private long scheduledTime;
     private int whatsappType;
 
+    private String imagePath;
+
     public ScheduledMessage() {
         this.createdTime = System.currentTimeMillis();
         this.isActive = true;
@@ -46,9 +48,10 @@ public class ScheduledMessage {
         this.whatsappType = 0;
         this.contactJids = new ArrayList();
         this.contactNames = new ArrayList();
+        this.imagePath = null;
     }
 
-    public ScheduledMessage(long id, List<String> contactJids, List<String> contactNames, String message, long scheduledTime, int repeatType, int repeatDays, boolean isActive, boolean isSent, long lastSentTime, long createdTime, int whatsappType) {
+    public ScheduledMessage(long id, List<String> contactJids, List<String> contactNames, String message, long scheduledTime, int repeatType, int repeatDays, boolean isActive, boolean isSent, long lastSentTime, long createdTime, int whatsappType, String imagePath) {
         this.id = id;
         this.contactJids = contactJids != null ? contactJids : new ArrayList<>();
         this.contactNames = contactNames != null ? contactNames : new ArrayList<>();
@@ -61,6 +64,19 @@ public class ScheduledMessage {
         this.lastSentTime = lastSentTime;
         this.createdTime = createdTime;
         this.whatsappType = whatsappType;
+        this.imagePath = imagePath;
+    }
+
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
+    }
+
+    public boolean hasImage() {
+        return imagePath != null && !imagePath.isEmpty();
     }
 
     public long getId() {

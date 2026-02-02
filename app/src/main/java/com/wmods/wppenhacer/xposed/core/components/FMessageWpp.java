@@ -530,6 +530,8 @@ public class FMessageWpp {
         public Object phoneJid;
         public Object userJid;
 
+        public static final Class<?> TYPE_JID = com.wmods.wppenhacer.xposed.core.components.FMessageWpp.UserJid.class;
+
         public UserJid() {
         }
 

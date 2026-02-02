@@ -191,26 +191,82 @@
                 app:cardElevation="2dp"
                 app:strokeWidth="0dp">
 
-                <com.google.android.material.textfield.TextInputLayout
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="8dp"
-                    app:boxStrokeWidth="0dp"
-                    app:boxStrokeWidthFocused="0dp"
-                    app:hintEnabled="false">
+                    android:orientation="vertical"
+                    android:padding="8dp">
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/edit_message"
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="Type message here..."
-                        android:minLines="3"
-                        android:gravity="top"
-                        android:background="@android:color/transparent"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary" />
+                        android:padding="8dp"
+                        app:boxStrokeWidth="0dp"
+                        app:boxStrokeWidthFocused="0dp"
+                        app:hintEnabled="false">
 
-                </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/edit_message"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Type message here..."
+                            android:minLines="4"
+                            android:gravity="top"
+                            android:background="@android:color/transparent"
+                            android:textSize="15sp"
+                            android:textColor="@color/text_primary" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Attachment Section -->
+                    <LinearLayout
+                         android:layout_width="match_parent"
+                         android:layout_height="wrap_content"
+                         android:orientation="vertical"
+                         android:paddingHorizontal="8dp"
+                         android:paddingBottom="8dp">
+
+                        <FrameLayout
+                            android:id="@+id/layout_media_preview"
+                            android:layout_width="match_parent"
+                            android:layout_height="150dp"
+                            android:visibility="gone"
+                            android:layout_marginBottom="8dp">
+                            
+                            <ImageView
+                                android:id="@+id/image_media_preview"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:scaleType="centerCrop"
+                                android:background="@color/card_background"
+                                android:src="@android:drawable/ic_menu_gallery"/>
+                                
+                             <ImageButton
+                                android:id="@+id/button_remove_media"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:src="@android:drawable/ic_delete"
+                                android:background="@drawable/circle_background"
+                                android:backgroundTint="#80000000"
+                                android:tint="@android:color/white"
+                                android:padding="6dp"
+                                android:layout_gravity="top|end"
+                                android:layout_margin="8dp"/>
+
+                        </FrameLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/button_attach_media"
+                            style="@style/Widget.Material3.Button.TextButton.Icon"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Attach Media"
+                            app:icon="@drawable/ic_general" 
+                            android:layout_gravity="start"/>
+
+                    </LinearLayout>
+
+                </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
 

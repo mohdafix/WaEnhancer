@@ -37,6 +37,7 @@ import org.luckypray.dexkit.result.MethodDataList;
 import org.luckypray.dexkit.result.UsingFieldData;
 import org.luckypray.dexkit.util.DexSignUtil;
 
+import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -503,12 +504,19 @@ public class Unobfuscator {
             var idxFields = 0;
             while (idxStrings < usingStrings.size()) {
                 if (idxFields == usingFields.size()) break;
-                if (usingStrings.get(idxStrings).equals("outputAspectRatio")) {
+                // User reported horizontal video issues which implies mapping failure.
+                // Using contains is safer than equals for string constants.
+                if (usingStrings.get(idxStrings).contains("outputAspectRatio")) {
                     idxStrings++;
                     continue;
                 }
                 var field = usingFields.get(idxFields).getField().getFieldInstance(classLoader);
-                result.put(usingStrings.get(idxStrings), field);
+                
+                String rawKey = usingStrings.get(idxStrings);
+                result.put(rawKey, field);
+                // Clean the key to ensure it matches "targetWidth" etc. even if it is "targetWidth="
+                result.put(rawKey.replaceAll("[^a-zA-Z0-9]", ""), field);
+                
                 idxStrings++;
                 idxFields++;
             }
@@ -1497,11 +1505,19 @@ public class Unobfuscator {
         });
     }
 
+
     public synchronized static Method loadAudioProximitySensorMethod(ClassLoader loader) throws Exception {
         return UnobfuscatorCache.getInstance().getMethod(loader, () -> {
             var method = findFirstMethodUsingStrings(loader, StringMatchType.Contains, "messageaudioplayer/onearproximity");
             if (method == null) throw new RuntimeException("ProximitySensor method not found");
             return method;
+        });
+    }
+
+    public synchronized static Class<?> loadAudioPlayerClass(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getClass(loader, () -> {
+            var method = loadAudioProximitySensorMethod(loader);
+            return method.getDeclaringClass();
         });
     }
 
@@ -1523,7 +1539,10 @@ public class Unobfuscator {
                 "handle_photo",
                 "app/xmpp/recv/handle_notification",
                 "notification/handle_avatar",
-                "profile_picture_notification"
+                "profile_picture_notification",
+                "set_photo",
+                "remove_photo",
+                "update_photo"
             };
             for (String sig : signatures) {
                 var method = findFirstMethodUsingStrings(loader, StringMatchType.Contains, sig);
@@ -2424,14 +2443,61 @@ public class Unobfuscator {
 
     public static Method loadSendMediaUserAction(ClassLoader classLoader) throws Exception {
         return UnobfuscatorCache.getInstance().getMethod(classLoader, () -> {
-            // TODO: Replace "MEDIA_SEND_STRING" with the actual obfuscated string from WhatsApp
-            // This string should identify the media sending method
-            // You can find it by decompiling WhatsApp and looking for the media action user class
-            Method method = findFirstMethodUsingStrings(classLoader, StringMatchType.Contains, "MEDIA_SEND_STRING");
+            // This is the string identifier used by newer WhatsApp versions to identify the media sending method
+            Method method = findFirstMethodUsingStrings(classLoader, StringMatchType.Contains, "SendMedia/sendImage jids");
             if (method != null) {
+                XposedBridge.log("WaEnhancer: Found SendMediaUserAction by string: " + method.getName());
                 return method;
             }
+
+            // Fallback to existing heuristics for older versions
+            Method textMethod = loadUserActionsTextMessageSending(classLoader);
+            if (textMethod == null) throw new NoSuchMethodException("UserActions anchor not found");
+            
+            Class<?> actionClass = textMethod.getDeclaringClass();
+            for(Method m : actionClass.getDeclaredMethods()) {
+                if (m.equals(textMethod)) continue;
+                Class<?>[] params = m.getParameterTypes();
+                boolean hasList = false;
+                boolean hasFileOrUri = false;
+                for(Class<?> p : params) {
+                    if(p.equals(List.class)) hasList = true;
+                    else if(p.equals(File.class) || p.equals(Uri.class)) hasFileOrUri = true;
+                }
+                if(hasList && hasFileOrUri) return m;
+            }
+
             throw new NoSuchMethodException("loadSendMediaUserAction method not found");
+        });
+    }
+
+    public static Method loadSendTextUserAction(ClassLoader classLoader) throws Exception {
+        return UnobfuscatorCache.getInstance().getMethod(classLoader, () -> {
+            // Use the anchor to get the class
+            Method textMethod = loadUserActionsTextMessageSending(classLoader);
+            if (textMethod == null) throw new NoSuchMethodException("UserActions anchor not found");
+            
+            Class<?> actionClass = textMethod.getDeclaringClass();
+
+            // Broad search for method taking (List, String, ...)
+            // The sender hook logic is robust enough to fill args by type
+            for(Method m : actionClass.getDeclaredMethods()) {
+                 Class<?>[] p = m.getParameterTypes();
+                 if(p.length >= 2) {
+                     boolean hasList = false;
+                     boolean hasString = false;
+                     for(Class<?> type : p) {
+                         if(java.util.List.class.isAssignableFrom(type)) hasList = true;
+                         if(String.class.isAssignableFrom(type)) hasString = true;
+                     }
+                     
+                     if(hasList && hasString) {
+                         return m;
+                     }
+                 }
+            }
+
+            throw new NoSuchMethodException("loadSendTextUserAction method not found in " + actionClass.getName());
         });
     }
 }

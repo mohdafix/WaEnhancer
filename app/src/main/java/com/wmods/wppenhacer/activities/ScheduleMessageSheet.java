@@ -118,6 +118,58 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
         }
     }
 
+    private String currentMediaPath;
+    private View layoutMediaPreview;
+    private android.widget.ImageView imageMediaPreview;
+    private android.widget.ImageButton buttonRemoveMedia;
+    private com.google.android.material.button.MaterialButton buttonAttachMedia;
+
+    private final androidx.activity.result.ActivityResultLauncher<String> mediaPickerLauncher =
+            registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.GetContent(), uri -> {
+                if (uri != null) {
+                    processSelectedMedia(uri);
+                }
+            });
+
+    private void processSelectedMedia(android.net.Uri uri) {
+        try {
+            // Save to External Storage (Pictures/WaEnhancer) to be accessible by WhatsApp
+            java.io.File destDir = new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES), "WaEnhancer");
+            if (!destDir.exists()) destDir.mkdirs();
+            
+            String fileName = "sch_" + System.currentTimeMillis() + ".jpg";
+            java.io.File destFile = new java.io.File(destDir, fileName);
+            
+            try (java.io.InputStream in = requireContext().getContentResolver().openInputStream(uri);
+                 java.io.FileOutputStream out = new java.io.FileOutputStream(destFile)) {
+                
+                byte[] buffer = new byte[4096];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
+            }
+            
+            currentMediaPath = destFile.getAbsolutePath();
+            updateMediaPreview();
+            
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "Failed to process image: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+        }
+    }
+
+    private void updateMediaPreview() {
+        if (currentMediaPath != null) {
+            layoutMediaPreview.setVisibility(View.VISIBLE);
+            buttonAttachMedia.setText("Change Media");
+            imageMediaPreview.setImageURI(android.net.Uri.fromFile(new java.io.File(currentMediaPath)));
+        } else {
+            layoutMediaPreview.setVisibility(View.GONE);
+            buttonAttachMedia.setText("Attach Media");
+        }
+    }
+
     private void initializeViews(View view) {
         recyclerSelectedContacts = view.findViewById(R.id.recycler_selected_contacts);
         selectedContactsAdapter = new SelectedContactsAdapter(selectedContactNames, selectedContactJids, position -> {
@@ -138,6 +190,12 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
         layoutDate = view.findViewById(R.id.layout_date);
         layoutTime = view.findViewById(R.id.layout_time);
         
+        // Media Views
+        layoutMediaPreview = view.findViewById(R.id.layout_media_preview);
+        imageMediaPreview = view.findViewById(R.id.image_media_preview);
+        buttonRemoveMedia = view.findViewById(R.id.button_remove_media);
+        buttonAttachMedia = view.findViewById(R.id.button_attach_media);
+
         updateDateTimeDisplay();
 
         cardBridgeStatus = view.findViewById(R.id.card_bridge_status);
@@ -160,6 +218,13 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
         layoutDate.setOnClickListener(v -> showDatePicker());
         layoutTime.setOnClickListener(v -> showTimePicker());
         buttonRetryBridge.setOnClickListener(v -> initializeBridge());
+        
+        // Media Listeners
+        buttonAttachMedia.setOnClickListener(v -> mediaPickerLauncher.launch("image/*"));
+        buttonRemoveMedia.setOnClickListener(v -> {
+            currentMediaPath = null;
+            updateMediaPreview();
+        });
     }
 
     private void updateDateTimeDisplay() {
@@ -283,6 +348,11 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
         selectedContactJids.addAll(editingMessage.getContactJids());
         selectedContactsAdapter.notifyDataSetChanged();
         editMessage.setText(editingMessage.getMessage());
+        
+        // Load Image Path
+        currentMediaPath = editingMessage.getImagePath();
+        updateMediaPreview();
+
         int repeat = editingMessage.getRepeatType();
         if (repeat == ScheduledMessage.REPEAT_ONCE) radioGroupRepeat.check(R.id.radio_once);
         else if (repeat == ScheduledMessage.REPEAT_DAILY) radioGroupRepeat.check(R.id.radio_daily);
@@ -319,8 +389,9 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
             return;
         }
         String msg = editMessage.getText().toString().trim();
-        if (msg.isEmpty()) {
-            Toast.makeText(requireContext(), "Enter message", Toast.LENGTH_SHORT).show();
+        // Allow empty text if media is present
+        if (msg.isEmpty() && currentMediaPath == null) {
+            Toast.makeText(requireContext(), "Enter message or attach media", Toast.LENGTH_SHORT).show();
             return;
         }
         int repeat = getRepeatTypeFromRadio();
@@ -337,6 +408,8 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
         editingMessage.setScheduledTime(time);
         editingMessage.setRepeatType(repeat);
         editingMessage.setWhatsappType(wType);
+        editingMessage.setImagePath(currentMediaPath); // Save image path
+
         if (repeat == ScheduledMessage.REPEAT_CUSTOM_DAYS) editingMessage.setRepeatDays(getRepeatDaysFromChips());
         
         // Ensure message is active and reset sent status when saving/editing

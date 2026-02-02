@@ -52,23 +52,99 @@ public class ProfilePictureChangeNotifier extends Feature {
         // Hook into contact item binding to detect profile picture changes
         ContactItemListener.contactListeners.add(new ProfilePictureChangeListener());
 
-        // PROACTIVE REAL-TIME HOOK
+        // PROACTIVE REAL-TIME HOOK - Adapted from working build
         try {
-            Method notifyMethod = Unobfuscator.loadNotifyUpdatePhotoMethod(classLoader);
-            if (notifyMethod != null) {
-                XposedBridge.log("WaEnhancer: Hooking notifyUpdatePhotoMethod: " + notifyMethod.getName());
-                XposedBridge.hookMethod(notifyMethod, new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        // Scan arguments for Jid objects
-                        if (param.args == null) return;
-                        for (Object arg : param.args) {
-                            if (arg != null && arg.getClass().getName().contains("jid")) {
-                                WppCore.notifyUpdatePhotoProfile(arg);
+            // Already checked notificationOption above, but for the hook we need it to be final or effectively final usually, 
+            // but here we can just use the outer one or re-check.
+            // Since we returned early if == 0, it is > 0 here.
+            if (notificationOption > 0) {
+                Method notifyMethod = Unobfuscator.loadNotifyUpdatePhotoMethod(classLoader);
+                if (notifyMethod != null) {
+                    XposedBridge.log("WaEnhancer: Hooking notifyUpdatePhotoMethod: " + notifyMethod.getName());
+                    XposedBridge.hookMethod(notifyMethod, new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            try {
+                                if (param.args == null || param.args.length == 0) return;
+                                
+                                // Extract JID from notification stanza using reflection
+                                // This matches the working build's approach
+                                Object stanzaArg = param.args[0];
+                                if (stanzaArg == null) return;
+                                
+                                // Find method to get element at index 0
+                                Method getElementMethod = com.wmods.wppenhacer.xposed.utils.ReflectionUtils.findMethodUsingFilter(
+                                    stanzaArg.getClass(),
+                                    method -> method.getParameterCount() == 1 
+                                        && method.getParameterTypes()[0] == Integer.TYPE
+                                );
+                                
+                                if (getElementMethod == null) {
+                                    XposedBridge.log("WaEnhancer: Could not find getElement method");
+                                    return;
+                                }
+                                
+                                Object element = getElementMethod.invoke(stanzaArg, 0);
+                                if (element == null) return;
+                                
+                                // Find method to get attribute by type and name
+                                Method getAttributeMethod = com.wmods.wppenhacer.xposed.utils.ReflectionUtils.findMethodUsingFilter(
+                                    element.getClass(),
+                                    method -> method.getParameterCount() == 2 
+                                        && method.getParameterTypes()[0] == Class.class 
+                                        && method.getParameterTypes()[1] == String.class
+                                );
+                                
+                                if (getAttributeMethod == null) {
+                                    XposedBridge.log("WaEnhancer: Could not find getAttribute method");
+                                    return;
+                                }
+                                
+                                // Get the JID attribute
+                                // We need the WhatsApp internal UserJid class for the first argument
+                                Class<?> waUserJidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.UserJid");
+                                if (waUserJidClass == null) {
+                                     XposedBridge.log("WaEnhancer: Could not find WhatsApp UserJid class");
+                                     return;
+                                }
+
+                                Object jidObj = getAttributeMethod.invoke(element, waUserJidClass, "jid");
+                                
+                                if (jidObj == null) return;
+                                
+                                // Convert to UserJid and get contact name
+                                FMessageWpp.UserJid userJid = new FMessageWpp.UserJid(jidObj);
+                                String contactName = WppCore.getContactName(userJid);
+                                String jid = userJid.getUserRawString();
+                                
+                                // Direct notification - Trust the hook event (matches reference behavior)
+                                // Previous hash check caused race conditions where file wasn't updated yet
+                                String message = String.format(
+                                    Utils.getApplication().getString(com.wmods.wppenhacer.R.string.profile_picture_has_been_updated),
+                                    contactName
+                                );
+                                
+                                if (notificationOption == 1) {
+                                    Utils.showToast(message, Toast.LENGTH_LONG);
+                                } else if (notificationOption == 2) {
+                                    Utils.showNotification(
+                                        Utils.getApplication().getString(com.wmods.wppenhacer.R.string.app_name),
+                                        message
+                                    );
+                                }
+                                
+                                XposedBridge.log("WaEnhancer: Profile picture changed for: " + contactName);
+
+                                // Update stored hash just in case we need it for other things later
+                                String currentHash = getProfilePictureHash(jid);
+                                getHashPrefs().edit().putString(jid, currentHash).apply();
+                                
+                            } catch (Throwable t) {
+                                XposedBridge.log("WaEnhancer: Error in profile picture hook: " + t.getMessage());
                             }
                         }
-                    }
-                });
+                    });
+                }
             }
         } catch (Throwable t) {
             XposedBridge.log("WaEnhancer: Error hooking real-time profile updates: " + t);
