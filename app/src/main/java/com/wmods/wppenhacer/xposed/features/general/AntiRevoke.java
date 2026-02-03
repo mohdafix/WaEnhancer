@@ -1,5 +1,6 @@
 package com.wmods.wppenhacer.xposed.features.general;
 
+import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Build;
@@ -176,6 +177,34 @@ public class AntiRevoke extends Feature {
             }
         });
 
+        // Auto-clear notifications on view
+        XposedHelpers.findAndHookMethod("com.whatsapp.Conversation", classLoader, "onResume", new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                Activity activity = (Activity) param.thisObject;
+                Intent intent = activity.getIntent();
+                if (intent != null) {
+                    String jid = intent.getStringExtra("jid");
+                    if (jid != null) {
+                        Utils.cancelNotification("antirevoke_" + jid, 1001);
+                    }
+                }
+            }
+        });
+
+        XposedHelpers.findAndHookMethod("com.whatsapp.status.playback.StatusPlaybackActivity", classLoader, "onResume", new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                Activity activity = (Activity) param.thisObject;
+                Intent intent = activity.getIntent();
+                if (intent != null) {
+                    String jid = intent.getStringExtra("jid");
+                    if (jid != null) {
+                        Utils.cancelNotification("antirevoke_" + jid, 1001);
+                    }
+                }
+            }
+        });
     }
 
     private TextView findDateView(ViewGroup viewGroup) {
@@ -367,11 +396,14 @@ public class AntiRevoke extends Feature {
                                 flags |= PendingIntent.FLAG_IMMUTABLE;
                             }
                             pendingIntent = PendingIntent.getActivity(Utils.getApplication(), rawJid.hashCode(), intent, flags);
+                            
+                            // Use grouped notification
+                            String tag = "antirevoke_" + rawJid;
+                            Utils.showNotification(notificationTitle, notificationContent, pendingIntent, tag, 1001, "antirevoke_group");
                         }
                     } catch (Throwable e) {
                         log(e);
                     }
-                    Utils.showNotification(notificationTitle, notificationContent, pendingIntent);
                 }
             }
         }

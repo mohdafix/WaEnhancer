@@ -48,8 +48,36 @@ public class OwnMessageStatus extends Feature {
         });
     }
 
+    private ViewGroup findDateWrapper(ViewGroup viewGroup) {
+        // 1. Try common ID
+        int wrapperId = Utils.getID("date_wrapper", "id");
+        if (wrapperId != -1) {
+            View wrapper = viewGroup.findViewById(wrapperId);
+            if (wrapper instanceof ViewGroup) return (ViewGroup) wrapper;
+        }
+
+        // 2. Robust fallback: find date TextView first, then its parent
+        int[] dateIds = {
+                Utils.getID("date", "id"),
+                Utils.getID("date_tv", "id"),
+                Utils.getID("timestamp", "id"),
+                Utils.getID("time", "id")
+        };
+
+        for (int id : dateIds) {
+            if (id != -1) {
+                View dateView = viewGroup.findViewById(id);
+                if (dateView != null && dateView.getParent() instanceof ViewGroup) {
+                    return (ViewGroup) dateView.getParent();
+                }
+            }
+        }
+
+        return null;
+    }
+
     private void resetStatusViews(ViewGroup viewGroup) {
-        ViewGroup dateWrapper = viewGroup.findViewById(Utils.getID("date_wrapper", "id"));
+        ViewGroup dateWrapper = findDateWrapper(viewGroup);
         if (dateWrapper == null) return;
 
         View textIndicator = dateWrapper.findViewById(STATUS_INDICATOR_TEXT_ID);
@@ -68,7 +96,7 @@ public class OwnMessageStatus extends Feature {
 
     @SuppressLint("ResourceType")
     private void updateOwnStatusView(FMessageWpp fMessage, ViewGroup viewGroup) {
-        ViewGroup dateWrapper = viewGroup.findViewById(Utils.getID("date_wrapper", "id"));
+        ViewGroup dateWrapper = findDateWrapper(viewGroup);
         if (dateWrapper == null) return;
 
         // Hide original ticks
@@ -98,10 +126,14 @@ public class OwnMessageStatus extends Feature {
             dateWrapper.addView(indicator);
         }
 
-        if (status == 13 || status == 5 || status == 3) {
+        // Expanded status set:
+        // Blue (Read): 13, 5, 8, 9, 10
+        // Green (Delivered/Sent): 1, 4, 3, 2
+        // White (Pending): 0, 6, -1
+        if (status == 13 || status == 5 || status == 8 || status == 9 || status == 10) {
             indicator.setText("\uD83D\uDD35"); // 🔵
             indicator.setVisibility(View.VISIBLE);
-        } else if (status == 1 || status == 4) {
+        } else if (status == 1 || status == 4 || status == 3 || status == 2) {
             indicator.setText("\uD83D\uDFE2"); // 🟢
             indicator.setVisibility(View.VISIBLE);
         } else if (status == 0 || status == 6 || status == -1) {
@@ -117,23 +149,35 @@ public class OwnMessageStatus extends Feature {
         if (indicator == null) {
             indicator = new ImageView(dateWrapper.getContext());
             indicator.setId(STATUS_INDICATOR_IMAGE_ID);
-            int size = Utils.dipToPixels(13); // Optimal size
-            // Re-creating params to use Gravity to center it with the time
-            android.widget.LinearLayout.LayoutParams params = new android.widget.LinearLayout.LayoutParams(size, size);
-            params.gravity = android.view.Gravity.CENTER_VERTICAL;
-            params.leftMargin = Utils.dipToPixels(3);
+            int size = Utils.dipToPixels(13);
+            
+            ViewGroup.LayoutParams params = null;
+            if (dateWrapper instanceof android.widget.LinearLayout) {
+                var lp = new android.widget.LinearLayout.LayoutParams(size, size);
+                lp.gravity = android.view.Gravity.CENTER_VERTICAL;
+                lp.leftMargin = Utils.dipToPixels(3);
+                params = lp;
+            } else if (dateWrapper instanceof android.widget.RelativeLayout) {
+                var lp = new android.widget.RelativeLayout.LayoutParams(size, size);
+                lp.addRule(android.widget.RelativeLayout.CENTER_VERTICAL);
+                lp.leftMargin = Utils.dipToPixels(3);
+                params = lp;
+            } else {
+                params = new ViewGroup.LayoutParams(size, size);
+            }
+            
             indicator.setLayoutParams(params);
             indicator.setScaleType(ImageView.ScaleType.FIT_CENTER);
             indicator.setAdjustViewBounds(true);
-            indicator.setBackground(null); // Remove any default background
+            indicator.setBackground(null);
             indicator.setPadding(0, 0, 0, 0);
             dateWrapper.addView(indicator);
         }
 
         int resId = 0;
-        if (status == 13 || status == 5 || status == 3) {
+        if (status == 13 || status == 5 || status == 8 || status == 9 || status == 10) {
             resId = ResId.drawable.ic_status_read_fb;
-        } else if (status == 1 || status == 4) {
+        } else if (status == 1 || status == 4 || status == 3 || status == 2) {
             resId = ResId.drawable.ic_status_delivered_fb;
         } else if (status == 0 || status == 6 || status == -1) {
             resId = ResId.drawable.ic_status_pending_fb;
@@ -148,11 +192,15 @@ public class OwnMessageStatus extends Feature {
     }
 
     private int getStatus(FMessageWpp fMessage) {
-        // 1. Try real-time memory (best for immediate updates)
+        // 1. Try real-time memory
         int status = fMessage.getStatus();
+        
+        // In group chats, if status is 1, it might stay 1 even if partially read.
+        // But for own UI ticks, WA usually handles it correctly via background updates.
+        
         if (status != -1) return status;
 
-        // 2. Fallback to DB (no cache, always fresh)
+        // 2. Fallback to DB
         return getMessageStatusFromDB(fMessage.getRowId());
     }
 

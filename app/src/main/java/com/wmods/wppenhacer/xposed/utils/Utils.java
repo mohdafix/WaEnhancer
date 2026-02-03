@@ -354,18 +354,14 @@ public class Utils {
 
     @SuppressLint("MissingPermission")
     public static void showNotification(String title, String content, @Nullable PendingIntent contentIntent) {
+        showNotification(title, content, contentIntent, null, new java.util.Random().nextInt(), null);
+    }
+
+    @SuppressLint("MissingPermission")
+    public static void showNotification(String title, String content, @Nullable PendingIntent contentIntent, String tag, int id, String groupKey) {
         try {
             var context = Utils.getApplication();
             if (context == null) return;
-
-            // Check for notifications permission on Android 13+
-            if (Build.VERSION.SDK_INT >= 33) {
-                if (androidx.core.content.ContextCompat.checkSelfPermission(context, "android.permission.POST_NOTIFICATIONS") 
-                        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                    XposedBridge.log("WaEnhancer: Notification permission not granted (Android 13+)");
-                    // We can't do much here as we are a module, but at least we know why it might not show.
-                }
-            }
 
             var notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             if (notificationManager == null) return;
@@ -380,7 +376,6 @@ public class Utils {
                 }
             }
 
-            // Using a more reliable icon from system
             int iconRes = android.R.drawable.ic_dialog_info; 
             
             var notificationBuilder = new NotificationCompat.Builder(context, channelId)
@@ -393,10 +388,40 @@ public class Utils {
                     .setDefaults(NotificationCompat.DEFAULT_ALL)
                     .setStyle(new NotificationCompat.BigTextStyle().bigText(content));
 
-            notificationManager.notify(new java.util.Random().nextInt(), notificationBuilder.build());
+            if (groupKey != null) {
+                notificationBuilder.setGroup(groupKey);
+                
+                // Show summary notification for the group
+                var summaryBuilder = new NotificationCompat.Builder(context, channelId)
+                        .setSmallIcon(iconRes)
+                        .setContentTitle(title)
+                        .setContentText("Multiple updates")
+                        .setGroup(groupKey)
+                        .setGroupSummary(true)
+                        .setAutoCancel(true);
+                
+                notificationManager.notify(groupKey.hashCode(), summaryBuilder.build());
+            }
+
+            notificationManager.notify(tag, id, notificationBuilder.build());
         } catch (Exception e) {
             XposedBridge.log("WaEnhancer: Error showing notification: " + e.getMessage());
         }
+    }
+
+    public static void cancelNotification(String tag, int id) {
+        try {
+            var context = Utils.getApplication();
+            if (context == null) return;
+            var notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                notificationManager.cancel(tag, id);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    public static void cancelNotification(int id) {
+        cancelNotification(null, id);
     }
 
     public static void openLink(Activity mActivity, String url) {
