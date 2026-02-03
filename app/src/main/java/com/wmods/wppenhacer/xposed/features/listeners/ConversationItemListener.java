@@ -62,9 +62,11 @@ public class ConversationItemListener extends Feature {
                         var fMessage = new FMessageWpp(fMessageObj);
                         var extraFMessage = XposedHelpers.getAdditionalInstanceField(param.thisObject, "fMessage");
                         if (Objects.equals(fMessage, extraFMessage)) return;
-                        for (OnConversationItemListener listener : conversationListeners) {
-                            listener.onItemBind(fMessage, viewGroup);
-                        }
+                        viewGroup.post(() -> {
+                            for (OnConversationItemListener listener : conversationListeners) {
+                                listener.onItemBind(fMessage, viewGroup);
+                            }
+                        });
                         XposedHelpers.setAdditionalInstanceField(param.thisObject, "fMessage", fMessage);
                     }
                 });

@@ -115,39 +115,35 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
         if (newText == null) newText = "";
 
         SpannableStringBuilder builder = new SpannableStringBuilder();
+        String NEWLINE_TOKEN = "<NL>";
 
-        // Simple word-based diff
-        String oldTrim = oldText.trim();
-        String newTrim = newText.trim();
-        String[] oldWords = oldTrim.isEmpty() ? new String[0] : oldTrim.split("\\s+");
-        String[] newWords = newTrim.isEmpty() ? new String[0] : newTrim.split("\\s+");
+        // Preserve newlines by treating them as tokens
+        String oldPrepared = oldText.replace("\n", " " + NEWLINE_TOKEN + " ");
+        String newPrepared = newText.replace("\n", " " + NEWLINE_TOKEN + " ");
+
+        String[] oldWords = filterEmpty(oldPrepared.trim().split("\\s+"));
+        String[] newWords = filterEmpty(newPrepared.trim().split("\\s+"));
 
         int oldIndex = 0;
         int newIndex = 0;
 
         while (oldIndex < oldWords.length || newIndex < newWords.length) {
             if (oldIndex < oldWords.length && newIndex < newWords.length && oldWords[oldIndex].equals(newWords[newIndex])) {
-                // Unchanged word
-                if (builder.length() > 0) builder.append(" ");
-                builder.append(newWords[newIndex]);
-                oldIndex++;
-                newIndex++;
+                 appendWord(builder, newWords[newIndex], NEWLINE_TOKEN);
+                 oldIndex++;
+                 newIndex++;
             } else {
                 boolean foundMatch = false;
                 if (oldIndex < oldWords.length && newIndex < newWords.length) {
-                    // Check if we can find a match later for old word
                     for (int i = newIndex; i < newWords.length; i++) {
                         if (oldWords[oldIndex].equals(newWords[i])) {
-                            // Add remaining new words as additions
                             for (int j = newIndex; j < i; j++) {
-                                if (builder.length() > 0) builder.append(" ");
                                 int start = builder.length();
-                                builder.append(newWords[j]);
-                                builder.setSpan(new ForegroundColorSpan(DIFF_ADDED_COLOR), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                appendWord(builder, newWords[j], NEWLINE_TOKEN);
+                                if (!newWords[j].equals(NEWLINE_TOKEN))
+                                    builder.setSpan(new ForegroundColorSpan(DIFF_ADDED_COLOR), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                             }
-                            // Add the matched word normally
-                            if (builder.length() > 0) builder.append(" ");
-                            builder.append(newWords[i]);
+                            appendWord(builder, newWords[i], NEWLINE_TOKEN);
                             newIndex = i + 1;
                             foundMatch = true;
                             break;
@@ -156,19 +152,18 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
                 }
                 if (!foundMatch) {
                     if (oldIndex < oldWords.length) {
-                        // Old word deleted
-                        if (builder.length() > 0) builder.append(" ");
                         int start = builder.length();
-                        builder.append(oldWords[oldIndex]);
-                        builder.setSpan(new ForegroundColorSpan(DIFF_DELETED_COLOR), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        builder.setSpan(new StrikethroughSpan(), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        appendWord(builder, oldWords[oldIndex], NEWLINE_TOKEN);
+                        if (!oldWords[oldIndex].equals(NEWLINE_TOKEN)) {
+                            builder.setSpan(new ForegroundColorSpan(DIFF_DELETED_COLOR), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            builder.setSpan(new StrikethroughSpan(), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        }
                         oldIndex++;
                     } else if (newIndex < newWords.length) {
-                        // New word added
-                        if (builder.length() > 0) builder.append(" ");
                         int start = builder.length();
-                        builder.append(newWords[newIndex]);
-                        builder.setSpan(new ForegroundColorSpan(DIFF_ADDED_COLOR), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        appendWord(builder, newWords[newIndex], NEWLINE_TOKEN);
+                        if (!newWords[newIndex].equals(NEWLINE_TOKEN))
+                            builder.setSpan(new ForegroundColorSpan(DIFF_ADDED_COLOR), start, builder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                         newIndex++;
                     }
                 }
@@ -176,6 +171,23 @@ public class MessageAdapter extends ArrayAdapter<MessageHistory.MessageItem> {
         }
 
         return builder;
+    }
+
+    private String[] filterEmpty(String[] arr) {
+        java.util.ArrayList<String> list = new java.util.ArrayList<>();
+        for (String s : arr) if (!s.isEmpty()) list.add(s);
+        return list.toArray(new String[0]);
+    }
+
+    private void appendWord(SpannableStringBuilder builder, String word, String newlineToken) {
+        if (word.equals(newlineToken)) {
+            builder.append("\n");
+        } else {
+            if (builder.length() > 0 && builder.charAt(builder.length() - 1) != '\n') {
+                builder.append(" ");
+            }
+            builder.append(word);
+        }
     }
 
     @NonNull

@@ -141,8 +141,10 @@ public class AntiRevoke extends Feature {
             @Override
             public void onItemBind(FMessageWpp fMessage, ViewGroup viewGroup) {
                 if (fMessage.getKey().isFromMe) return;
-                var dateTextView = (TextView) viewGroup.findViewById(Utils.getID("date", "id"));
-                bindRevokedMessageUI(fMessage, dateTextView, "antirevoke");
+                var dateTextView = findDateView(viewGroup);
+                if (dateTextView != null) {
+                    bindRevokedMessageUI(fMessage, dateTextView, "antirevoke");
+                }
             }
         });
 
@@ -174,6 +176,25 @@ public class AntiRevoke extends Feature {
             }
         });
 
+    }
+
+    private TextView findDateView(ViewGroup viewGroup) {
+        int[] ids = {
+            Utils.getID("date", "id"),
+            Utils.getID("date_tv", "id"), 
+            Utils.getID("timestamp", "id"),
+            Utils.getID("time", "id")
+        };
+        
+        for (int id : ids) {
+            if (id != -1) {
+                var view = viewGroup.findViewById(id);
+                if (view instanceof TextView) {
+                    return (TextView) view;
+                }
+            }
+        }
+        return null;
     }
 
     private void bindRevokedMessageUI(FMessageWpp fMessage, TextView dateTextView, String antirevokeType) {
