@@ -1,58 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="horizontal"
+    android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="?android:attr/selectableItemBackground"
-    android:gravity="center_vertical"
-    android:padding="12dp">
+    android:layout_height="wrap_content">
 
-    <TextView
-        android:id="@+id/text_header_title"
-        android:layout_width="0dp"
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:text="Contact Name"
-        android:textColor="?attr/colorPrimary"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+        android:background="?android:attr/selectableItemBackground"
+        android:gravity="center_vertical"
+        android:padding="16dp">
 
-    <TextView
-        android:id="@+id/text_count_active"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@drawable/badge_background_active"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingTop="2dp"
-        android:paddingBottom="2dp"
-        android:text="2 Active"
-        android:textColor="@android:color/white"
-        android:textSize="12sp"
-        android:layout_marginEnd="4dp"
-        android:visibility="gone" />
+        <TextView
+            android:id="@+id/text_header_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Contact Name"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textAllCaps="true"
+            android:letterSpacing="0.05" />
 
-    <TextView
-        android:id="@+id/text_count_sent"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@drawable/badge_background_sent"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingTop="2dp"
-        android:paddingBottom="2dp"
-        android:text="5 Sent"
-        android:textColor="@android:color/white"
-        android:textSize="12sp"
-        android:layout_marginEnd="8dp"
-        android:visibility="gone" />
+        <TextView
+            android:id="@+id/text_count_active"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/badge_background_active"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:text="Active"
+            android:textColor="@android:color/white"
+            android:textSize="11sp"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone" />
 
-    <ImageView
-        android:id="@+id/image_expand"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:src="@android:drawable/arrow_down_float"
-        app:tint="?android:attr/textColorSecondary" />
+        <TextView
+            android:id="@+id/text_count_sent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/badge_background_sent"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:text="Sent"
+            android:textColor="@android:color/white"
+            android:textSize="11sp"
+            android:layout_marginEnd="8dp"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/image_expand"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@android:drawable/arrow_down_float"
+            app:tint="?android:attr/textColorSecondary" />
+
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutlineVariant"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="4dp" />
 
 </LinearLayout>
