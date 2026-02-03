@@ -16,7 +16,6 @@ ids_log.txt
 # Development and Debug Files
 MEDIA_SCHEDULING_STATUS.md
 __pycache__/
-app/src/main/res/drawable/circle_background.xml
 brute_key.py
 build_output.txt
 copy_image_method.txt
