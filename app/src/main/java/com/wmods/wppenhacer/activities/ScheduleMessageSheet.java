@@ -1,68 +1,63 @@
 package com.wmods.wppenhacer.activities;
 
-import android.app.AlertDialog;
 import android.app.DatePickerDialog;
-import android.app.TimePickerDialog;
-import android.content.Context;
 import android.os.Bundle;
-import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.RadioGroup;
-import android.widget.TextView;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.timepicker.MaterialTimePicker;
 import com.google.android.material.timepicker.TimeFormat;
 import com.wmods.wppenhacer.R;
-import com.wmods.wppenhacer.adapter.SelectedContactsAdapter;
 import com.wmods.wppenhacer.services.ScheduledMessageService;
-import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.db.ScheduledMessage;
 import com.wmods.wppenhacer.xposed.core.db.ScheduledMessageStore;
-import com.wmods.wppenhacer.xposed.bridge.client.ProviderClient;
-import com.wmods.wppenhacer.xposed.bridge.client.BridgeClient;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.Locale;
 
 public class ScheduleMessageSheet extends BottomSheetDialogFragment {
 
     private static final String ARG_MESSAGE_ID = "message_id";
-
-    private RecyclerView recyclerSelectedContacts;
-    private SelectedContactsAdapter selectedContactsAdapter;
-    private EditText editMessage;
-    private Button buttonSelectContacts, buttonSave;
-    private RadioGroup radioGroupRepeat, radioGroupWhatsapp;
-    private ChipGroup chipGroupDays;
-    private TextView textDate, textTime, textSheetTitle;
-    private View layoutDate, layoutTime;
+    private static final String ARG_PREFILL_JID = "prefill_jid";
+    private static final String ARG_PREFILL_NAME = "prefill_name";
+    private static final String ARG_PREFILL_MESSAGE = "prefill_message";
+    
+    // UI Components
+    private TextInputEditText inputMessage, inputDate, inputTime;
+    private AutoCompleteTextView dropdownRepeat, dropdownAppType;
+    private ChipGroup chipGroupDays, chipGroupRecipients;
+    private com.google.android.material.button.MaterialButton btnAttachMedia, btnSave, btnAddContact;
+    private android.widget.TextView textMediaStatus;
 
     private ScheduledMessageStore messageStore;
     private ScheduledMessage editingMessage;
     private Calendar selectedTime;
+    
+    // Pre-fill data
+    private String prefillJid;
+    private String prefillName;
+    private String prefillMessage;
+    
     private final List<String> selectedContactNames = new ArrayList<>();
     private final List<String> selectedContactJids = new ArrayList<>();
-
-    // Status UI
-    private com.google.android.material.card.MaterialCardView cardBridgeStatus;
-    private android.widget.ImageView imageStatusIcon;
-    private TextView textStatusMessage;
-    private com.google.android.material.progressindicator.CircularProgressIndicator statusProgress;
-    private com.google.android.material.button.MaterialButton buttonRetryBridge;
+    private String currentMediaPath;
 
     public interface OnMessageSavedListener {
         void onMessageSaved();
@@ -78,6 +73,17 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
         return fragment;
     }
 
+    public static ScheduleMessageSheet newInstance(String jid, String name, String message) {
+        ScheduleMessageSheet fragment = new ScheduleMessageSheet();
+        Bundle args = new Bundle();
+        args.putLong(ARG_MESSAGE_ID, -1);
+        args.putString(ARG_PREFILL_JID, jid);
+        args.putString(ARG_PREFILL_NAME, name);
+        args.putString(ARG_PREFILL_MESSAGE, message);
+        fragment.setArguments(args);
+        return fragment;
+    }
+
     public void setOnMessageSavedListener(OnMessageSavedListener listener) {
         this.listener = listener;
     }
@@ -87,7 +93,7 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
         super.onCreate(savedInstanceState);
         messageStore = ScheduledMessageStore.getInstance(requireContext());
         selectedTime = Calendar.getInstance();
-
+        
         if (getArguments() != null) {
             long messageId = getArguments().getLong(ARG_MESSAGE_ID, -1);
             if (messageId != -1) {
@@ -95,6 +101,11 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
                 if (editingMessage != null) {
                     selectedTime.setTimeInMillis(editingMessage.getScheduledTime());
                 }
+            } else {
+                // Check if prefill
+                prefillJid = getArguments().getString(ARG_PREFILL_JID);
+                prefillName = getArguments().getString(ARG_PREFILL_NAME);
+                prefillMessage = getArguments().getString(ARG_PREFILL_MESSAGE);
             }
         }
     }
@@ -109,129 +120,130 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         initializeViews(view);
-        setupListeners(view);
-        initializeBridge();
+        setupDropdowns();
+        setupListeners();
+        updateDateTimeDisplay();
 
         if (editingMessage != null) {
-            populateFields(view);
-            textSheetTitle.setText("Edit Schedule");
-        }
-    }
-
-    private String currentMediaPath;
-    private View layoutMediaPreview;
-    private android.widget.ImageView imageMediaPreview;
-    private android.widget.ImageButton buttonRemoveMedia;
-    private com.google.android.material.button.MaterialButton buttonAttachMedia;
-
-    private final androidx.activity.result.ActivityResultLauncher<String> mediaPickerLauncher =
-            registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.GetContent(), uri -> {
-                if (uri != null) {
-                    processSelectedMedia(uri);
-                }
-            });
-
-    private void processSelectedMedia(android.net.Uri uri) {
-        try {
-            // Save to External Storage (Pictures/WaEnhancer) to be accessible by WhatsApp
-            java.io.File destDir = new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES), "WaEnhancer");
-            if (!destDir.exists()) destDir.mkdirs();
-            
-            String fileName = "sch_" + System.currentTimeMillis() + ".jpg";
-            java.io.File destFile = new java.io.File(destDir, fileName);
-            
-            try (java.io.InputStream in = requireContext().getContentResolver().openInputStream(uri);
-                 java.io.FileOutputStream out = new java.io.FileOutputStream(destFile)) {
-                
-                byte[] buffer = new byte[4096];
-                int read;
-                while ((read = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, read);
-                }
-            }
-            
-            currentMediaPath = destFile.getAbsolutePath();
-            updateMediaPreview();
-            
-        } catch (Exception e) {
-            Toast.makeText(requireContext(), "Failed to process image: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            e.printStackTrace();
-        }
-    }
-
-    private void updateMediaPreview() {
-        if (currentMediaPath != null) {
-            layoutMediaPreview.setVisibility(View.VISIBLE);
-            buttonAttachMedia.setText("Change Media");
-            imageMediaPreview.setImageURI(android.net.Uri.fromFile(new java.io.File(currentMediaPath)));
-        } else {
-            layoutMediaPreview.setVisibility(View.GONE);
-            buttonAttachMedia.setText("Attach Media");
+            populateFields();
+            btnSave.setText("Update Schedule");
+        } else if (prefillJid != null) {
+            // New message with prefill
+            if (prefillMessage != null) inputMessage.setText(prefillMessage);
+            addRecipientChip(prefillName != null ? prefillName : prefillJid, prefillJid);
+            selectedContactJids.add(prefillJid);
+            selectedContactNames.add(prefillName != null ? prefillName : prefillJid);
         }
     }
 
     private void initializeViews(View view) {
-        recyclerSelectedContacts = view.findViewById(R.id.recycler_selected_contacts);
-        selectedContactsAdapter = new SelectedContactsAdapter(selectedContactNames, selectedContactJids, position -> {
-            selectedContactNames.remove(position);
-            selectedContactJids.remove(position);
-            selectedContactsAdapter.notifyItemRemoved(position);
-        });
-        recyclerSelectedContacts.setAdapter(selectedContactsAdapter);
-        editMessage = view.findViewById(R.id.edit_message);
-        buttonSelectContacts = view.findViewById(R.id.button_select_contacts);
-        buttonSave = view.findViewById(R.id.button_save);
-        radioGroupRepeat = view.findViewById(R.id.radio_group_repeat);
-        radioGroupWhatsapp = view.findViewById(R.id.radio_group_whatsapp);
+        inputMessage = view.findViewById(R.id.input_message);
+        inputDate = view.findViewById(R.id.input_date);
+        inputTime = view.findViewById(R.id.input_time);
+        dropdownRepeat = view.findViewById(R.id.dropdown_repeat);
+        dropdownAppType = view.findViewById(R.id.dropdown_app_type);
+        
         chipGroupDays = view.findViewById(R.id.chip_group_days);
-        textDate = view.findViewById(R.id.text_date);
-        textTime = view.findViewById(R.id.text_time);
-        textSheetTitle = view.findViewById(R.id.text_sheet_title);
-        layoutDate = view.findViewById(R.id.layout_date);
-        layoutTime = view.findViewById(R.id.layout_time);
+        chipGroupRecipients = view.findViewById(R.id.chip_group_recipients);
         
-        // Media Views
-        layoutMediaPreview = view.findViewById(R.id.layout_media_preview);
-        imageMediaPreview = view.findViewById(R.id.image_media_preview);
-        buttonRemoveMedia = view.findViewById(R.id.button_remove_media);
-        buttonAttachMedia = view.findViewById(R.id.button_attach_media);
-
-        updateDateTimeDisplay();
-
-        cardBridgeStatus = view.findViewById(R.id.card_bridge_status);
-        imageStatusIcon = view.findViewById(R.id.image_status_icon);
-        textStatusMessage = view.findViewById(R.id.text_status_message);
-        statusProgress = view.findViewById(R.id.status_progress);
-        buttonRetryBridge = view.findViewById(R.id.button_retry_bridge);
-        
-        view.findViewById(R.id.button_close).setOnClickListener(v -> dismiss());
+        btnAttachMedia = view.findViewById(R.id.btn_attach_media);
+        btnSave = view.findViewById(R.id.button_save);
+        btnAddContact = view.findViewById(R.id.btn_add_contact);
+        textMediaStatus = view.findViewById(R.id.text_media_status);
     }
 
-    private void setupListeners(View view) {
-        radioGroupRepeat.setOnCheckedChangeListener((group, checkedId) -> {
-            boolean isCustom = checkedId == R.id.radio_custom_days;
-            chipGroupDays.setVisibility(isCustom ? View.VISIBLE : View.GONE);
+    private void setupDropdowns() {
+        String[] repeats = new String[]{"Once", "Daily", "Weekly", "Monthly", "Custom"};
+        ArrayAdapter<String> adapterRepeat = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, repeats);
+        dropdownRepeat.setAdapter(adapterRepeat);
+        
+        String[] apps = new String[]{"WhatsApp", "Business"};
+        ArrayAdapter<String> adapterApp = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, apps);
+        dropdownAppType.setAdapter(adapterApp);
+        
+        // Defaults
+        if (editingMessage == null) {
+            dropdownRepeat.setText("Once", false);
+            dropdownAppType.setText("WhatsApp", false);
+        }
+    }
+
+    private void setupListeners() {
+        dropdownRepeat.setOnItemClickListener((parent, view, position, id) -> {
+            String selection = parent.getItemAtPosition(position).toString();
+            chipGroupDays.setVisibility(selection.equals("Custom") ? View.VISIBLE : View.GONE);
         });
 
-        buttonSelectContacts.setOnClickListener(v -> pickContacts());
-        buttonSave.setOnClickListener(v -> saveMessage());
-        layoutDate.setOnClickListener(v -> showDatePicker());
-        layoutTime.setOnClickListener(v -> showTimePicker());
-        buttonRetryBridge.setOnClickListener(v -> initializeBridge());
+        btnAddContact.setOnClickListener(v -> pickContacts());
         
-        // Media Listeners
-        buttonAttachMedia.setOnClickListener(v -> mediaPickerLauncher.launch("image/*"));
-        buttonRemoveMedia.setOnClickListener(v -> {
-            currentMediaPath = null;
-            updateMediaPreview();
+        inputDate.setOnClickListener(v -> showDatePicker());
+        inputTime.setOnClickListener(v -> showTimePicker());
+        
+        btnAttachMedia.setOnClickListener(v -> mediaPickerLauncher.launch("image/*"));
+        
+        btnSave.setOnClickListener(v -> saveMessage());
+    }
+    
+    private void pickContacts() {
+        ContactPickerSheet sheet = new ContactPickerSheet();
+        sheet.setOnContactsSelectedListener(contacts -> {
+            for (com.wmods.wppenhacer.preference.ContactData contact : contacts) {
+                if (!selectedContactJids.contains(contact.getJid())) {
+                    addRecipientChip(contact.getDisplayName(), contact.getJid());
+                    selectedContactJids.add(contact.getJid());
+                    selectedContactNames.add(contact.getDisplayName());
+                }
+            }
         });
+        sheet.show(getChildFragmentManager(), "ContactPickerSheet");
+    }
+    
+    private void addRecipientChip(String name, String jid) {
+        Chip chip = new Chip(requireContext());
+        chip.setText(name);
+        chip.setCloseIconVisible(true);
+        chip.setOnCloseIconClickListener(v -> {
+            chipGroupRecipients.removeView(chip);
+            int index = selectedContactJids.indexOf(jid);
+            if (index != -1) {
+                selectedContactJids.remove(index);
+                // Name checks might be duplicate, so remove by index if synced
+                if (index < selectedContactNames.size()) selectedContactNames.remove(index);
+            }
+        });
+        chipGroupRecipients.addView(chip);
+    }
+    
+    private final androidx.activity.result.ActivityResultLauncher<String> mediaPickerLauncher =
+            registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.GetContent(), uri -> {
+                if (uri != null) processSelectedMedia(uri);
+            });
+
+    private void processSelectedMedia(android.net.Uri uri) {
+        try {
+            File destDir = new File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES), "WaEnhancer");
+            if (!destDir.exists()) destDir.mkdirs();
+            String fileName = "sch_" + System.currentTimeMillis() + ".jpg";
+            File destFile = new File(destDir, fileName);
+            
+            try (InputStream in = requireContext().getContentResolver().openInputStream(uri);
+                 FileOutputStream out = new FileOutputStream(destFile)) {
+                byte[] buffer = new byte[4096];
+                int read;
+                while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+            }
+            currentMediaPath = destFile.getAbsolutePath();
+            textMediaStatus.setText("Media attached");
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void updateDateTimeDisplay() {
-        java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault());
-        java.text.SimpleDateFormat timeFormat = new java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault());
-        textDate.setText(dateFormat.format(selectedTime.getTime()));
-        textTime.setText(timeFormat.format(selectedTime.getTime()));
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+        SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a", Locale.getDefault());
+        inputDate.setText(dateFormat.format(selectedTime.getTime()));
+        inputTime.setText(timeFormat.format(selectedTime.getTime()));
     }
 
     private void showDatePicker() {
@@ -257,162 +269,101 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
             selectedTime.set(Calendar.MINUTE, picker.getMinute());
             updateDateTimeDisplay();
         });
-
         picker.show(getChildFragmentManager(), "MaterialTimePicker");
     }
 
-    private void initializeBridge() {
-        setBridgeStatus(BridgeState.LOADING);
-        new Thread(() -> {
-            boolean connected = false;
-            String error = "Connection failed";
-            if (WppCore.client != null && WppCore.client.getService() != null && WppCore.client.getService().asBinder().pingBinder()) {
-                connected = true;
-            } else {
-                try {
-                    ProviderClient pc = new ProviderClient(requireContext());
-                    if (Boolean.TRUE.equals(pc.connect().get(10, TimeUnit.SECONDS))) {
-                        WppCore.client = pc;
-                        connected = true;
-                    }
-                } catch (Exception e) {
-                    error = "Provider failed: " + e.getMessage();
-                }
-                if (!connected) {
-                    try {
-                        BridgeClient bc = new BridgeClient(requireContext());
-                        if (Boolean.TRUE.equals(bc.connect().get(10, TimeUnit.SECONDS))) {
-                            WppCore.client = bc;
-                            connected = true;
-                        }
-                    } catch (Exception e) {
-                        error = "Fallback failed: " + e.getMessage();
-                    }
-                }
-            }
-            final boolean finalConnected = connected;
-            final String finalError = error;
-            if (isAdded()) {
-                requireActivity().runOnUiThread(() -> {
-                    if (finalConnected) setBridgeStatus(BridgeState.CONNECTED);
-                    else setBridgeStatus(BridgeState.DISCONNECTED, finalError);
-                });
-            }
-        }).start();
-    }
-
-    private enum BridgeState { LOADING, CONNECTED, DISCONNECTED }
-
-    private void setBridgeStatus(BridgeState state) { setBridgeStatus(state, null); }
-
-    private void setBridgeStatus(BridgeState state, String message) {
-        if (!isAdded()) return;
-        if (state == BridgeState.LOADING) {
-            statusProgress.setVisibility(View.VISIBLE);
-            imageStatusIcon.setVisibility(View.GONE);
-            textStatusMessage.setText("Connecting...");
-            buttonRetryBridge.setVisibility(View.GONE);
-        } else if (state == BridgeState.CONNECTED) {
-            statusProgress.setVisibility(View.GONE);
-            imageStatusIcon.setVisibility(View.VISIBLE);
-            imageStatusIcon.setImageDrawable(requireContext().getDrawable(android.R.drawable.presence_online));
-            imageStatusIcon.setColorFilter(requireContext().getColor(R.color.status_active));
-            textStatusMessage.setText("Connected");
-            buttonRetryBridge.setVisibility(View.GONE);
-        } else {
-            statusProgress.setVisibility(View.GONE);
-            imageStatusIcon.setVisibility(View.VISIBLE);
-            imageStatusIcon.setImageDrawable(requireContext().getDrawable(android.R.drawable.stat_notify_error));
-            imageStatusIcon.setColorFilter(requireContext().getColor(R.color.status_inactive));
-            textStatusMessage.setText(message != null ? message : "Disconnected");
-            buttonRetryBridge.setVisibility(View.VISIBLE);
-        }
-    }
-
-    private void pickContacts() {
-        ContactPickerSheet sheet = new ContactPickerSheet();
-        sheet.setOnContactsSelectedListener(contacts -> {
-            for (com.wmods.wppenhacer.preference.ContactData contact : contacts) {
-                if (!selectedContactJids.contains(contact.getJid())) {
-                    selectedContactNames.add(contact.getDisplayName());
-                    selectedContactJids.add(contact.getJid());
-                }
-            }
-            selectedContactsAdapter.notifyDataSetChanged();
-        });
-        sheet.show(getChildFragmentManager(), "ContactPickerSheet");
-    }
-
-    private void populateFields(View view) {
-        selectedContactNames.addAll(editingMessage.getContactNames());
-        selectedContactJids.addAll(editingMessage.getContactJids());
-        selectedContactsAdapter.notifyDataSetChanged();
-        editMessage.setText(editingMessage.getMessage());
-        
-        // Load Image Path
+    private void populateFields() {
+        inputMessage.setText(editingMessage.getMessage());
         currentMediaPath = editingMessage.getImagePath();
-        updateMediaPreview();
+        if (currentMediaPath != null) textMediaStatus.setText("Media attached");
 
-        int repeat = editingMessage.getRepeatType();
-        if (repeat == ScheduledMessage.REPEAT_ONCE) radioGroupRepeat.check(R.id.radio_once);
-        else if (repeat == ScheduledMessage.REPEAT_DAILY) radioGroupRepeat.check(R.id.radio_daily);
-        else if (repeat == ScheduledMessage.REPEAT_WEEKLY) radioGroupRepeat.check(R.id.radio_weekly);
-        else if (repeat == ScheduledMessage.REPEAT_MONTHLY) radioGroupRepeat.check(R.id.radio_monthly);
-        else if (repeat == ScheduledMessage.REPEAT_CUSTOM_DAYS) {
-            radioGroupRepeat.check(R.id.radio_custom_days);
+        // Repeat
+        String repeatStr = "Once";
+        int rType = editingMessage.getRepeatType();
+        if (rType == ScheduledMessage.REPEAT_DAILY) repeatStr = "Daily";
+        else if (rType == ScheduledMessage.REPEAT_WEEKLY) repeatStr = "Weekly";
+        else if (rType == ScheduledMessage.REPEAT_MONTHLY) repeatStr = "Monthly";
+        else if (rType == ScheduledMessage.REPEAT_CUSTOM_DAYS) {
+            repeatStr = "Custom";
             chipGroupDays.setVisibility(View.VISIBLE);
-            for (int day : editingMessage.getSelectedDays()) {
-                Chip chip = view.findViewById(getChipIdForDay(day));
-                if (chip != null) chip.setChecked(true);
+            // Check days
+            checkDayChip(R.id.chip_sun, 1);
+            checkDayChip(R.id.chip_mon, 2);
+            checkDayChip(R.id.chip_tue, 3);
+            checkDayChip(R.id.chip_wed, 4);
+            checkDayChip(R.id.chip_thu, 5);
+            checkDayChip(R.id.chip_fri, 6);
+            checkDayChip(R.id.chip_sat, 7);
+        }
+        dropdownRepeat.setText(repeatStr, false);
+
+        // App
+        dropdownAppType.setText(editingMessage.getWhatsappType() == ScheduledMessage.WHATSAPP_BUSINESS ? "Business" : "WhatsApp", false);
+
+        // Recipients
+        selectedContactJids.clear();
+        selectedContactNames.clear();
+        selectedContactJids.addAll(editingMessage.getContactJids());
+        selectedContactNames.addAll(editingMessage.getContactNames());
+        chipGroupRecipients.removeAllViews();
+        for (int i = 0; i < selectedContactNames.size(); i++) {
+            // Need jid for removal logic, assuming sync
+            if (i < selectedContactJids.size()) {
+                addRecipientChip(selectedContactNames.get(i), selectedContactJids.get(i));
             }
         }
-        if (editingMessage.getWhatsappType() == ScheduledMessage.WHATSAPP_BUSINESS) radioGroupWhatsapp.check(R.id.radio_whatsapp_business);
-        else radioGroupWhatsapp.check(R.id.radio_whatsapp_normal);
     }
-
-    private int getChipIdForDay(int day) {
-        switch (day) {
-            case 1: return R.id.chip_sunday;
-            case 2: return R.id.chip_monday;
-            case 3: return R.id.chip_tuesday;
-            case 4: return R.id.chip_wednesday;
-            case 5: return R.id.chip_thursday;
-            case 6: return R.id.chip_friday;
-            case 7: return R.id.chip_saturday;
-            default: return 0;
-        }
+    
+    private void checkDayChip(int chipId, int dayFlag) {
+       Chip c = requireView().findViewById(chipId);
+       if (c != null && editingMessage.getSelectedDays().contains(dayFlag)) {
+           c.setChecked(true);
+       }
     }
 
     private void saveMessage() {
         if (selectedContactJids.isEmpty()) {
-            Toast.makeText(requireContext(), "Select contacts", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "Please select a recipient", Toast.LENGTH_SHORT).show();
             return;
         }
-        String msg = editMessage.getText().toString().trim();
-        // Allow empty text if media is present
+        String msg = inputMessage.getText().toString().trim();
         if (msg.isEmpty() && currentMediaPath == null) {
-            Toast.makeText(requireContext(), "Enter message or attach media", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "Enter a message", Toast.LENGTH_SHORT).show();
             return;
         }
-        int repeat = getRepeatTypeFromRadio();
-        long time = selectedTime.getTimeInMillis();
-        if (repeat == ScheduledMessage.REPEAT_ONCE && time < System.currentTimeMillis()) {
-            Toast.makeText(requireContext(), "Time is in past", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        int wType = radioGroupWhatsapp.getCheckedRadioButtonId() == R.id.radio_whatsapp_business ? ScheduledMessage.WHATSAPP_BUSINESS : ScheduledMessage.WHATSAPP_NORMAL;
+        
+        int repeatType = ScheduledMessage.REPEAT_ONCE;
+        String rStr = dropdownRepeat.getText().toString();
+        if (rStr.equals("Daily")) repeatType = ScheduledMessage.REPEAT_DAILY;
+        else if (rStr.equals("Weekly")) repeatType = ScheduledMessage.REPEAT_WEEKLY;
+        else if (rStr.equals("Monthly")) repeatType = ScheduledMessage.REPEAT_MONTHLY;
+        else if (rStr.equals("Custom")) repeatType = ScheduledMessage.REPEAT_CUSTOM_DAYS;
+        
+        int wType = dropdownAppType.getText().toString().equals("Business") ? ScheduledMessage.WHATSAPP_BUSINESS : ScheduledMessage.WHATSAPP_NORMAL;
+        
         if (editingMessage == null) editingMessage = new ScheduledMessage();
         editingMessage.setContactJids(new ArrayList<>(selectedContactJids));
         editingMessage.setContactNames(new ArrayList<>(selectedContactNames));
         editingMessage.setMessage(msg);
-        editingMessage.setScheduledTime(time);
-        editingMessage.setRepeatType(repeat);
+        editingMessage.setScheduledTime(selectedTime.getTimeInMillis());
+        editingMessage.setRepeatType(repeatType);
         editingMessage.setWhatsappType(wType);
-        editingMessage.setImagePath(currentMediaPath); // Save image path
-
-        if (repeat == ScheduledMessage.REPEAT_CUSTOM_DAYS) editingMessage.setRepeatDays(getRepeatDaysFromChips());
+        editingMessage.setImagePath(currentMediaPath);
         
-        // Ensure message is active and reset sent status when saving/editing
+        if (repeatType == ScheduledMessage.REPEAT_CUSTOM_DAYS) {
+            int days = 0;
+            if (((Chip)requireView().findViewById(R.id.chip_sun)).isChecked()) days |= ScheduledMessage.DAY_SUNDAY;
+            if (((Chip)requireView().findViewById(R.id.chip_mon)).isChecked()) days |= ScheduledMessage.DAY_MONDAY;
+            if (((Chip)requireView().findViewById(R.id.chip_tue)).isChecked()) days |= ScheduledMessage.DAY_TUESDAY;
+            if (((Chip)requireView().findViewById(R.id.chip_wed)).isChecked()) days |= ScheduledMessage.DAY_WEDNESDAY;
+            if (((Chip)requireView().findViewById(R.id.chip_thu)).isChecked()) days |= ScheduledMessage.DAY_THURSDAY;
+            if (((Chip)requireView().findViewById(R.id.chip_fri)).isChecked()) days |= ScheduledMessage.DAY_FRIDAY;
+            if (((Chip)requireView().findViewById(R.id.chip_sat)).isChecked()) days |= ScheduledMessage.DAY_SATURDAY;
+            editingMessage.setRepeatDays(days);
+        } else {
+             editingMessage.setRepeatDays(0);
+        }
+        
         editingMessage.setActive(true);
         editingMessage.setSent(false);
         
@@ -422,26 +373,5 @@ public class ScheduleMessageSheet extends BottomSheetDialogFragment {
         ScheduledMessageService.startService(requireContext());
         if (listener != null) listener.onMessageSaved();
         dismiss();
-    }
-
-    private int getRepeatTypeFromRadio() {
-        int id = radioGroupRepeat.getCheckedRadioButtonId();
-        if (id == R.id.radio_daily) return ScheduledMessage.REPEAT_DAILY;
-        if (id == R.id.radio_weekly) return ScheduledMessage.REPEAT_WEEKLY;
-        if (id == R.id.radio_monthly) return ScheduledMessage.REPEAT_MONTHLY;
-        if (id == R.id.radio_custom_days) return ScheduledMessage.REPEAT_CUSTOM_DAYS;
-        return ScheduledMessage.REPEAT_ONCE;
-    }
-
-    private int getRepeatDaysFromChips() {
-        int days = 0;
-        if (((Chip) requireView().findViewById(R.id.chip_sunday)).isChecked()) days |= ScheduledMessage.DAY_SUNDAY;
-        if (((Chip) requireView().findViewById(R.id.chip_monday)).isChecked()) days |= ScheduledMessage.DAY_MONDAY;
-        if (((Chip) requireView().findViewById(R.id.chip_tuesday)).isChecked()) days |= ScheduledMessage.DAY_TUESDAY;
-        if (((Chip) requireView().findViewById(R.id.chip_wednesday)).isChecked()) days |= ScheduledMessage.DAY_WEDNESDAY;
-        if (((Chip) requireView().findViewById(R.id.chip_thursday)).isChecked()) days |= ScheduledMessage.DAY_THURSDAY;
-        if (((Chip) requireView().findViewById(R.id.chip_friday)).isChecked()) days |= ScheduledMessage.DAY_FRIDAY;
-        if (((Chip) requireView().findViewById(R.id.chip_saturday)).isChecked()) days |= ScheduledMessage.DAY_SATURDAY;
-        return days;
     }
 }

@@ -54,6 +54,30 @@ public class ScheduledMessagesListActivity extends BaseActivity implements Sched
         });
 
         loadMessages();
+        
+        // Handle Intent from Xposed Shortcut
+        handleIntent(getIntent());
+    }
+    
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIntent(intent);
+    }
+    
+    private void handleIntent(Intent intent) {
+        if (intent != null && intent.getBooleanExtra("EXTRA_OPEN_CREATE_SHEET", false)) {
+            String jid = intent.getStringExtra("EXTRA_JID");
+            String name = intent.getStringExtra("EXTRA_NAME");
+            String message = intent.getStringExtra("EXTRA_MESSAGE");
+            
+            ScheduleMessageSheet sheet = ScheduleMessageSheet.newInstance(jid, name, message);
+            sheet.setOnMessageSavedListener(this::loadMessages);
+            sheet.show(getSupportFragmentManager(), "ScheduleMessageSheet");
+            
+            intent.removeExtra("EXTRA_OPEN_CREATE_SHEET");
+        }
     }
 
     @Override

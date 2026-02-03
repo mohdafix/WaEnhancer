@@ -25,4 +25,16 @@
     <color name="card_background">#1E1E1E</color>
     <color name="icon_circle_background">#252525</color>
     <color name="divider_color">#2C2C2C</color>
+    
+    <!-- Material 3 Expressive Color Tokens - Dark -->
+    <color name="m3_surface_bright">#3B383E</color>
+    <color name="m3_surface_dim">#141218</color>
+    <color name="m3_surface_container_lowest">#0F0D13</color>
+    <color name="m3_surface_container_low">#1D1B20</color>
+    <color name="m3_surface_container">#211F26</color>
+    <color name="m3_surface_container_high">#2B2930</color>
+    <color name="m3_surface_container_highest">#36343B</color>
+    <color name="m3_on_surface_variant">#CAC4D0</color>
+    <color name="m3_outline">#938F99</color>
+    <color name="m3_outline_variant">#49454F</color>
 </resources>

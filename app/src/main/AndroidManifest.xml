@@ -99,6 +99,7 @@
 
         <activity
             android:name=".activities.ScheduledMessagesListActivity"
+            android:exported="true"
             android:theme="@style/AppTheme" />
 
         <activity

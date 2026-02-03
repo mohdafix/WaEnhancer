@@ -220,64 +220,98 @@ public class ScheduledMessagesAdapter extends RecyclerView.Adapter<RecyclerView.
     }
 
     class MessageViewHolder extends RecyclerView.ViewHolder {
+        View viewStatusStrip;
         TextView textContactName;
         TextView textMessagePreview;
         TextView textScheduleTime;
-        Chip chipStatus;
-        SwitchMaterial switchActive;
-        ImageButton buttonEdit;
-        ImageButton buttonDelete;
+        TextView textRepeatInfo;
+        ImageView imageMediaIndicator;
+        com.google.android.material.button.MaterialButton buttonToggleStatus;
 
         public MessageViewHolder(View itemView) {
             super(itemView);
+            this.viewStatusStrip = itemView.findViewById(R.id.view_status_strip);
             this.textContactName = itemView.findViewById(R.id.text_contact_name);
             this.textMessagePreview = itemView.findViewById(R.id.text_message_preview);
             this.textScheduleTime = itemView.findViewById(R.id.text_schedule_time);
-            this.chipStatus = itemView.findViewById(R.id.chip_status);
-            this.switchActive = itemView.findViewById(R.id.switch_active);
-            this.buttonEdit = itemView.findViewById(R.id.button_edit);
-            this.buttonDelete = itemView.findViewById(R.id.button_delete);
+            this.textRepeatInfo = itemView.findViewById(R.id.text_repeat_info);
+            this.imageMediaIndicator = itemView.findViewById(R.id.image_media_indicator);
+            this.buttonToggleStatus = itemView.findViewById(R.id.button_toggle_status);
         }
 
         public void bind(final ScheduledMessage message) {
-            this.textContactName.setVisibility(View.GONE);
+            // Title: Contact Names
+            this.textContactName.setText(message.getContactsDisplayString());
+            
+            // Preview: Message
             this.textMessagePreview.setText(message.getMessage());
-            StringBuilder timeInfo = new StringBuilder("Scheduled for: ");
-            if (message.getRepeatType() != 0) {
-                SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a", Locale.getDefault());
-                timeInfo.append(timeFormat.format(new Date(message.getScheduledTime())));
-                timeInfo.append(", ");
-                timeInfo.append(message.getRepeatTypeString());
+            
+            // Date Time
+            SimpleDateFormat dateFormat = new SimpleDateFormat("EEE, dd MMM • hh:mm a", Locale.getDefault());
+            this.textScheduleTime.setText(dateFormat.format(new Date(message.getScheduledTime())));
+            
+            // Repeat Tag
+            if (message.getRepeatType() != ScheduledMessage.REPEAT_ONCE) {
+                this.textRepeatInfo.setVisibility(View.VISIBLE);
+                this.textRepeatInfo.setText(message.getRepeatTypeString());
             } else {
-                SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, ", Locale.getDefault());
-                timeInfo.append(dateFormat.format(new Date(message.getScheduledTime())));
-                SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a", Locale.getDefault());
-                timeInfo.append(timeFormat.format(new Date(message.getScheduledTime())));
-                timeInfo.append(", Once");
+                this.textRepeatInfo.setVisibility(View.GONE);
             }
-            this.textScheduleTime.setText(timeInfo.toString());
-            this.switchActive.setOnCheckedChangeListener(null);
-            this.switchActive.setChecked(message.isActive());
-            this.switchActive.setEnabled((message.isSent() && message.getRepeatType() == 0) ? false : true);
-            this.switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> ScheduledMessagesAdapter.this.listener.onToggleActive(message, isChecked));
-            this.buttonEdit.setOnClickListener(v -> ScheduledMessagesAdapter.this.listener.onEdit(message));
-            this.buttonDelete.setOnClickListener(v -> ScheduledMessagesAdapter.this.listener.onDelete(message));
-            if (message.isSent() && message.getRepeatType() == 0) {
-                this.chipStatus.setText(R.string.schedule_sent);
-                this.chipStatus.setChipBackgroundColor(ColorStateList.valueOf(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_active)));
-                this.chipStatus.setChipStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_active)));
-                this.chipStatus.setTextColor(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, android.R.color.white));
+            
+            // Media Icon
+            if (message.getImagePath() != null) {
+                this.imageMediaIndicator.setVisibility(View.VISIBLE);
+            } else {
+                this.imageMediaIndicator.setVisibility(View.GONE);
+            }
+            
+            // Toggle Logic (Icon Button)
+            boolean isDone = message.isSent() && message.getRepeatType() == ScheduledMessage.REPEAT_ONCE;
+            
+            if (isDone) {
+                 this.buttonToggleStatus.setIconResource(R.drawable.ic_round_check_circle_24);
+                 this.buttonToggleStatus.setIconTint(ColorStateList.valueOf(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_active)));
+                 this.buttonToggleStatus.setEnabled(false);
             } else if (message.isActive()) {
-                this.chipStatus.setText(R.string.schedule_pending);
-                this.chipStatus.setChipBackgroundColor(ColorStateList.valueOf(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_warning)));
-                this.chipStatus.setChipStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_warning)));
-                this.chipStatus.setTextColor(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, android.R.color.white));
+                 this.buttonToggleStatus.setIconResource(R.drawable.ic_pause);
+                 this.buttonToggleStatus.setIconTint(ColorStateList.valueOf(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_active)));
+                 this.buttonToggleStatus.setEnabled(true);
             } else {
-                this.chipStatus.setText(R.string.schedule_inactive);
-                this.chipStatus.setChipBackgroundColor(ColorStateList.valueOf(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_inactive)));
-                this.chipStatus.setChipStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_inactive)));
-                this.chipStatus.setTextColor(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, android.R.color.white));
+                 this.buttonToggleStatus.setIconResource(R.drawable.ic_play);
+                 this.buttonToggleStatus.setIconTint(ColorStateList.valueOf(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_inactive)));
+                 this.buttonToggleStatus.setEnabled(true);
             }
+            // Clear text if any
+            this.buttonToggleStatus.setText("");
+
+            this.buttonToggleStatus.setOnClickListener(v -> {
+                if (!isDone) {
+                    ScheduledMessagesAdapter.this.listener.onToggleActive(message, !message.isActive());
+                    // Optimistic update
+                    boolean newActive = !message.isActive();
+                    this.buttonToggleStatus.setIconResource(newActive ? R.drawable.ic_pause : R.drawable.ic_play);
+                    this.buttonToggleStatus.setIconTint(ColorStateList.valueOf(ContextCompat.getColor(ScheduledMessagesAdapter.this.context, 
+                        newActive ? R.color.status_active : R.color.status_inactive)));
+                }
+            });
+            
+            // Status Strip Color
+            int statusColor;
+            if (message.isSent() && message.getRepeatType() == ScheduledMessage.REPEAT_ONCE) {
+                statusColor = ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_active); // Green for Sent/Done
+            } else if (message.isActive()) {
+                statusColor = ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_warning); // Orange/Yellow for Pending
+            } else {
+                statusColor = ContextCompat.getColor(ScheduledMessagesAdapter.this.context, R.color.status_inactive); // Grey/Red for Inactive
+            }
+            this.viewStatusStrip.setBackgroundColor(statusColor);
+            
+            // Click Listeners
+            this.itemView.setOnClickListener(v -> ScheduledMessagesAdapter.this.listener.onEdit(message));
+            this.itemView.setOnLongClickListener(v -> {
+                ScheduledMessagesAdapter.this.listener.onDelete(message);
+                return true;
+            });
         }
     }
 }

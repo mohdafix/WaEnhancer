@@ -213,11 +213,35 @@ public class MessageScheduler extends Feature {
             customPickerGroup.addView(datePicker);
             customPickerGroup.addView(timePicker);
 
+            java.util.concurrent.atomic.AtomicReference<com.wmods.wppenhacer.xposed.core.components.AlertDialogWpp> dialogRef = new java.util.concurrent.atomic.AtomicReference<>();
+
             Object[][] opts = {{"5m", 5}, {"10m", 10}, {"30m", 30}, {"1h", 60}, {"Custom", -1}};
             for (Object[] opt : opts) {
                 String label = (String) opt[0];
                 int mins = (int) opt[1];
                 View chip = createChip(activity, label, mins, chipContainer, selectedMins, customPickerGroup);
+                
+                if (mins == -1) {
+                    chip.setOnClickListener(v -> {
+                         try {
+                            Intent intent = new Intent();
+                            intent.setComponent(new android.content.ComponentName("com.wmods.wppenhacer", 
+                                "com.wmods.wppenhacer.activities.ScheduledMessagesListActivity"));
+                            intent.putExtra("EXTRA_OPEN_CREATE_SHEET", true);
+                            intent.putExtra("EXTRA_JID", currentUserJid.getPhoneRawString());
+                            intent.putExtra("EXTRA_NAME", contactName);
+                            intent.putExtra("EXTRA_MESSAGE", messageInput.getText().toString());
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); 
+                            activity.startActivity(intent);
+                            
+                            if (dialogRef.get() != null) dialogRef.get().dismiss();
+                        } catch (Exception e) {
+                            Utils.showToast("Error launching scheduler: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT);
+                            XposedBridge.log(e);
+                        }
+                    });
+                }
+                
                 chipContainer.addView(chip);
                 if (mins == 5) updateChipStyle((TextView)chip, true); // default
             }
@@ -233,6 +257,7 @@ public class MessageScheduler extends Feature {
             scrollView.addView(contentLayout);
 
             com.wmods.wppenhacer.xposed.core.components.AlertDialogWpp dialog = new com.wmods.wppenhacer.xposed.core.components.AlertDialogWpp(activity);
+            dialogRef.set(dialog);
             dialog.setTitle("Schedule Message");
             dialog.setView(scrollView);
             
