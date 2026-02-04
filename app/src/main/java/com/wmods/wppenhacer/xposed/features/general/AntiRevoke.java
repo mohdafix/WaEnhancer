@@ -218,6 +218,24 @@ public class AntiRevoke extends Feature {
                 }
             }
         });
+
+        // Clear for the new ViewRepliesBottomSheetActivity (WhatsApp 2.26.4.71+)
+        try {
+            XposedHelpers.findAndHookMethod("com.whatsapp.conversation.conversationrow.message.viewreplies.ViewRepliesBottomSheetActivity", classLoader, "onResume", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    Activity activity = (Activity) param.thisObject;
+                    Intent intent = activity.getIntent();
+                    if (intent != null) {
+                        String jid = intent.getStringExtra("jid");
+                        if (jid != null) {
+                            Utils.cancelNotification("antirevoke_" + jid, 1001);
+                            notificationMessagesMap.remove(jid);
+                        }
+                    }
+                }
+            });
+        } catch (Throwable ignored) {}
     }
 
     private TextView findDateView(ViewGroup viewGroup) {

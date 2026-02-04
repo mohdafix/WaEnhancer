@@ -39,7 +39,8 @@ public class ConversationItemListener extends Feature {
         XposedHelpers.findAndHookMethod(ListView.class, "setAdapter", ListAdapter.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if (!WppCore.getCurrentActivity().getClass().getSimpleName().equals("Conversation"))
+                String activityName = WppCore.getCurrentActivity().getClass().getSimpleName();
+                if (!activityName.equals("Conversation") && !activityName.equals("ViewRepliesBottomSheetActivity"))
                     return;
                 if (((ListView) param.thisObject).getId() != android.R.id.list) return;
                 ListAdapter adapter = (ListAdapter) param.args[0];
