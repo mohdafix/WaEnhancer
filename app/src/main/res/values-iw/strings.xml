@@ -58,9 +58,7 @@
     <string name="downloadviewonce_sum">הצג כפתור להורדת מדיה של הודעה חד פעמית</string>
     <string name="separate_groups">הפרדת צ\'אטים וקבוצות</string>
     <string name="separate_groups_sum">הפרד את הצ\'אטים שלך לפי הסדר הזה: צ\'אטים פרטיים, עדכונים, קהילות, קבוצות, שיחות</string>
-    <string name="blueonreply">שלח וי כחול אחרי תשובה</string>
-    <string name="blueonreply_sum">שולח סימון כחול רק לאחר מענה להודעה\n(ה
-\"הסתר וי כחול\" חייב להיות פעיל)</string>
+    <string name="blueonreply_sum">שולח סימון כחול רק לאחר מענה להודעה\n(האופציה \"הסתר וי כחול\" חייבת להיות פעילה)</string>
     <string name="hide_archived_chat">הסתר צ\'אטים בארכיון</string>
     <string name="hide_archived_chat_sum">הסתר צ\'אטים בארכיון, לגישה לחץ 5 פעמים או החזק את הכותרת \"Whatsapp\" במסך הבית</string>
     <string name="hide_once_view_seen">הסתר צפייה בחד פעמי</string>
@@ -299,7 +297,7 @@
     <string name="enable_copy_status">הפעל מצב העתקה בסטטוס</string>
     <string name="enable_copy_status_sum">מפעיל את האפשרות להעתיק את התיאור והכיתוב של הסטטוסים על ידי החזקה בהם</string>
     <string name="animation_emojis">אנימציית אימוג\'י בצ\'אט</string>
-    <string name="animation_emojis_sum"></string>
+    <string name="animation_emojis_sum">הפעל אימוג\'י מונפשים (יוצר אימוג\'י גדולים בשיחות)</string>
     <string name="vertical_status">סטטוס אנכי</string>
     <string name="vertical_status_sum">הצג סטטוס במצב אנכי בכרטיסיית העדכונים</string>
     <string name="disable_version_check">השבת את בדיקת הגרסה</string>
@@ -335,7 +333,7 @@
     <string name="list_animations_home_screen_sum">הוסף אנימציות בעת החלקה ברשימת הצ\'אטים</string>
     <string name="stamp_copied_messages">הסר חותמת מהודעות שהועתקו</string>
     <string name="stamp_copied_messages_sum">מסיר שם ותאריך כשמעתיקים יותר מהודעה אחת</string>
-    <string name="invalid_folder"></string>
+    <string name="invalid_folder">התיקייה שנבחרה אינה חוקית. אנא בחר בתיקיית WaEnhancer</string>
     <string name="uri_permission">כדי להשתמש בערכות נושא מותאמות אישית, עליך לבחור בתיקיית \"WaEnhancer\" ב\"הורדה\"</string>
     <string name="double_click_to_react">אפשר לחיצה כפולה כדי להגיב</string>
     <string name="double_click_to_like_sum">מפעיל את האפשרות ללחוץ פעמיים על ההודעה כדי להגיב עליה באימוג\'י</string>
@@ -419,16 +417,127 @@
     <string name="disable_status_in_the_profile_photo">השבתת סטטוס בתמונת הפרופיל</string>
     <string name="disable_status_in_the_profile_photo_sum">מבטל את העיגול שמופיע בתמונת הפרופיל של כל איש קשר כאשר יש סטטוס חדש</string>
     <string name="download_not_available">ההורדה אינה זמינה או שהמדיה לא הורדה במלואה</string>
-    <string name="possible_block_detected">Possible block detected</string>
-    <string name="block_not_detected">Block not detected</string>
-    <string name="checking_if_the_contact_is_blocked">Checking if the contact is blocked...</string>
-    <string name="show_contact_blocked">Show Contact Blocked in Conversation</string>
-    <string name="show_contact_blocked_sum">This option verifies whether the contact may have blocked you (note: false positives may occur).</string>
-    <string name="block_unverified">Block Unverified</string>
-    <string name="disable_whatsapp_expiration">Disable WhatsApp Expiration</string>
-    <string name="disable_whatsapp_expiration_sum">Deactivates the expired version of WhatsApp, (Note: Manual Disable to update WhatsApp on the Play Store or mark the Play Store on LSposed)</string>
-    <string name="disable_ads">Disable Ads</string>
-    <string name="disable_ads_sum">Blocks ads from appearing in WhatsApp</string>
-    <string name="lockedchats_enhancer">Enhanced Locked Chats</string>
-    <string name="lockedchats_enhancer_sum">Improve locked chats by hiding notifications and contacts from the contact list</string>
+    <string name="possible_block_detected">זוהתה חסימה אפשרית</string>
+    <string name="block_not_detected">לא זוהתה חסימה</string>
+    <string name="checking_if_the_contact_is_blocked">בודק אם איש הקשר חסם אותך...</string>
+    <string name="show_contact_blocked">הצג איש קשר חסום בשיחה</string>
+    <string name="show_contact_blocked_sum">אפשרות זו בודקת אם איש הקשר חסם אותך (הערה: ייתכנו התראות שווא).</string>
+    <string name="block_unverified">חסימה לא מאומתת</string>
+    <string name="disable_whatsapp_expiration">השבת פקיעת תוקף של וואטסאפ</string>
+    <string name="disable_whatsapp_expiration_sum">משבית את הגרסה שפג תוקפה של וואטסאפ (הערה: השבת ידנית כדי לעדכן את וואטסאפ בחנות Play או סמן את חנות Play ב-LSposed)</string>
+    <string name="disable_ads">השבת פרסומות</string>
+    <string name="disable_ads_sum">חוסם הופעת פרסומות בוואטסאפ</string>
+    <string name="lockedchats_enhancer">צ\'אטים נעולים משופרים</string>
+    <string name="lockedchats_enhancer_sum">שפר את הצ\'אטים הנעולים על ידי הסתרת התראות ואנשי קשר מרשימת אנשי הקשר</string>
+
+    <string name="gemini_api_key">מפתח Gemini API</string>
+    <string name="gemini_api_key_sum">מפתח גישה ל-Gemini API (ניתן להשיג ב- aistudio.google.com)</string>
+    <string name="gemini_model">שם מודל Gemini</string>
+    <string name="gemini_model_sum">הזן את שם המודל מרשימת ה-API שלך (למשל: gemini-1.5-flash, gemini-2.0-flash)</string>
+    <string name="transcription_translation">שפת יעד לתרגום תמלול</string>
+    <string name="transcription_translation_sum">תרגם את התמלול לשפה זו (השאר ריק ללא תרגום). דוגמה: עברית, אנגלית, צרפתית</string>
+    <string name="translation_provider">ספק תרגום</string>
+    <string name="translation_provider_sum">בחר את השירות שישמש לתרגום הודעות</string>
+    <string name="target_translation_language">שפת יעד</string>
+    <string name="target_translation_language_sum">השפה אליה יתורגמו ההודעות (למשל: en, es, fr, he)</string>
+    
+    <string name="profile_picture_change_toast">התראות על שינוי תמונת פרופיל</string>
+    <string name="profile_picture_change_toast_sum">בחר כיצד לקבל התראה כשמישהו משנה את תמונת הפרופיל שלו</string>
+    <string name="profile_picture_change_option_disabled">מושבת</string>
+    <string name="profile_picture_change_option_toast">הצג Toast</string>
+    <string name="profile_picture_change_option_notification">הצג התראה</string>
+    <string name="toastdeleted_option_disabled">מושבת</string>
+    <string name="toastdeleted_option_toast">הצג Toast</string>
+    <string name="toastdeleted_option_notification">הצג התראה</string>
+    <string name="profile_picture_has_been_updated">%s עדכן/ה את תמונת הפרופיל</string>
+
+    <string name="monet_theme">AMOLED Material You</string>
+    <string name="monet_theme_sum">השתמש בצבעי המערכת עם רקע שחור מוחלט במצב כהה</string>
+
+    <!-- Scheduler Feature Strings -->
+    <string name="scheduler">מתזמן הודעות</string>
+    <string name="schedule_message">תזמן הודעה</string>
+    <string name="edit_message">ערוך הודעה</string>
+    <string name="scheduled_messages">הודעות מתוזמנות</string>
+    <string name="scheduled_messages_desc">הודעות המתוזמנות לשליחה אוטומטית</string>
+    <string name="no_scheduled_messages">אין הודעות מתוזמנות</string>
+    <string name="no_scheduled_messages_desc">לחץ על כפתור ה-+ כדי ליצור את ההודעה המתוזמנת הראשונה שלך</string>
+    <string name="add_scheduled_message">הוסף הודעה מתוזמנת</string>
+    
+    <string name="recipients">נמענים</string>
+    <string name="select_contacts_required">אנא בחר לפחות איש קשר אחד</string>
+    <string name="message_required">ההודעה לא יכולה להיות ריקה</string>
+    
+    <string name="schedule_time">זמן תזמון</string>
+    <string name="select_date_time">בחר תאריך ושעה</string>
+    <string name="invalid_time">זמן לא חוקי</string>
+    <string name="schedule_future_time">אנא בחר זמן עתידי</string>
+    
+    <string name="repeat">חזרה</string>
+    <string name="repeat_once">פעם אחת</string>
+    <string name="repeat_daily">מדי יום</string>
+    <string name="repeat_weekly">מדי שבוע</string>
+    <string name="repeat_monthly">מדי חודש</string>
+    <string name="repeat_custom">מותאם אישית</string>
+    <string name="select_days">בחר ימים</string>
+    <string name="no_days_selected">אנא בחר לפחות יום אחד</string>
+    <string name="sunday">א\'</string>
+    <string name="monday">ב\'</string>
+    <string name="tuesday">ג\'</string>
+    <string name="wednesday">ד\'</string>
+    <string name="thursday">ה\'</string>
+    <string name="friday">ו\'</string>
+    <string name="saturday">ש\'</string>
+    
+    <string name="whatsapp_type">סוג וואטסאפ</string>
+    <string name="whatsapp">וואטסאפ</string>
+    <string name="whatsapp_business">וואטסאפ לעסקים</string>
+    
+    <string name="active">פעיל</string>
+    <string name="inactive">לא פעיל</string>
+    <string name="sent">נשלח</string>
+    
+    <string name="delete_message">מחק הודעה</string>
+    <string name="delete_message_confirm">למחוק הודעה מתוזמנת ל-%s?</string>
+    <string name="message_deleted">ההודעה נמחקה</string>
+    <string name="clear_sent_messages">נקה הודעות שנשלחו</string>
+    <string name="clear_sent_messages_confirm">למחוק את כל ההודעות החד-פעמיות שנשלחו?</string>
+    <string name="sent_messages_cleared">הודעות שנשלחו נוקו</string>
+    <string name="action_save">שמור</string>
+    
+    <string name="scheduler_service_running">שירות התזמון פועל</string>
+    <string name="scheduler_service_stopped">שירות התזמון הופסק</string>
+    
+    <string name="scheduled_messages_active" formatted="true">%d הודעות מתוזמנות פעילות</string>
+    <string name="scheduled_messages_monitoring">מנטר הודעות מתוזמנות</string>
+    <string name="scheduled_messages_next" formatted="true">%1$d הודעות • הבא: %2$s • %3$s</string>
+    
+    <string name="error">שגיאה</string>
+    <string name="save_failed">השמירה נכשלה</string>
+    <string name="no_contacts">אין אנשי קשר</string>
+
+    <string name="call_recording_title">הקלטת שיחות</string>
+    <string name="call_recording_enable">אפשר הקלטת שיחות</string>
+    <string name="call_recording_enable_sum">הקלט שיחות קוליות באופן אוטומטי</string>
+    <string name="call_recording_path">נתיב הקלטה</string>
+    <string name="video_call_screen_rec">הקלטת מסך בשיחת וידאו</string>
+    <string name="video_call_screen_rec_sum">הקלט מסך במהלך שיחות וידאו</string>
+
+    <string name="schedule_sent">נשלח</string>
+    <string name="schedule_pending">ממתין</string>
+    <string name="own_status_indicator">מחוון סטטוס הודעות עצמי</string>
+    <string name="own_status_indicator_sum">החלף את סימוני הוי הרגילים עבור הודעות שלך במחוונים מותאמים אישית</string>
+    <string name="own_status_style">סגנון מחוון</string>
+    <string name="schedule_live_notification">התראת עדכון חי</string>
+    <string name="schedule_live_notification_sum">הצג ספירה לאחור בזמן אמת להודעה המתוזמנת הבאה בהתראות</string>
+    <string name="schedule_inactive">לא פעיל</string>
+    <string name="enabled">מופעל</string>
+    <string name="custom_privacy_global_status">סטטוס גלובלי: %s</string>
+
+    <!-- Deleted Message Notification Filter -->
+    <string name="filter_notification_types">סנן סוגי התראות</string>
+    <string name="filter_notification_types_sum">בחר אילו סוגי הודעות שנמחקו יפעילו התראות</string>
+    <string name="filter_private_messages">הודעות פרטיות</string>
+    <string name="filter_group_messages">הודעות קבוצתיות</string>
+    <string name="filter_status">סטטוסים</string>
 </resources>

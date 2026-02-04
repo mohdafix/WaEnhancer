@@ -440,4 +440,115 @@ Harap gunakan versi WhatsApp yang didukung!</string>
     <string name="disable_ads_sum">Blokir iklan agar tidak muncul di WhatsApp</string>
     <string name="lockedchats_enhancer">Obrolan Terkunci yang Ditingkatkan</string>
     <string name="lockedchats_enhancer_sum">Tingkatkan keamanan obrolan yang terkunci dengan menyembunyikan notifikasi dan kontak dari daftar kontak</string>
+
+    <string name="gemini_api_key">Kunci API Gemini</string>
+    <string name="gemini_api_key_sum">Kunci akses API Gemini (Dapatkan di aistudio.google.com)</string>
+    <string name="gemini_model">Nama Model Gemini</string>
+    <string name="gemini_model_sum">Masukkan nama model dari daftar API Anda (misal, gemini-1.5-flash, gemini-2.0-flash)</string>
+    <string name="transcription_translation">Bahasa Target Terjemahan Transkripsi</string>
+    <string name="transcription_translation_sum">Terjemahkan transkripsi ke bahasa ini (kosongkan jika tidak ada). Contoh: Indonesia, Inggris, Perancis</string>
+    <string name="translation_provider">Penyedia Terjemahan</string>
+    <string name="translation_provider_sum">Pilih layanan yang akan digunakan untuk terjemahan pesan</string>
+    <string name="target_translation_language">Bahasa Target</string>
+    <string name="target_translation_language_sum">Bahasa untuk menerjemahkan pesan (misal, id, en, es, fr)</string>
+
+    <string name="profile_picture_change_toast">Notifikasi Perubahan Foto Profil</string>
+    <string name="profile_picture_change_toast_sum">Pilih cara Anda akan diberi tahu saat seseorang mengubah foto profilnya</string>
+    <string name="profile_picture_change_option_disabled">Dinonaktifkan</string>
+    <string name="profile_picture_change_option_toast">Tampilkan Toast</string>
+    <string name="profile_picture_change_option_notification">Tampilkan Notifikasi</string>
+    <string name="toastdeleted_option_disabled">Dinonaktifkan</string>
+    <string name="toastdeleted_option_toast">Tampilkan Toast</string>
+    <string name="toastdeleted_option_notification">Tampilkan Notifikasi</string>
+    <string name="profile_picture_has_been_updated">%s telah memperbarui foto profil mereka</string>
+
+    <string name="monet_theme">AMOLED Material You</string>
+    <string name="monet_theme_sum">Gunakan warna aksen sistem dengan latar belakang hitam pekat dalam Mode Gelap</string>
+
+    <!-- Scheduler Feature Strings -->
+    <string name="scheduler">Penjadwal</string>
+    <string name="schedule_message">Jadwalkan Pesan</string>
+    <string name="edit_message">Edit Pesan</string>
+    <string name="scheduled_messages">Pesan Terjadwal</string>
+    <string name="scheduled_messages_desc">Pesan yang dijadwalkan untuk pengiriman otomatis</string>
+    <string name="no_scheduled_messages">Tidak Ada Pesan Terjadwal</string>
+    <string name="no_scheduled_messages_desc">Ketuk tombol + untuk membuat pesan terjadwal pertama Anda</string>
+    <string name="add_scheduled_message">Tambah Pesan Terjadwal</string>
+    
+    <string name="recipients">Penerima</string>
+    <string name="select_contacts_required">Silakan pilih setidaknya satu kontak</string>
+    <string name="message_required">Pesan tidak boleh kosong</string>
+    
+    <string name="schedule_time">Waktu Jadwal</string>
+    <string name="select_date_time">Pilih Tanggal dan Waktu</string>
+    <string name="invalid_time">Waktu Tidak Valid</string>
+    <string name="schedule_future_time">Silakan pilih waktu di masa mendatang</string>
+    
+    <string name="repeat">Ulangi</string>
+    <string name="repeat_once">Sekali</string>
+    <string name="repeat_daily">Harian</string>
+    <string name="repeat_weekly">Mingguan</string>
+    <string name="repeat_monthly">Bulanan</string>
+    <string name="repeat_custom">Kustom</string>
+    <string name="select_days">Pilih Hari</string>
+    <string name="no_days_selected">Silakan pilih setidaknya satu hari</string>
+    <string name="sunday">Ming</string>
+    <string name="monday">Sen</string>
+    <string name="tuesday">Sel</string>
+    <string name="wednesday">Rab</string>
+    <string name="thursday">Kam</string>
+    <string name="friday">Jum</string>
+    <string name="saturday">Sab</string>
+    
+    <string name="whatsapp_type">Tipe WhatsApp</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="whatsapp_business">WhatsApp Business</string>
+    
+    <string name="active">Aktif</string>
+    <string name="inactive">Tidak Aktif</string>
+    <string name="sent">Terkirim</string>
+    
+    <string name="delete_message">Hapus Pesan</string>
+    <string name="delete_message_confirm">Hapus pesan terjadwal untuk %s?</string>
+    <string name="message_deleted">Pesan dihapus</string>
+    <string name="clear_sent_messages">Bersihkan Pesan Terkirim</string>
+    <string name="clear_sent_messages_confirm">Hapus semua pesan satu kali yang telah terkirim?</string>
+    <string name="sent_messages_cleared">Pesan terkirim dibersihkan</string>
+    <string name="action_save">Simpan</string>
+    
+    <string name="scheduler_service_running">Layanan penjadwal sedang berjalan</string>
+    <string name="scheduler_service_stopped">Layanan penjadwal dihentikan</string>
+    
+    <string name="scheduled_messages_active" formatted="true">%d pesan terjadwal aktif</string>
+    <string name="scheduled_messages_monitoring">Memantau pesan terjadwal</string>
+    <string name="scheduled_messages_next" formatted="true">%1$d pesan • Berikutnya: %2$s • %3$s</string>
+    
+    <string name="error">Kesalahan</string>
+    <string name="save_failed">Gagal menyimpan pesan</string>
+    <string name="no_contacts">Tidak Ada Kontak</string>
+
+    <string name="call_recording_title">Rekaman Panggilan</string>
+    <string name="call_recording_enable">Aktifkan Rekaman Panggilan</string>
+    <string name="call_recording_enable_sum">Rekam panggilan suara secara otomatis</string>
+    <string name="call_recording_path">Jalur Rekaman</string>
+    <string name="video_call_screen_rec">Rekaman Layar Panggilan Video</string>
+    <string name="video_call_screen_rec_sum">Rekam layar selama panggilan video</string>
+
+    <string name="schedule_sent">Terkirim</string>
+    <string name="schedule_pending">Tertunda</string>
+    <string name="own_status_indicator">Indikator Status Pesan Sendiri</string>
+    <string name="own_status_indicator_sum">Ganti tanda centang panah normal untuk pesan Anda sendiri dengan indikator kustom</string>
+    <string name="own_status_style">Gaya Indikator</string>
+    <string name="schedule_live_notification">Notifikasi Pembaruan Langsung</string>
+    <string name="schedule_live_notification_sum">Tampilkan hitung mundur real-time untuk pesan terjadwal berikutnya di notifikasi</string>
+    <string name="schedule_inactive">Tidak Aktif</string>
+    <string name="enabled">Diaktifkan</string>
+    <string name="custom_privacy_global_status">Status Global: %s</string>
+
+    <!-- Deleted Message Notification Filter -->
+    <string name="filter_notification_types">Filter tipe notifikasi</string>
+    <string name="filter_notification_types_sum">Pilih tipe pesan apa yang dihapus yang harus memicu notifikasi</string>
+    <string name="filter_private_messages">Pesan pribadi</string>
+    <string name="filter_group_messages">Pesan grup</string>
+    <string name="filter_status">Status</string>
 </resources>

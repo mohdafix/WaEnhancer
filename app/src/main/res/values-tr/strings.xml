@@ -417,16 +417,127 @@
     <string name="disable_status_in_the_profile_photo">Profil fotoğrafındaki Durumu devre dışı bırak</string>
     <string name="disable_status_in_the_profile_photo_sum">Yeni durum olduğunda her kişinin profil fotoğrafında görünen daireyi devre dışı bırakır</string>
     <string name="download_not_available">İndirme yapılamıyor veya medya tam olarak indirilmedi</string>
-    <string name="possible_block_detected">Olası bir engelleme tespit edildi</string>
+    <string name="possible_block_detected">Olası engelleme tespit edildi</string>
     <string name="block_not_detected">Engelleme tespit edilmedi</string>
     <string name="checking_if_the_contact_is_blocked">Kişinin engellenip engellenmediği kontrol ediliyor...</string>
-    <string name="show_contact_blocked">Sohbette kişinin engellendiğini göster</string>
-    <string name="show_contact_blocked_sum">Bu seçenek, kişinin sizi engelleyip engellemediğini kontrol eder (not: hatalı tespitler olabilir).</string>
-    <string name="block_unverified">Engelleme doğrulanmadı</string>
+    <string name="show_contact_blocked">Sohbette Engellenen Kişiyi Göster</string>
+    <string name="show_contact_blocked_sum">Bu seçenek, kişinin sizi engellemiş olabileceğini doğrular (not: hatalı pozitifler oluşabilir).</string>
+    <string name="block_unverified">Doğrulanmamışları Engelle</string>
     <string name="disable_whatsapp_expiration">WhatsApp Sürüm Süresini Devre Dışı Bırak</string>
-    <string name="disable_whatsapp_expiration_sum">Süresi dolmuş WhatsApp sürüm uyarısını devre dışı bırakır. (Not: Play Store\'dan güncelleme yapmak için bu ayarı elle kapatın veya LSposed üzerinden Play Store\'u işaretleyin)</string>
+    <string name="disable_whatsapp_expiration_sum">Süresi dolmuş WhatsApp sürüm uyarısını devre dışı bırakır. (Not: Güncelleme yapmak için Play Store\'u LSposed üzerinden işaretleyin veya manuel olarak kapatın)</string>
     <string name="disable_ads">Reklamları Devre Dışı Bırak</string>
     <string name="disable_ads_sum">WhatsApp\'ta reklamların görünmesini engeller</string>
     <string name="lockedchats_enhancer">Gelişmiş Kilitli Sohbetler</string>
-    <string name="lockedchats_enhancer_sum">Bildirimleri ve kişileri rehberden gizleyerek kilitli sohbetleri iyileştir</string>
+    <string name="lockedchats_enhancer_sum">Bildirimleri ve kişileri rehberden gizleyerek kilitli sohbetleri iyileştirin</string>
+
+    <string name="gemini_api_key">Gemini API Anahtarı</string>
+    <string name="gemini_api_key_sum">Gemini API erişim anahtarı (aistudio.google.com adresinden edinin)</string>
+    <string name="gemini_model">Gemini Model Adı</string>
+    <string name="gemini_model_sum">API listenizden model adını girin (örn. gemini-1.5-flash, gemini-2.0-flash)</string>
+    <string name="transcription_translation">Transkript Hedef Dili</string>
+    <string name="transcription_translation_sum">Transkripti bu dile çevir (Kapalı bırakmak için boş bırakın). Örnek: Türkçe, İngilizce, Fransızca</string>
+    <string name="translation_provider">Çeviri Sağlayıcısı</string>
+    <string name="translation_provider_sum">Mesaj çevirisi için kullanılacak servisi seçin</string>
+    <string name="target_translation_language">Hedef Dil</string>
+    <string name="target_translation_language_sum">Mesajların çevrileceği dil (örn. tr, en, es, fr)</string>
+
+    <string name="profile_picture_change_toast">Profil Fotoğrafı Değişiklik Bildirimleri</string>
+    <string name="profile_picture_change_toast_sum">Birisi profil fotoğrafını değiştirdiğinde nasıl bildirim alacağınızı seçin</string>
+    <string name="profile_picture_change_option_disabled">Devre Dışı</string>
+    <string name="profile_picture_change_option_toast">Toast Göster</string>
+    <string name="profile_picture_change_option_notification">Bildirim Göster</string>
+    <string name="toastdeleted_option_disabled">Devre Dışı</string>
+    <string name="toastdeleted_option_toast">Toast Göster</string>
+    <string name="toastdeleted_option_notification">Bildirim Göster</string>
+    <string name="profile_picture_has_been_updated">%s profil fotoğrafını güncelledi</string>
+
+    <string name="monet_theme">AMOLED Material You</string>
+    <string name="monet_theme_sum">Koyu Modda saf siyah arka plan ile sistem vurgu renklerini kullanın</string>
+
+    <!-- Scheduler Feature Strings -->
+    <string name="scheduler">Zamanlayıcı</string>
+    <string name="schedule_message">Mesaj Zamanla</string>
+    <string name="edit_message">Mesajı Düzenle</string>
+    <string name="scheduled_messages">Zamanlanmış Mesajlar</string>
+    <string name="scheduled_messages_desc">Otomatik gönderim için zamanlanmış mesajlar</string>
+    <string name="no_scheduled_messages">Zamanlanmış Mesaj Yok</string>
+    <string name="no_scheduled_messages_desc">İlk zamanlanmış mesajınızı oluşturmak için + düğmesine dokunun</string>
+    <string name="add_scheduled_message">Zamanlanmış Mesaj Ekle</string>
+    
+    <string name="recipients">Alıcılar</string>
+    <string name="select_contacts_required">Lütfen en az bir kişi seçin</string>
+    <string name="message_required">Mesaj boş olamaz</string>
+    
+    <string name="schedule_time">Zamanlama Saati</string>
+    <string name="select_date_time">Tarih ve Saat Seçin</string>
+    <string name="invalid_time">Geçersiz Saat</string>
+    <string name="schedule_future_time">Lütfen gelecekteki bir zamanı seçin</string>
+    
+    <string name="repeat">Tekrarla</string>
+    <string name="repeat_once">Bir Kez</string>
+    <string name="repeat_daily">Günlük</string>
+    <string name="repeat_weekly">Haftalık</string>
+    <string name="repeat_monthly">Aylık</string>
+    <string name="repeat_custom">Özel</string>
+    <string name="select_days">Günleri Seçin</string>
+    <string name="no_days_selected">Lütfen en az bir gün seçin</string>
+    <string name="sunday">Paz</string>
+    <string name="monday">Pzt</string>
+    <string name="tuesday">Sal</string>
+    <string name="wednesday">Çar</string>
+    <string name="thursday">Per</string>
+    <string name="friday">Cum</string>
+    <string name="saturday">Cmt</string>
+    
+    <string name="whatsapp_type">WhatsApp Türü</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="whatsapp_business">WhatsApp Business</string>
+    
+    <string name="active">Aktif</string>
+    <string name="inactive">İnaktif</string>
+    <string name="sent">Gönderildi</string>
+    
+    <string name="delete_message">Mesajı Sil</string>
+    <string name="delete_message_confirm">%s için zamanlanmış mesaj silinsin mi?</string>
+    <string name="message_deleted">Mesaj silindi</string>
+    <string name="clear_sent_messages">Gönderilen Mesajları Temizle</string>
+    <string name="clear_sent_messages_confirm">Gönderilmiş olan tüm tek seferlik mesajlar silinsin mi?</string>
+    <string name="sent_messages_cleared">Gönderilen mesajlar temizlendi</string>
+    <string name="action_save">Kaydet</string>
+    
+    <string name="scheduler_service_running">Zamanlayıcı servisi çalışıyor</string>
+    <string name="scheduler_service_stopped">Zamanlayıcı servisi durduruldu</string>
+    
+    <string name="scheduled_messages_active" formatted="true">%d aktif zamanlanmış mesaj</string>
+    <string name="scheduled_messages_monitoring">Zamanlanmış mesajlar izleniyor</string>
+    <string name="scheduled_messages_next" formatted="true">%1$d mesaj • Sıradaki: %2$s • %3$s</string>
+    
+    <string name="error">Hata</string>
+    <string name="save_failed">Mesaj kaydedilemedi</string>
+    <string name="no_contacts">Kişi Yok</string>
+
+    <string name="call_recording_title">Arama Kaydı</string>
+    <string name="call_recording_enable">Arama Kaydını Etkinleştir</string>
+    <string name="call_recording_enable_sum">Sesli aramaları otomatik olarak kaydet</string>
+    <string name="call_recording_path">Kayıt Yolu</string>
+    <string name="video_call_screen_rec">Görüntülü Arama Ekran Kaydı</string>
+    <string name="video_call_screen_rec_sum">Görüntülü aramalar sırasında ekranı kaydet</string>
+
+    <string name="schedule_sent">Gönderildi</string>
+    <string name="schedule_pending">Beklemede</string>
+    <string name="own_status_indicator">Kendi Mesaj Durum Göstergesi</string>
+    <string name="own_status_indicator_sum">Kendi mesajlarınız için normal ok simgelerini özel göstergelerle değiştirin</string>
+    <string name="own_status_style">Gösterge Stili</string>
+    <string name="schedule_live_notification">Canlı Güncelleme Bildirimi</string>
+    <string name="schedule_live_notification_sum">Bildirimde bir sonraki zamanlanmış mesaj için gerçek zamanlı geri sayım göster</string>
+    <string name="schedule_inactive">İnaktif</string>
+    <string name="enabled">Etkinleştirildi</string>
+    <string name="custom_privacy_global_status">Genel Durum: %s</string>
+
+    <!-- Deleted Message Notification Filter -->
+    <string name="filter_notification_types">Bildirim türlerini filtrele</string>
+    <string name="filter_notification_types_sum">Hangi silinen mesaj türlerinin bildirimleri tetikleyeceğini seçin</string>
+    <string name="filter_private_messages">Özel mesajlar</string>
+    <string name="filter_group_messages">Grup mesajları</string>
+    <string name="filter_status">Durumlar</string>
 </resources>

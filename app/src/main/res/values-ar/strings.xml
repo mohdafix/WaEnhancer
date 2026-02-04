@@ -429,4 +429,115 @@
     <string name="disable_ads_sum">منع الإعلانات من الظهور في WhatsApp</string>
     <string name="lockedchats_enhancer">محادثات مقفلة محسّنة</string>
     <string name="lockedchats_enhancer_sum">حسّن المحادثات المقفلة عن طريق إخفاء الإشعارات وجهات الاتصال من قائمة جهات الاتصال</string>
+
+    <string name="gemini_api_key">مفتاح Gemini API</string>
+    <string name="gemini_api_key_sum">مفتاح الوصول لـ Gemini API (احصل عليه من aistudio.google.com)</string>
+    <string name="gemini_model">اسم نموذج Gemini</string>
+    <string name="gemini_model_sum">أدخل اسم النموذج من قائمة الـ API الخاصة بك (مثل gemini-1.5-flash، gemini-2.0-flash)</string>
+    <string name="transcription_translation">لغة ترجمة التفريغ المستهدفة</string>
+    <string name="transcription_translation_sum">ترجمة التفريغ لهذه اللغة (اتركه فارغاً للإلغاء). مثال: العربية، الإنجليزية، الفرنسية</string>
+    <string name="translation_provider">مزود الترجمة</string>
+    <string name="translation_provider_sum">اختر الخدمة لاستخدامها في ترجمة الرسائل</string>
+    <string name="target_translation_language">اللغة المستهدفة</string>
+    <string name="target_translation_language_sum">اللغة لترجمة الرسائل إليها (مثل ar, en, es, fr)</string>
+
+    <string name="profile_picture_change_toast">إشعارات تغيير صورة البروفيل</string>
+    <string name="profile_picture_change_toast_sum">اختر كيف يتم إخطارك عندما يقوم شخص ما بتغيير صورة ملفه الشخصي</string>
+    <string name="profile_picture_change_option_disabled">معطل</string>
+    <string name="profile_picture_change_option_toast">إظهار Toast</string>
+    <string name="profile_picture_change_option_notification">إظهار إشعار</string>
+    <string name="toastdeleted_option_disabled">معطل</string>
+    <string name="toastdeleted_option_toast">إظهار Toast</string>
+    <string name="toastdeleted_option_notification">إظهار إشعار</string>
+    <string name="profile_picture_has_been_updated">قام %s بتحديث صورة ملفه الشخصي</string>
+
+    <string name="monet_theme">AMOLED Material You</string>
+    <string name="monet_theme_sum">استخدم ألوان النظام الأساسية مع خلفية سوداء نقية في الوضع الداكن</string>
+
+    <!-- Scheduler Feature Strings -->
+    <string name="scheduler">المجدول</string>
+    <string name="schedule_message">جدولة رسالة</string>
+    <string name="edit_message">تعديل الرسالة</string>
+    <string name="scheduled_messages">الرسائل المجدولة</string>
+    <string name="scheduled_messages_desc">الرسائل المجدولة للإرسال التلقائي</string>
+    <string name="no_scheduled_messages">لا توجد رسائل مجدولة</string>
+    <string name="no_scheduled_messages_desc">اضغط على زر + لإنشاء أول رسالة مجدولة لك</string>
+    <string name="add_scheduled_message">إضافة رسالة مجدولة</string>
+    
+    <string name="recipients">المستلمون</string>
+    <string name="select_contacts_required">يرجى اختيار جهة اتصال واحدة على الأقل</string>
+    <string name="message_required">لا يمكن أن تكون الرسالة فارغة</string>
+    
+    <string name="schedule_time">وقت الجدولة</string>
+    <string name="select_date_time">اختيار التاريخ والوقت</string>
+    <string name="invalid_time">وقت غير صالح</string>
+    <string name="schedule_future_time">يرجى اختيار وقت مستقبلي</string>
+    
+    <string name="repeat">تكرار</string>
+    <string name="repeat_once">مرة واحدة</string>
+    <string name="repeat_daily">يومياً</string>
+    <string name="repeat_weekly">أسبوعياً</string>
+    <string name="repeat_monthly">شهرياً</string>
+    <string name="repeat_custom">مخصص</string>
+    <string name="select_days">اختيار الأيام</string>
+    <string name="no_days_selected">يرجى اختيار يوم واحد على الأقل</string>
+    <string name="sunday">الأحد</string>
+    <string name="monday">الاثنين</string>
+    <string name="tuesday">الثلاثاء</string>
+    <string name="wednesday">الأربعاء</string>
+    <string name="thursday">الخميس</string>
+    <string name="friday">الجمعة</string>
+    <string name="saturday">السبت</string>
+    
+    <string name="whatsapp_type">نوع واتساب</string>
+    <string name="whatsapp">واتساب</string>
+    <string name="whatsapp_business">واتساب للأعمال</string>
+    
+    <string name="active">نشط</string>
+    <string name="inactive">غير نشط</string>
+    <string name="sent">تم الإرسال</string>
+    
+    <string name="delete_message">حذف الرسالة</string>
+    <string name="delete_message_confirm">حذف الرسالة المجدولة لـ %s؟</string>
+    <string name="message_deleted">تم حذف الرسالة</string>
+    <string name="clear_sent_messages">مسح الرسائل المرسلة</string>
+    <string name="clear_sent_messages_confirm">حذف جميع الرسائل ذات الإرسال لمرة واحدة التي تم إرسالها؟</string>
+    <string name="sent_messages_cleared">تم مسح الرسائل المرسلة</string>
+    <string name="action_save">حفظ</string>
+    
+    <string name="scheduler_service_running">خدمة المجدول تعمل</string>
+    <string name="scheduler_service_stopped">خدمة المجدول متوقفة</string>
+    
+    <string name="scheduled_messages_active" formatted="true">%d رسائل مجدولة نشطة</string>
+    <string name="scheduled_messages_monitoring">مراقبة الرسائل المجدولة</string>
+    <string name="scheduled_messages_next" formatted="true">%1$d رسائل • التالي: %2$s • %3$s</string>
+    
+    <string name="error">خطأ</string>
+    <string name="save_failed">فشل حفظ الرسالة</string>
+    <string name="no_contacts">لا توجد جهات اتصال</string>
+
+    <string name="call_recording_title">تسجيل المكالمات</string>
+    <string name="call_recording_enable">تفعيل تسجيل المكالمات</string>
+    <string name="call_recording_enable_sum">تسجيل المكالمات الصوتية تلقائياً</string>
+    <string name="call_recording_path">مسار التسجيل</string>
+    <string name="video_call_screen_rec">تسجيل شاشة مكالمة الفيديو</string>
+    <string name="video_call_screen_rec_sum">تسجيل الشاشة أثناء مكالمات الفيديو</string>
+
+    <string name="schedule_sent">تم الإرسال</string>
+    <string name="schedule_pending">قيد الانتظار</string>
+    <string name="own_status_indicator">مؤشر حالة الرسائل الخاصة بك</string>
+    <string name="own_status_indicator_sum">استبدال علامات السهم العادية لرسائلك الخاصة بمؤشرات مخصصة</string>
+    <string name="own_status_style">نمط المؤشر</string>
+    <string name="schedule_live_notification">إشعار التحديث المباشر</string>
+    <string name="schedule_live_notification_sum">إظهار العد التنازلي في الوقت الفعلي للرسالة المجدولة التالية في الإشعار</string>
+    <string name="schedule_inactive">غير نشط</string>
+    <string name="enabled">مفعل</string>
+    <string name="custom_privacy_global_status">الحالة العامة: %s</string>
+
+    <!-- Deleted Message Notification Filter -->
+    <string name="filter_notification_types">تصفية أنواع الإشعارات</string>
+    <string name="filter_notification_types_sum">اختر أنواع الرسائل المحذوفة التي يجب أن تفعل الإشعارات</string>
+    <string name="filter_private_messages">الرسائل الخاصة</string>
+    <string name="filter_group_messages">رسائل المجموعات</string>
+    <string name="filter_status">الحالات</string>
 </resources>

@@ -395,38 +395,149 @@
     <string name="platform_s">Plateforme : %s</string>
     <string name="wpp_version_s">Version WhatsApp : %s</string>
     <string name="call_information">Informations sur l\'appel</string>
-    <string name="ask_download_folder">To use WAE Enhancer\'s download functions, you must select a folder to save the downloaded files.</string>
-    <string name="download_folder_permission">Download Folder Permission</string>
-    <string name="lite_mode">Lite Mode</string>
-    <string name="lite_mode_sum">Lite Mode disables most theme features and the connection bridge that keeps WhatsApp always active is turned off.</string>
-    <string name="update_check">Automatically Check for Update</string>
-    <string name="update_check_sum">Enable or Disable Auto Check for Update. This will disable the popup inside the WhatsApp Application.</string>
-    <string name="change_default_dpi">Change Default DPI</string>
-    <string name="change_default_dpi_sum">Change the DPI setting for the application. Use 0 to reset to default.</string>
-    <string name="no_contact_with_custom_privacy">No contact with custom privacy!</string>
-    <string name="show_chat_broadcast_icon">Show chat broadcast icon</string>
-    <string name="show_chat_broadcast_icon_sum">Shows an icon if the contact sent a message via broadcast</string>
-    <string name="select_contacts">Select Contacts</string>
-    <string name="style_of_stories_status">Style of Stories/Status</string>
-    <string name="style_of_stories_status_sum">Changes Stories/Status style to some models available on WhatsApp</string>
-    <string name="view_seen_tick">View Seen Tick</string>
-    <string name="view_seen_tick_sum">Show an icon if the message view was sent to the recipient or unique view was seen</string>
-    <string name="text_color">Text Color</string>
-    <string name="disable_the_proximity_sensor">Disable Screen off on proximity sensor</string>
-    <string name="disable_the_proximity_sensor_sum">Disable Screen off on proximity sensor to the whole WhatsApp</string>
-    <string name="disable_status_in_the_profile_photo">Disable Status in the profile photo</string>
-    <string name="disable_status_in_the_profile_photo_sum">Disables the circle that appears in the profile photo of each contact when there is new status</string>
-    <string name="download_not_available">Download not available or media has not been fully downloaded</string>
-    <string name="possible_block_detected">Possible block detected</string>
-    <string name="block_not_detected">Block not detected</string>
-    <string name="checking_if_the_contact_is_blocked">Checking if the contact is blocked...</string>
-    <string name="show_contact_blocked">Show Contact Blocked in Conversation</string>
-    <string name="show_contact_blocked_sum">This option verifies whether the contact may have blocked you (note: false positives may occur).</string>
-    <string name="block_unverified">Block Unverified</string>
-    <string name="disable_whatsapp_expiration">Disable WhatsApp Expiration</string>
-    <string name="disable_whatsapp_expiration_sum">Deactivates the expired version of WhatsApp, (Note: Manual Disable to update WhatsApp on the Play Store or mark the Play Store on LSposed)</string>
-    <string name="disable_ads">Disable Ads</string>
-    <string name="disable_ads_sum">Blocks ads from appearing in WhatsApp</string>
-    <string name="lockedchats_enhancer">Enhanced Locked Chats</string>
-    <string name="lockedchats_enhancer_sum">Improve locked chats by hiding notifications and contacts from the contact list</string>
+    <string name="ask_download_folder">Pour utiliser les fonctions de téléchargement de WAE Enhancer, vous devez sélectionner un dossier pour enregistrer les fichiers téléchargés.</string>
+    <string name="download_folder_permission">Autorisation du dossier de téléchargement</string>
+    <string name="lite_mode">Mode Lite</string>
+    <string name="lite_mode_sum">Le mode Lite désactive la plupart des fonctionnalités de thème et le pont de connexion qui maintient WhatsApp toujours actif est désactivé.</string>
+    <string name="update_check">Vérifier automatiquement les mises à jour</string>
+    <string name="update_check_sum">Activer ou désactiver la vérification automatique des mises à jour. Cela désactivera la fenêtre contextuelle à l\'intérieur de l\'application WhatsApp.</string>
+    <string name="change_default_dpi">Modifier le DPI par défaut</string>
+    <string name="change_default_dpi_sum">Modifier le paramètre DPI de l\'application. Utilisez 0 pour réinitialiser par défaut.</string>
+    <string name="no_contact_with_custom_privacy">Aucun contact avec confidentialité personnalisée !</string>
+    <string name="show_chat_broadcast_icon">Afficher l\'icône de diffusion sur le chat</string>
+    <string name="show_chat_broadcast_icon_sum">Affiche une icône si le contact a envoyé un message par diffusion</string>
+    <string name="select_contacts">Sélectionner des contacts</string>
+    <string name="style_of_stories_status">Style des Stories/Statuts</string>
+    <string name="style_of_stories_status_sum">Modifie le style des Stories/Statuts pour certains modèles disponibles sur WhatsApp</string>
+    <string name="view_seen_tick">Afficher le symbole de lecture</string>
+    <string name="view_seen_tick_sum">Afficher une icône si la vue du message a été envoyée au destinataire ou si la vue unique a été vue</string>
+    <string name="text_color">Couleur du texte</string>
+    <string name="disable_the_proximity_sensor">Désactiver l\'extinction de l\'écran par le capteur de proximité</string>
+    <string name="disable_the_proximity_sensor_sum">Désactiver l\'extinction de l\'écran par le capteur de proximité dans tout WhatsApp</string>
+    <string name="disable_status_in_the_profile_photo">Désactiver le statut dans la photo de profil</string>
+    <string name="disable_status_in_the_profile_photo_sum">Désactive le cercle qui apparaît sur la photo de profil de chaque contact lorsqu\'il y a un nouveau statut</string>
+    <string name="download_not_available">Téléchargement non disponible ou le média n\'a pas été entièrement téléchargé</string>
+    <string name="possible_block_detected">Blocage possible détecté</string>
+    <string name="block_not_detected">Blocage non détecté</string>
+    <string name="checking_if_the_contact_is_blocked">Vérification si le contact est bloqué...</string>
+    <string name="show_contact_blocked">Afficher le contact bloqué dans la conversation</string>
+    <string name="show_contact_blocked_sum">Cette option vérifie si le contact a pu vous bloquer (remarque : des faux positifs peuvent survenir).</string>
+    <string name="block_unverified">Blocage non vérifié</string>
+    <string name="disable_whatsapp_expiration">Désactiver l\'expiration de WhatsApp</string>
+    <string name="disable_whatsapp_expiration_sum">Désactive la version expirée de WhatsApp (Remarque : désactivation manuelle pour mettre à jour WhatsApp sur le Play Store ou cocher le Play Store sur LSposed)</string>
+    <string name="disable_ads">Désactiver les publicités</string>
+    <string name="disable_ads_sum">Empêche l\'apparition de publicités dans WhatsApp</string>
+    <string name="lockedchats_enhancer">Chats verrouillés améliorés</string>
+    <string name="lockedchats_enhancer_sum">Améliorer les discussions verrouillées en masquant les notifications et les contacts de la liste de contacts</string>
+
+    <string name="gemini_api_key">Clé API Gemini</string>
+    <string name="gemini_api_key_sum">Clé d\'accès à l\'API Gemini (Obtenez-la sur aistudio.google.com)</string>
+    <string name="gemini_model">Nom du modèle Gemini</string>
+    <string name="gemini_model_sum">Entrez le nom du modèle de votre liste d\'API (ex : gemini-1.5-flash, gemini-2.0-flash)</string>
+    <string name="transcription_translation">Langue de traduction cible</string>
+    <string name="transcription_translation_sum">Traduire la transcription dans cette langue (laisser vide pour aucune). Exemple : Français, Anglais, Espagnol</string>
+    <string name="translation_provider">Fournisseur de traduction</string>
+    <string name="translation_provider_sum">Choisissez le service à utiliser pour la traduction des messages</string>
+    <string name="target_translation_language">Langue cible</string>
+    <string name="target_translation_language_sum">Langue dans laquelle traduire les messages (ex : fr, en, es, pt)</string>
+
+    <string name="profile_picture_change_toast">Notifications de changement de photo de profil</string>
+    <string name="profile_picture_change_toast_sum">Choisissez comment être notifié lorsque quelqu\'un change sa photo de profil</string>
+    <string name="profile_picture_change_option_disabled">Désactivé</string>
+    <string name="profile_picture_change_option_toast">Afficher un Toast</string>
+    <string name="profile_picture_change_option_notification">Afficher une notification</string>
+    <string name="toastdeleted_option_disabled">Désactivé</string>
+    <string name="toastdeleted_option_toast">Afficher un Toast</string>
+    <string name="toastdeleted_option_notification">Afficher une notification</string>
+    <string name="profile_picture_has_been_updated">%s a mis à jour sa photo de profil</string>
+
+    <string name="monet_theme">AMOLED Material You</string>
+    <string name="monet_theme_sum">Utiliser les couleurs d\'accentuation du système avec un fond noir pur en mode sombre</string>
+
+    <!-- Scheduler Feature Strings -->
+    <string name="scheduler">Planificateur</string>
+    <string name="schedule_message">Planifier un message</string>
+    <string name="edit_message">Modifier le message</string>
+    <string name="scheduled_messages">Messages planifiés</string>
+    <string name="scheduled_messages_desc">Messages planifiés pour un envoi automatique</string>
+    <string name="no_scheduled_messages">Aucun message planifié</string>
+    <string name="no_scheduled_messages_desc">Appuyez sur le bouton + pour créer votre premier message planifié</string>
+    <string name="add_scheduled_message">Ajouter un message planifié</string>
+    
+    <string name="recipients">Destinataires</string>
+    <string name="select_contacts_required">Veuillez sélectionner au moins un contact</string>
+    <string name="message_required">Le message ne peut pas être vide</string>
+    
+    <string name="schedule_time">Heure planifiée</string>
+    <string name="select_date_time">Sélectionner la date et l\'heure</string>
+    <string name="invalid_time">Heure invalide</string>
+    <string name="schedule_future_time">Veuillez sélectionner une heure future</string>
+    
+    <string name="repeat">Répéter</string>
+    <string name="repeat_once">Une fois</string>
+    <string name="repeat_daily">Quotidiennement</string>
+    <string name="repeat_weekly">Hebdomadairement</string>
+    <string name="repeat_monthly">Mensuellement</string>
+    <string name="repeat_custom">Personnalisé</string>
+    <string name="select_days">Sélectionner les jours</string>
+    <string name="no_days_selected">Veuillez sélectionner au moins un jour</string>
+    <string name="sunday">Dim</string>
+    <string name="monday">Lun</string>
+    <string name="tuesday">Mar</string>
+    <string name="wednesday">Mer</string>
+    <string name="thursday">Jeu</string>
+    <string name="friday">Ven</string>
+    <string name="saturday">Sam</string>
+    
+    <string name="whatsapp_type">Type de WhatsApp</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="whatsapp_business">WhatsApp Business</string>
+    
+    <string name="active">Actif</string>
+    <string name="inactive">Inactif</string>
+    <string name="sent">Envoyé</string>
+    
+    <string name="delete_message">Supprimer le message</string>
+    <string name="delete_message_confirm">Supprimer le message planifié pour %s ?</string>
+    <string name="message_deleted">Message supprimé</string>
+    <string name="clear_sent_messages">Effacer les messages envoyés</string>
+    <string name="clear_sent_messages_confirm">Supprimer tous les messages à envoi unique qui ont été envoyés ?</string>
+    <string name="sent_messages_cleared">Messages envoyés effacés</string>
+    <string name="action_save">Enregistrer</string>
+    
+    <string name="scheduler_service_running">Le service de planification est en cours d\'exécution</string>
+    <string name="scheduler_service_stopped">Le service de planification est arrêté</string>
+    
+    <string name="scheduled_messages_active" formatted="true">%d messages planifiés actifs</string>
+    <string name="scheduled_messages_monitoring">Surveillance des messages planifiés</string>
+    <string name="scheduled_messages_next" formatted="true">%1$d messages • Prochain : %2$s • %3$s</string>
+    
+    <string name="error">Erreur</string>
+    <string name="save_failed">Échec de l\'enregistrement du message</string>
+    <string name="no_contacts">Aucun contact</string>
+
+    <string name="call_recording_title">Enregistrement d\'appel</string>
+    <string name="call_recording_enable">Activer l\'enregistrement d\'appel</string>
+    <string name="call_recording_enable_sum">Enregistrer automatiquement les appels vocaux</string>
+    <string name="call_recording_path">Chemin d\'enregistrement</string>
+    <string name="video_call_screen_rec">Enregistrement d\'écran de l\'appel vidéo</string>
+    <string name="video_call_screen_rec_sum">Enregistrer l\'écran pendant les appels vidéo</string>
+
+    <string name="schedule_sent">Envoyé</string>
+    <string name="schedule_pending">En attente</string>
+    <string name="own_status_indicator">Indicateur de statut de mon propre message</string>
+    <string name="own_status_indicator_sum">Remplacer les coches de flèche normales pour vos propres messages par des indicateurs personnalisés</string>
+    <string name="own_status_style">Style d\'indicateur</string>
+    <string name="schedule_live_notification">Notification de mise à jour en direct</string>
+    <string name="schedule_live_notification_sum">Afficher le compte à rebours en temps réel pour le prochain message planifié dans la notification</string>
+    <string name="schedule_inactive">Inactif</string>
+    <string name="enabled">Activé</string>
+    <string name="custom_privacy_global_status">Statut global : %s</string>
+
+    <!-- Deleted Message Notification Filter -->
+    <string name="filter_notification_types">Filtrer les types de notifications</string>
+    <string name="filter_notification_types_sum">Choisissez les types de messages supprimés qui doivent déclencher des notifications</string>
+    <string name="filter_private_messages">Messages privés</string>
+    <string name="filter_group_messages">Messages de groupe</string>
+    <string name="filter_status">Statuts</string>
 </resources>

@@ -413,7 +413,7 @@
     <string name="view_seen_tick_sum">Zeige ein Symbol, wenn die Nachrichtenansicht an den Empfänger gesendet wurde oder eine eindeutige Ansicht gesehen wurde</string>
     <string name="text_color">Textfarbe</string>
     <string name="disable_the_proximity_sensor">Bildschirm ausschalten deaktivieren bei Nutzung des Näherungssensors</string>
-    <string name="disable_the_proximity_sensor_sum">Disable Screen off on proximity sensor to the whole WhatsApp</string>
+    <string name="disable_the_proximity_sensor_sum">Deaktiviert das Ausschalten des Bildschirms beim Näherungssensor in ganz WhatsApp</string>
     <string name="disable_status_in_the_profile_photo">Status im Profilfoto deaktivieren</string>
     <string name="disable_status_in_the_profile_photo_sum">Deaktiviert den Kreis, der im Profilfoto jedes Kontakts erscheint, wenn ein neuer Status vorhanden ist</string>
     <string name="download_not_available">Download nicht verfügbar oder Medien wurden nicht vollständig heruntergeladen</string>
@@ -429,4 +429,115 @@
     <string name="disable_ads_sum">Blockiert Werbung in WhatsApp</string>
     <string name="lockedchats_enhancer">Verbesserte gesperrte Chats</string>
     <string name="lockedchats_enhancer_sum">Verbessern Sie die gesperrten Chats, indem Sie Benachrichtigungen und Kontakte aus der Kontaktliste ausblenden</string>
+
+    <string name="gemini_api_key">Gemini API Key</string>
+    <string name="gemini_api_key_sum">Gemini API Zugriffsschlüssel (Erhältlich auf aistudio.google.com)</string>
+    <string name="gemini_model">Gemini-Modellname</string>
+    <string name="gemini_model_sum">Geben Sie den Modellnamen aus Ihrer API-Liste ein (z. B. gemini-1.5-flash, gemini-2.0-flash)</string>
+    <string name="transcription_translation">Zielübersetzungssprache</string>
+    <string name="transcription_translation_sum">Transkription in diese Sprache übersetzen (leer lassen für keine). Beispiel: Deutsch, Englisch, Französisch</string>
+    <string name="translation_provider">Übersetzungsanbieter</string>
+    <string name="translation_provider_sum">Wählen Sie den Dienst für die Nachrichtenübersetzung aus</string>
+    <string name="target_translation_language">Zielsprache</string>
+    <string name="target_translation_language_sum">Sprache, in die Nachrichten übersetzt werden sollen (z. B. de, en, es, fr)</string>
+
+    <string name="profile_picture_change_toast">Benachrichtigungen bei Profilbildänderung</string>
+    <string name="profile_picture_change_toast_sum">Wählen Sie, wie Sie benachrichtigt werden möchten, wenn jemand sein Profilbild ändert</string>
+    <string name="profile_picture_change_option_disabled">Deaktiviert</string>
+    <string name="profile_picture_change_option_toast">Toast anzeigen</string>
+    <string name="profile_picture_change_option_notification">Benachrichtigung anzeigen</string>
+    <string name="toastdeleted_option_disabled">Deaktiviert</string>
+    <string name="toastdeleted_option_toast">Toast anzeigen</string>
+    <string name="toastdeleted_option_notification">Benachrichtigung anzeigen</string>
+    <string name="profile_picture_has_been_updated">%s hat das Profilbild aktualisiert</string>
+
+    <string name="monet_theme">AMOLED Material You</string>
+    <string name="monet_theme_sum">Systemakzentfarben mit rein schwarzem Hintergrund im Dunkelmodus verwenden</string>
+
+    <!-- Scheduler Feature Strings -->
+    <string name="scheduler">Planer</string>
+    <string name="schedule_message">Nachricht planen</string>
+    <string name="edit_message">Nachricht bearbeiten</string>
+    <string name="scheduled_messages">Geplante Nachrichten</string>
+    <string name="scheduled_messages_desc">Nachrichten, die für den automatischen Versand geplant sind</string>
+    <string name="no_scheduled_messages">Keine geplanten Nachrichten</string>
+    <string name="no_scheduled_messages_desc">Tippen Sie auf das (+)-Symbol, um Ihre erste geplante Nachricht zu erstellen</string>
+    <string name="add_scheduled_message">Geplante Nachricht hinzufügen</string>
+    
+    <string name="recipients">Empfänger</string>
+    <string name="select_contacts_required">Bitte wählen Sie mindestens einen Kontakt aus</string>
+    <string name="message_required">Nachricht darf nicht leer sein</string>
+    
+    <string name="schedule_time">Geplante Zeit</string>
+    <string name="select_date_time">Datum und Uhrzeit auswählen</string>
+    <string name="invalid_time">Ungültige Zeit</string>
+    <string name="schedule_future_time">Bitte wählen Sie eine Zeit in der Zukunft</string>
+    
+    <string name="repeat">Wiederholen</string>
+    <string name="repeat_once">Einmal</string>
+    <string name="repeat_daily">Täglich</string>
+    <string name="repeat_weekly">Wöchentlich</string>
+    <string name="repeat_monthly">Monatlich</string>
+    <string name="repeat_custom">Benutzerdefiniert</string>
+    <string name="select_days">Tage auswählen</string>
+    <string name="no_days_selected">Bitte wählen Sie mindestens einen Tag aus</string>
+    <string name="sunday">So</string>
+    <string name="monday">Mo</string>
+    <string name="tuesday">Di</string>
+    <string name="wednesday">Mi</string>
+    <string name="thursday">Do</string>
+    <string name="friday">Fr</string>
+    <string name="saturday">Sa</string>
+    
+    <string name="whatsapp_type">WhatsApp-Typ</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="whatsapp_business">WhatsApp Business</string>
+    
+    <string name="active">Aktiv</string>
+    <string name="inactive">Inaktiv</string>
+    <string name="sent">Gesendet</string>
+    
+    <string name="delete_message">Nachricht löschen</string>
+    <string name="delete_message_confirm">Geplante Nachricht für %s löschen?</string>
+    <string name="message_deleted">Nachricht gelöscht</string>
+    <string name="clear_sent_messages">Gesendete Nachrichten löschen</string>
+    <string name="clear_sent_messages_confirm">Alle einmaligen Nachrichten löschen, die bereits gesendet wurden?</string>
+    <string name="sent_messages_cleared">Gesendete Nachrichten gelöscht</string>
+    <string name="action_save">Speichern</string>
+    
+    <string name="scheduler_service_running">Planerdienst läuft</string>
+    <string name="scheduler_service_stopped">Planerdienst gestoppt</string>
+    
+    <string name="scheduled_messages_active" formatted="true">%d aktive geplante Nachrichten</string>
+    <string name="scheduled_messages_monitoring">Geplante Nachrichten werden überwacht</string>
+    <string name="scheduled_messages_next" formatted="true">%1$d Nachrichten • Nächste: %2$s • %3$s</string>
+    
+    <string name="error">Fehler</string>
+    <string name="save_failed">Nachricht konnte nicht gespeichert werden</string>
+    <string name="no_contacts">Keine Kontakte</string>
+
+    <string name="call_recording_title">Anrufaufzeichnung</string>
+    <string name="call_recording_enable">Anrufaufzeichnung aktivieren</string>
+    <string name="call_recording_enable_sum">Sprachübertragungen automatisch aufzeichnen</string>
+    <string name="call_recording_path">Aufzeichnungspfad</string>
+    <string name="video_call_screen_rec">Videocall-Bildschirmaufnahme</string>
+    <string name="video_call_screen_rec_sum">Bildschirm während Videocalls aufnehmen</string>
+
+    <string name="schedule_sent">Gesendet</string>
+    <string name="schedule_pending">Ausstehend</string>
+    <string name="own_status_indicator">Eigener Nachrichtenstatus-Indikator</string>
+    <string name="own_status_indicator_sum">Ersetzen Sie die normalen Häkchen für Ihre eigenen Nachrichten durch benutzerdefinierte Indikatoren</string>
+    <string name="own_status_style">Indikator-Stil</string>
+    <string name="schedule_live_notification">Live-Update-Benachrichtigung</string>
+    <string name="schedule_live_notification_sum">Echtzeit-Countdown für die nächste geplante Nachricht in der Benachrichtigung anzeigen</string>
+    <string name="schedule_inactive">Inaktiv</string>
+    <string name="enabled">Aktiviert</string>
+    <string name="custom_privacy_global_status">Globaler Status: %s</string>
+
+    <!-- Deleted Message Notification Filter -->
+    <string name="filter_notification_types">Benachrichtigungstypen filtern</string>
+    <string name="filter_notification_types_sum">Wählen Sie aus, welche gelöschten Nachrichtentypen Benachrichtigungen auslösen sollen</string>
+    <string name="filter_private_messages">Private Nachrichten</string>
+    <string name="filter_group_messages">Gruppennachrichten</string>
+    <string name="filter_status">Status</string>
 </resources>

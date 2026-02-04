@@ -417,16 +417,127 @@
     <string name="disable_status_in_the_profile_photo">Отключить статус на фото профиля</string>
     <string name="disable_status_in_the_profile_photo_sum">Отключает круг, который появляется в фото профиля каждого контакта, когда есть новый статус</string>
     <string name="download_not_available">Download not available or media has not been fully downloaded</string>
-    <string name="possible_block_detected">Possible block detected</string>
-    <string name="block_not_detected">Block not detected</string>
-    <string name="checking_if_the_contact_is_blocked">Checking if the contact is blocked...</string>
-    <string name="show_contact_blocked">Show Contact Blocked in Conversation</string>
-    <string name="show_contact_blocked_sum">This option verifies whether the contact may have blocked you (note: false positives may occur).</string>
-    <string name="block_unverified">Block Unverified</string>
-    <string name="disable_whatsapp_expiration">Disable WhatsApp Expiration</string>
-    <string name="disable_whatsapp_expiration_sum">Deactivates the expired version of WhatsApp, (Note: Manual Disable to update WhatsApp on the Play Store or mark the Play Store on LSposed)</string>
-    <string name="disable_ads">Disable Ads</string>
-    <string name="disable_ads_sum">Blocks ads from appearing in WhatsApp</string>
-    <string name="lockedchats_enhancer">Enhanced Locked Chats</string>
-    <string name="lockedchats_enhancer_sum">Improve locked chats by hiding notifications and contacts from the contact list</string>
+    <string name="possible_block_detected">Обнаружена возможная блокировка</string>
+    <string name="block_not_detected">Блокировка не обнаружена</string>
+    <string name="checking_if_the_contact_is_blocked">Проверка, заблокирован ли контакт...</string>
+    <string name="show_contact_blocked">Показать заблокированный контакт в переписке</string>
+    <string name="show_contact_blocked_sum">Эта опция проверяет, мог ли контакт заблокировать вас (примечание: возможны ложные срабатывания).</string>
+    <string name="block_unverified">Заблокировать непроверенных</string>
+    <string name="disable_whatsapp_expiration">Отключить истечение срока действия WhatsApp</string>
+    <string name="disable_whatsapp_expiration_sum">Деактивирует уведомление об истечении срока действия версии WhatsApp (Примечание: отключите вручную, чтобы обновить WhatsApp в Play Store, или отметьте Play Store в LSposed)</string>
+    <string name="disable_ads">Отключить рекламу</string>
+    <string name="disable_ads_sum">Блокирует появление рекламы в WhatsApp</string>
+    <string name="lockedchats_enhancer">Улучшенные заблокированные чаты</string>
+    <string name="lockedchats_enhancer_sum">Улучшите заблокированные чаты, скрывая уведомления и контакты из списка контактов</string>
+
+    <string name="gemini_api_key">Gemini API Ключ</string>
+    <string name="gemini_api_key_sum">Ключ доступа к Gemini API (Получите его на aistudio.google.com)</string>
+    <string name="gemini_model">Название модели Gemini</string>
+    <string name="gemini_model_sum">Введите название модели из вашего списка API (например, gemini-1.5-flash, gemini-2.0-flash)</string>
+    <string name="transcription_translation">Целевой язык перевода транскрипции</string>
+    <string name="transcription_translation_sum">Перевести транскрипцию на этот язык (оставьте пустым для отсутствия перевода). Пример: Русский, Английский, Французский</string>
+    <string name="translation_provider">Провайдер перевода</string>
+    <string name="translation_provider_sum">Выберите сервис для перевода сообщений</string>
+    <string name="target_translation_language">Целевой язык</string>
+    <string name="target_translation_language_sum">Язык, на который будут переводиться сообщения (например, ru, en, es, fr)</string>
+
+    <string name="profile_picture_change_toast">Уведомления об изменении фото профиля</string>
+    <string name="profile_picture_change_toast_sum">Выберите, как вас уведомлять, когда кто-то меняет свое фото профиля</string>
+    <string name="profile_picture_change_option_disabled">Отключено</string>
+    <string name="profile_picture_change_option_toast">Показать Toast</string>
+    <string name="profile_picture_change_option_notification">Показать Уведомление</string>
+    <string name="toastdeleted_option_disabled">Отключено</string>
+    <string name="toastdeleted_option_toast">Показать Toast</string>
+    <string name="toastdeleted_option_notification">Показать Уведомление</string>
+    <string name="profile_picture_has_been_updated">%s обновил(а) свое фото профиля</string>
+
+    <string name="monet_theme">AMOLED Material You</string>
+    <string name="monet_theme_sum">Использовать системные акцентные цвета с чисто черным фоном в темном режиме</string>
+
+    <!-- Scheduler Feature Strings -->
+    <string name="scheduler">Планировщик</string>
+    <string name="schedule_message">Запланировать сообщение</string>
+    <string name="edit_message">Редактировать сообщение</string>
+    <string name="scheduled_messages">Запланированные сообщения</string>
+    <string name="scheduled_messages_desc">Сообщения, запланированные для автоматической отправки</string>
+    <string name="no_scheduled_messages">Нет запланированных сообщений</string>
+    <string name="no_scheduled_messages_desc">Нажмите кнопку +, чтобы создать свое первое запланированное сообщение</string>
+    <string name="add_scheduled_message">Добавить запланированное сообщение</string>
+    
+    <string name="recipients">Получатели</string>
+    <string name="select_contacts_required">Пожалуйста, выберите хотя бы один контакт</string>
+    <string name="message_required">Сообщение не может быть пустым</string>
+    
+    <string name="schedule_time">Время планирования</string>
+    <string name="select_date_time">Выбрать дату и время</string>
+    <string name="invalid_time">Неверное время</string>
+    <string name="schedule_future_time">Пожалуйста, выберите будущее время</string>
+    
+    <string name="repeat">Повтор</string>
+    <string name="repeat_once">Один раз</string>
+    <string name="repeat_daily">Ежедневно</string>
+    <string name="repeat_weekly">Еженедельно</string>
+    <string name="repeat_monthly">Ежемесячно</string>
+    <string name="repeat_custom">Настроить</string>
+    <string name="select_days">Выбрать дни</string>
+    <string name="no_days_selected">Пожалуйста, выберите хотя бы один день</string>
+    <string name="sunday">Вс</string>
+    <string name="monday">Пн</string>
+    <string name="tuesday">Вт</string>
+    <string name="wednesday">Ср</string>
+    <string name="thursday">Чт</string>
+    <string name="friday">Пт</string>
+    <string name="saturday">Сб</string>
+    
+    <string name="whatsapp_type">Тип WhatsApp</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="whatsapp_business">WhatsApp Business</string>
+    
+    <string name="active">Активно</string>
+    <string name="inactive">Неактивно</string>
+    <string name="sent">Отправлено</string>
+    
+    <string name="delete_message">Удалить сообщение</string>
+    <string name="delete_message_confirm">Удалить сообщение, запланированное на %s?</string>
+    <string name="message_deleted">Сообщение удалено</string>
+    <string name="clear_sent_messages">Очистить отправленные сообщения</string>
+    <string name="clear_sent_messages_confirm">Удалить все когда-либо отправленные разовые сообщения?</string>
+    <string name="sent_messages_cleared">Отправленные сообщения очищены</string>
+    <string name="action_save">Сохранить</string>
+    
+    <string name="scheduler_service_running">Служба планировщика запущена</string>
+    <string name="scheduler_service_stopped">Служба планировщика остановлена</string>
+    
+    <string name="scheduled_messages_active" formatted="true">%d активных запланированных сообщений</string>
+    <string name="scheduled_messages_monitoring">Мониторинг запланированных сообщений</string>
+    <string name="scheduled_messages_next" formatted="true">%1$d сообщений • Следующее: %2$s • %3$s</string>
+    
+    <string name="error">Ошибка</string>
+    <string name="save_failed">Не удалось сохранить сообщение</string>
+    <string name="no_contacts">Нет контактов</string>
+
+    <string name="call_recording_title">Запись звонков</string>
+    <string name="call_recording_enable">Включить запись звонков</string>
+    <string name="call_recording_enable_sum">Автоматически записывать голосовые вызовы</string>
+    <string name="call_recording_path">Путь к папке записей</string>
+    <string name="video_call_screen_rec">Запись экрана видеозвонка</string>
+    <string name="video_call_screen_rec_sum">Записывать экран во время видеозвонков</string>
+
+    <string name="schedule_sent">Отправлено</string>
+    <string name="schedule_pending">Ожидание</string>
+    <string name="own_status_indicator">Индикатор статуса собственного сообщения</string>
+    <string name="own_status_indicator_sum">Заменить обычные галочки ваших собственных сообщений на пользовательские индикаторы</string>
+    <string name="own_status_style">Стиль индикатора</string>
+    <string name="schedule_live_notification">Уведомление об обновлении в реальном времени</string>
+    <string name="schedule_live_notification_sum">Показать обратный отсчет в реальном времени для следующего сообщения в уведомлении</string>
+    <string name="schedule_inactive">Неактивно</string>
+    <string name="enabled">Включено</string>
+    <string name="custom_privacy_global_status">Глобальный статус: %s</string>
+
+    <!-- Deleted Message Notification Filter -->
+    <string name="filter_notification_types">Фильтровать типы уведомлений</string>
+    <string name="filter_notification_types_sum">Выберите, какие типы удаленных сообщений должны активировать уведомления</string>
+    <string name="filter_private_messages">Личные сообщения</string>
+    <string name="filter_group_messages">Сообщения групп</string>
+    <string name="filter_status">Статусы</string>
 </resources>
