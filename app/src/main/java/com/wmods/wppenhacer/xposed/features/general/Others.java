@@ -260,7 +260,6 @@ public class Others extends Feature {
 
         stampCopiedMessage();
 
-        doubleTapReaction();
 
         alwaysOnline();
 
@@ -286,6 +285,85 @@ public class Others extends Feature {
             enableBlurFloatingMenu();
         }
 
+        setupMessageInteraction();
+
+    }
+
+    private void setupMessageInteraction() {
+        try {
+            boolean doubleTapEnabled = prefs.getBoolean("doubletap2like", false);
+            boolean tapToMenuEnabled = prefs.getBoolean("tap_to_menu", false);
+
+            if (!doubleTapEnabled && !tapToMenuEnabled) return;
+
+            var emoji = prefs.getString("doubletap2like_emoji", "👍");
+
+            var conversationRowClass = Unobfuscator.loadConversationRowClass(classLoader);
+            XposedBridge.hookAllConstructors(conversationRowClass, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    var viewGroup = (ViewGroup) param.thisObject;
+                    viewGroup.setOnTouchListener(null);
+                }
+            });
+
+            ConversationItemListener.conversationListeners.add(new ConversationItemListener.OnConversationItemListener() {
+                private float lastX, lastY;
+                private long lastClickTime = 0;
+                private int clickCount = 0;
+
+                @Override
+                @SuppressLint("ClickableViewAccessibility")
+                public void onItemBind(FMessageWpp fMessage, ViewGroup viewGroup) {
+                    viewGroup.setOnTouchListener((v, event) -> {
+                        if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                            lastX = event.getX();
+                            lastY = event.getY();
+                        }
+                        return false;
+                    });
+
+                    viewGroup.setOnClickListener(v -> {
+                        long now = System.currentTimeMillis();
+                        if (now - lastClickTime < 500) {
+                            clickCount++;
+                        } else {
+                            clickCount = 1;
+                        }
+                        lastClickTime = now;
+
+                        boolean fromMe = fMessage.getKey().isFromMe;
+                        int width = v.getWidth();
+                        // Heuristic: Tapping the side opposite to the bubble is "outside"
+                        // Right-aligned (Me) -> Outside is Left
+                        // Left-aligned (Others) -> Outside is Right
+                        boolean isTappedOutside = (fromMe && lastX < width / 3f) || (!fromMe && lastX > width * 2 / 3f);
+
+                        if (isTappedOutside && tapToMenuEnabled) {
+                            v.performLongClick();
+                            clickCount = 0; // reset
+                        } else if (doubleTapEnabled && clickCount >= 2) {
+                            var reactionView = (ViewGroup) v.findViewById(Utils.getID("reactions_bubble_layout", "id"));
+                            if (reactionView != null && reactionView.getVisibility() == View.VISIBLE) {
+                                for (int i = 0; i < reactionView.getChildCount(); i++) {
+                                    if (reactionView.getChildAt(i) instanceof TextView textView) {
+                                        if (textView.getText().toString().contains(emoji)) {
+                                            WppCore.sendReaction("", fMessage.getObject());
+                                            clickCount = 0;
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                            WppCore.sendReaction(emoji, fMessage.getObject());
+                            clickCount = 0;
+                        }
+                    });
+                }
+            });
+        } catch (Exception e) {
+            logDebug(e);
+        }
     }
 
     private void disableHomeFilters() throws Exception {
@@ -441,48 +519,6 @@ public class Others extends Feature {
     }
 
 
-    private void doubleTapReaction() throws Exception {
-
-        if (!prefs.getBoolean("doubletap2like", false)) return;
-
-        var emoji = prefs.getString("doubletap2like_emoji", "👍");
-
-
-        var conversationRowClass = Unobfuscator.loadConversationRowClass(classLoader);
-        logDebug("Conversation Row", conversationRowClass);
-
-        XposedBridge.hookAllConstructors(conversationRowClass, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                var viewGroup = (ViewGroup) param.thisObject;
-                viewGroup.setOnTouchListener(null);
-            }
-        });
-
-        ConversationItemListener.conversationListeners.add(new ConversationItemListener.OnConversationItemListener() {
-            @Override
-            public void onItemBind(FMessageWpp fMessage, ViewGroup viewGroup) {
-                var onMultiClickListener = new OnMultiClickListener(2, 500) {
-                    @Override
-                    public void onMultiClick(View view) {
-                        var reactionView = (ViewGroup) view.findViewById(Utils.getID("reactions_bubble_layout", "id"));
-                        if (reactionView != null && reactionView.getVisibility() == View.VISIBLE) {
-                            for (int i = 0; i < reactionView.getChildCount(); i++) {
-                                if (reactionView.getChildAt(i) instanceof TextView textView) {
-                                    if (textView.getText().toString().contains(emoji)) {
-                                        WppCore.sendReaction("", fMessage.getObject());
-                                        return;
-                                    }
-                                }
-                            }
-                        }
-                        WppCore.sendReaction(emoji, fMessage.getObject());
-                    }
-                };
-                viewGroup.setOnClickListener(onMultiClickListener);
-            }
-        });
-    }
 
     private void stampCopiedMessage() throws Exception {
         if (!prefs.getBoolean("stamp_copied_message", false)) return;

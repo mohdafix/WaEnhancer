@@ -222,8 +222,10 @@
     <string name="toast_online">%s is online</string>
     <string name="show_toast_on_contact_online">Show toast on contact online</string>
     <string name="show_toast_on_contact_online_sum">Show a toast when a contact is online</string>
-    <string name="new_context_menu_ui">New Context Menu UI</string>
-    <string name="new_context_menu_ui_sum">The new iOS-style message context menu will be enabled.</string>
+    <string name="new_context_menu_ui">iOS Floating Menu</string>
+    <string name="new_context_menu_ui_sum">Enable Apple-style message context menu</string>
+    <string name="tap_to_menu">Tap Outside to Menu</string>
+    <string name="tap_to_menu_sum">Single tap on message background to open menu</string>
     <string name="filter_items_by_id">Filter Items By ID</string>
     <string name="filter_items_by_id_sum">Filter items by id name</string>
     <string name="custom_theme_css">Custom Theme CSS</string>

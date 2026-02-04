@@ -153,6 +153,11 @@
             app:title="@string/new_context_menu_ui" />
 
         <rikka.material.preference.MaterialSwitchPreference
+            android:summary="@string/tap_to_menu_sum"
+            app:key="tap_to_menu"
+            app:title="@string/tap_to_menu" />
+
+        <rikka.material.preference.MaterialSwitchPreference
             android:defaultValue="true"
             app:key="animation_emojis"
             app:summary="@string/animation_emojis_sum"
