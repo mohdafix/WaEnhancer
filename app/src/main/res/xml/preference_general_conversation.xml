@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
     <PreferenceCategory
         app:iconSpaceReserved="false"
         app:title="@string/conversation">
@@ -130,6 +131,21 @@
             app:key="google_translate"
             app:summary="@string/google_translate_sum"
             app:title="@string/google_translate" />
+
+        <ListPreference
+            android:dependency="google_translate"
+            android:defaultValue="google"
+            android:entries="@array/translation_provider_entries"
+            android:entryValues="@array/translation_provider_values"
+            app:key="translation_provider"
+            app:summary="@string/translation_provider_sum"
+            app:title="@string/translation_provider" />
+
+        <EditTextPreference
+            android:dependency="google_translate"
+            app:key="target_translation_language"
+            app:summary="@string/target_translation_language_sum"
+            app:title="@string/target_translation_language" />
 
 
         <rikka.material.preference.MaterialSwitchPreference

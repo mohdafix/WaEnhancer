@@ -195,6 +195,16 @@
         <item>groq</item>
         <item>gemini</item>
     </string-array>
+    <string-array name="translation_provider_entries">
+        <item>Google Translate</item>
+        <item>Groq AI (Llama 3)</item>
+        <item>Gemini AI (1.5 Flash)</item>
+    </string-array>
+    <string-array name="translation_provider_values">
+        <item>google</item>
+        <item>groq</item>
+        <item>gemini</item>
+    </string-array>
     <string-array name="animations_values">
         <item>default</item>
         <item>fade_in</item>

@@ -1,12 +1,13 @@
 package com.wmods.wppenhacer.activities;
 
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.LinearLayout;
-import androidx.appcompat.app.AppCompatActivity;
+
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.wmods.wppenhacer.App;
 import com.wmods.wppenhacer.R;
@@ -107,7 +108,7 @@ public class ScheduledMessagesListActivity extends BaseActivity implements Sched
 
     @Override
     public void onDelete(ScheduledMessage scheduledMessage) {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("Delete Scheduled Message")
                 .setMessage("Are you sure you want to delete this scheduled message?")
                 .setPositiveButton("Delete", (dialog, which) -> {

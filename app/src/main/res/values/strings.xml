@@ -406,8 +406,12 @@
     <string name="gemini_model_sum">Enter the model name from your API list (e.g., gemini-1.5-flash, gemini-2.0-flash)</string>
     <string name="transcription_translation">Target Translation Language</string>
     <string name="transcription_translation_sum">Translate transcription to this language (leave empty for none). Example: Indonesian, Spanish, French</string>
-    <string name="google_translate">Enable Google Translate</string>
-    <string name="google_translate_sum">Replaces WhatsApp\'s native translator with Google Translate</string>
+    <string name="google_translate">Message Translation</string>
+    <string name="google_translate_sum">Replaces WhatsApp\'s native translator with custom AI providers (Google, Groq, Gemini)</string>
+    <string name="translation_provider">Translation Provider</string>
+    <string name="translation_provider_sum">Choose the service to use for message translation</string>
+    <string name="target_translation_language">Target Language</string>
+    <string name="target_translation_language_sum">Language to translate messages to (e.g., en, es, fr, pt)</string>
     <string name="show_contact_info">Show in contact info</string>
     <string name="show_contact_info_menu">Show in contact info menu</string>
     <string name="block_call">Block Call</string>
