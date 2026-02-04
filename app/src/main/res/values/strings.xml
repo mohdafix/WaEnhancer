@@ -208,6 +208,7 @@
     <string name="rebooting">Rebooting</string>
     <string name="deleted_message">deleted a message</string>
     <string name="deleted_status">deleted a status</string>
+    <string name="deleted_messages">Deleted Messages</string>
     <string name="remove_limit_edit_message">Remove Limit To Edit message</string>
     <string name="remove_limit_edit_message_sum">Removes the 15 minute limit for editing a message</string>
     <string name="disable_audio_sensor">Disable Audio Sensor</string>

@@ -357,8 +357,15 @@ public class Utils {
         showNotification(title, content, contentIntent, null, new java.util.Random().nextInt(), null);
     }
 
+    private static final HashMap<String, Integer> groupCounts = new HashMap<>();
+
     @SuppressLint("MissingPermission")
     public static void showNotification(String title, String content, @Nullable PendingIntent contentIntent, String tag, int id, String groupKey) {
+        showNotification(title, content, contentIntent, tag, id, groupKey, null);
+    }
+
+    @SuppressLint("MissingPermission")
+    public static void showNotification(String title, String content, @Nullable PendingIntent contentIntent, String tag, int id, String groupKey, @Nullable NotificationCompat.Style style) {
         try {
             var context = Utils.getApplication();
             if (context == null) return;
@@ -385,17 +392,31 @@ public class Utils {
                     .setContentIntent(contentIntent)
                     .setAutoCancel(true)
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .setDefaults(NotificationCompat.DEFAULT_ALL)
-                    .setStyle(new NotificationCompat.BigTextStyle().bigText(content));
+                    .setDefaults(NotificationCompat.DEFAULT_ALL);
+
+            if (style != null) {
+                notificationBuilder.setStyle(style);
+            } else {
+                notificationBuilder.setStyle(new NotificationCompat.BigTextStyle().bigText(content));
+            }
 
             if (groupKey != null) {
                 notificationBuilder.setGroup(groupKey);
                 
+                int count;
+                synchronized (groupCounts) {
+                    count = groupCounts.getOrDefault(groupKey, 0) + 1;
+                    groupCounts.put(groupKey, count);
+                }
+
+                String summaryTitle = groupKey.equals("antirevoke_group") ? context.getString(ResId.string.deleted_messages) : title;
+                String summaryText = count + " " + (count == 1 ? "update" : "updates");
+                
                 // Show summary notification for the group
                 var summaryBuilder = new NotificationCompat.Builder(context, channelId)
                         .setSmallIcon(iconRes)
-                        .setContentTitle(title)
-                        .setContentText("Multiple updates")
+                        .setContentTitle(summaryTitle)
+                        .setContentText(summaryText)
                         .setGroup(groupKey)
                         .setGroupSummary(true)
                         .setAutoCancel(true);
@@ -416,8 +437,16 @@ public class Utils {
             var notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             if (notificationManager != null) {
                 notificationManager.cancel(tag, id);
+                // We should ideally decrement group count, but it's complex without tracking tags.
+                // For now, let's just reset if the specific tag indicates it's being cleared.
             }
         } catch (Exception ignored) {}
+    }
+
+    public static void clearGroupCount(String groupKey) {
+        synchronized (groupCounts) {
+            groupCounts.remove(groupKey);
+        }
     }
 
     public static void cancelNotification(int id) {

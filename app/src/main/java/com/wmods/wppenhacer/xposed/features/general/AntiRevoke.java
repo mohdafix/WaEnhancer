@@ -12,6 +12,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.Person;
 
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.WppCore;
@@ -42,6 +44,7 @@ import de.robv.android.xposed.XposedHelpers;
 public class AntiRevoke extends Feature {
 
     private static final ConcurrentHashMap<String, Set<String>> messageRevokedMap = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, java.util.List<NotificationCompat.MessagingStyle.Message>> notificationMessagesMap = new ConcurrentHashMap<>();
     private static final ThreadLocal<DateFormat> DATE_FORMAT_THREAD_LOCAL = ThreadLocal.withInitial(() ->
             DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Utils.getApplication().getResources().getConfiguration().getLocales().get(0)));
 
@@ -187,6 +190,11 @@ public class AntiRevoke extends Feature {
                     String jid = intent.getStringExtra("jid");
                     if (jid != null) {
                         Utils.cancelNotification("antirevoke_" + jid, 1001);
+                        notificationMessagesMap.remove(jid);
+                        if (notificationMessagesMap.isEmpty()) {
+                            Utils.clearGroupCount("antirevoke_group");
+                            Utils.cancelNotification("antirevoke_group".hashCode());
+                        }
                     }
                 }
             }
@@ -201,6 +209,11 @@ public class AntiRevoke extends Feature {
                     String jid = intent.getStringExtra("jid");
                     if (jid != null) {
                         Utils.cancelNotification("antirevoke_" + jid, 1001);
+                        notificationMessagesMap.remove(jid);
+                        if (notificationMessagesMap.isEmpty()) {
+                            Utils.clearGroupCount("antirevoke_group");
+                            Utils.cancelNotification("antirevoke_group".hashCode());
+                        }
                     }
                 }
             }
@@ -397,9 +410,28 @@ public class AntiRevoke extends Feature {
                             }
                             pendingIntent = PendingIntent.getActivity(Utils.getApplication(), rawJid.hashCode(), intent, flags);
                             
-                            // Use grouped notification
+                            // Build MessagingStyle history
+                            var messages = notificationMessagesMap.computeIfAbsent(rawJid, k -> Collections.synchronizedList(new java.util.ArrayList<>()));
+                            var senderPerson = new androidx.core.app.Person.Builder()
+                                    .setName(isGroupDeletion ? participantName : name)
+                                    .build();
+                            
+                            messages.add(new NotificationCompat.MessagingStyle.Message(messageSuffix, System.currentTimeMillis(), senderPerson));
+                            if (messages.size() > 10) messages.remove(0);
+
+                            var userPerson = new androidx.core.app.Person.Builder().setName("Me").build();
+                            var messagingStyle = new NotificationCompat.MessagingStyle(userPerson);
+                            if (isGroupDeletion) {
+                                messagingStyle.setConversationTitle(name);
+                                messagingStyle.setGroupConversation(true);
+                            }
+                            
+                            for (var msg : messages) {
+                                messagingStyle.addMessage(msg);
+                            }
+
                             String tag = "antirevoke_" + rawJid;
-                            Utils.showNotification(notificationTitle, notificationContent, pendingIntent, tag, 1001, "antirevoke_group");
+                            Utils.showNotification(notificationTitle, notificationContent, pendingIntent, tag, 1001, "antirevoke_group", messagingStyle);
                         }
                     } catch (Throwable e) {
                         log(e);

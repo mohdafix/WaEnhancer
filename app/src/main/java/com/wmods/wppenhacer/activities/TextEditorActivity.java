@@ -82,7 +82,6 @@ public class TextEditorActivity extends BaseActivity {
         if (!TextUtils.isEmpty(folderName)) {
             readFile(folderName);
         }
-
     }
 
     @SuppressLint("SetJavaScriptEnabled")

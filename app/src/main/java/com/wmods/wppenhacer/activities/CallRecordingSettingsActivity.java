@@ -20,7 +20,9 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 
-public class CallRecordingSettingsActivity extends AppCompatActivity {
+import com.wmods.wppenhacer.activities.base.BaseActivity;
+
+public class CallRecordingSettingsActivity extends BaseActivity {
 
     private static final String TAG = "WaEnhancer";
     private SharedPreferences prefs;

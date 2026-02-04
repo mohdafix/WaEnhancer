@@ -45,37 +45,45 @@ public abstract class BasePreferenceFragment extends PreferenceFragmentCompat im
         return super.onCreateView(inflater, container, savedInstanceState);
     }
 
+    private OnBackPressedCallback mBackCallback;
+
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         
-        // Register predictive back callback using viewLifecycleOwner for proper lifecycle handling
-        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+        mBackCallback = new OnBackPressedCallback(false) {
             @Override
             public void handleOnBackPressed() {
-                // Check if this fragment has a child fragment manager with back stack
                 if (getChildFragmentManager().getBackStackEntryCount() > 0) {
                     getChildFragmentManager().popBackStack();
-                    return;
-                }
-                
-                // Check if parent fragment manager has back stack entries for this fragment
-                if (getParentFragmentManager().getBackStackEntryCount() > 0) {
+                } else if (getParentFragmentManager().getBackStackEntryCount() > 0) {
                     getParentFragmentManager().popBackStack();
-                    return;
                 }
-                
-                // No back stack to pop, disable this callback and let activity handle it
-                setEnabled(false);
-                requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                updateBackState(this);
             }
-        });
+        };
+        
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), mBackCallback);
+        
+        getChildFragmentManager().addOnBackStackChangedListener(() -> updateBackState(mBackCallback));
+        getParentFragmentManager().addOnBackStackChangedListener(() -> updateBackState(mBackCallback));
+        
+        updateBackState(mBackCallback);
+    }
+
+    private void updateBackState(OnBackPressedCallback callback) {
+        if (callback == null || !isAdded()) return;
+        boolean hasBackStack = getChildFragmentManager().getBackStackEntryCount() > 0 || 
+                             getParentFragmentManager().getBackStackEntryCount() > 0;
+        
+        callback.setEnabled(hasBackStack && isResumed() && isVisible());
     }
 
     @Override
     public void onResume() {
         super.onResume();
         setDisplayHomeAsUpEnabled(true);
+        updateBackState(mBackCallback);
     }
 
     @Override

@@ -32,6 +32,7 @@ public class SettingsSearchActivity extends BaseActivity {
     private MenuItem searchMenuItem;
     @Nullable
     private SearchView searchView;
+    private OnBackPressedCallback mBackCallback;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -39,16 +40,15 @@ public class SettingsSearchActivity extends BaseActivity {
         binding = ActivitySettingsSearchBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+        mBackCallback = new OnBackPressedCallback(false) {
             @Override
             public void handleOnBackPressed() {
                 if (searchMenuItem != null && searchMenuItem.isActionViewExpanded()) {
                     searchMenuItem.collapseActionView();
-                } else {
-                    finish();
                 }
             }
-        });
+        };
+        getOnBackPressedDispatcher().addCallback(this, mBackCallback);
 
         setSupportActionBar(binding.toolbar);
         var actionBar = getSupportActionBar();
@@ -82,6 +82,19 @@ public class SettingsSearchActivity extends BaseActivity {
 
         searchMenuItem = menu.findItem(R.id.action_search);
         if (searchMenuItem != null) {
+            searchMenuItem.setOnActionExpandListener(new MenuItem.OnActionExpandListener() {
+                @Override
+                public boolean onMenuItemActionExpand(MenuItem item) {
+                    mBackCallback.setEnabled(true);
+                    return true;
+                }
+
+                @Override
+                public boolean onMenuItemActionCollapse(MenuItem item) {
+                    mBackCallback.setEnabled(false);
+                    return true;
+                }
+            });
             searchMenuItem.expandActionView();
             searchView = (SearchView) searchMenuItem.getActionView();
             

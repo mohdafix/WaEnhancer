@@ -13,10 +13,11 @@ import com.wmods.wppenhacer.adapter.ContactPickerAdapter;
 import com.wmods.wppenhacer.databinding.ActivityContactPickerBinding;
 import com.wmods.wppenhacer.preference.ContactData;
 import com.wmods.wppenhacer.xposed.core.WppCore;
+import com.wmods.wppenhacer.activities.base.BaseActivity;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ContactPickerActivity extends AppCompatActivity {
+public class ContactPickerActivity extends BaseActivity {
 
     private ActivityContactPickerBinding binding;
     private ContactPickerAdapter adapter;
@@ -28,6 +29,12 @@ public class ContactPickerActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         binding = ActivityContactPickerBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+        
+        setSupportActionBar(binding.toolbar);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        }
+        binding.toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
 
         loadContacts();
         setupRecyclerView();

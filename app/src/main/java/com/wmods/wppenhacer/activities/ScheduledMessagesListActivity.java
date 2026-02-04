@@ -36,7 +36,7 @@ public class ScheduledMessagesListActivity extends BaseActivity implements Sched
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
-        toolbar.setNavigationOnClickListener(v -> finish());
+        toolbar.setNavigationOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
 
         messageStore = ScheduledMessageStore.getInstance(this);
 

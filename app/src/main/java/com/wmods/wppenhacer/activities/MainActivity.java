@@ -68,7 +68,7 @@ public class MainActivity extends BaseActivity {
                 
                 Fragment currentFragment = findTabFragment(currentItem);
                 
-                if (currentFragment != null) {
+                if (currentFragment != null && currentFragment.isAdded()) {
                     androidx.fragment.app.FragmentManager childFm = currentFragment.getChildFragmentManager();
                     if (childFm.getBackStackEntryCount() > 0) {
                         childFm.popBackStack();
@@ -325,7 +325,7 @@ public class MainActivity extends BaseActivity {
         
         // Check if current fragment has back stack
         Fragment f = findTabFragment(currentItem);
-        if (f != null && f.getChildFragmentManager().getBackStackEntryCount() > 0) {
+        if (f != null && f.isAdded() && f.getChildFragmentManager().getBackStackEntryCount() > 0) {
              homeHasStack = true;
         }
         

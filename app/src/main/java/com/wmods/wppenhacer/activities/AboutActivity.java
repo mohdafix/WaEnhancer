@@ -36,6 +36,5 @@ public class AboutActivity extends BaseActivity {
             intent.setData(Uri.parse("https://coindrop.to/dev4mod"));
             startActivity(intent);
         });
-
     }
 }
