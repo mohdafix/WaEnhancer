@@ -5,7 +5,7 @@ import java.io.Serializable;
 public class ContactData implements Serializable {
     private final String jid;
     private final String name;
-    private final String photoUri;
+    private String photoUri;
 
     public ContactData(String name, String jid) {
         this(name, jid, null);
@@ -27,6 +27,10 @@ public class ContactData implements Serializable {
 
     public String getPhotoUri() {
         return this.photoUri;
+    }
+
+    public void setPhotoUri(String photoUri) {
+        this.photoUri = photoUri;
     }
 
     public String getDisplayName() {

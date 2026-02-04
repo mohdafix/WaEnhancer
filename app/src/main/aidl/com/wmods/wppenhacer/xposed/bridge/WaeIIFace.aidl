@@ -9,4 +9,5 @@ interface WaeIIFace {
     boolean createDir(String path);
     List listFiles(String path);
     List<String> getContacts();
+    ParcelFileDescriptor getContactPhoto(String jid);
 }

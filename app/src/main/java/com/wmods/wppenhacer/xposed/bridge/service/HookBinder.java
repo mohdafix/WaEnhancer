@@ -81,4 +81,16 @@ public class HookBinder extends WaeIIFace.Stub {
         }
     }
 
+    @Override
+    public ParcelFileDescriptor getContactPhoto(String jid) throws RemoteException {
+        try {
+            File file = WppCore.getContactPhotoFile(jid);
+            if (file != null && file.exists()) {
+                return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
+            }
+        } catch (Exception e) {
+            android.util.Log.e("HookBinder", "Error opening photo for " + jid, e);
+        }
+        return null;
+    }
 }

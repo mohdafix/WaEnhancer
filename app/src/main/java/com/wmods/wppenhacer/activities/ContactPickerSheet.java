@@ -22,10 +22,19 @@ import com.wmods.wppenhacer.R;
 import com.wmods.wppenhacer.adapter.ContactPickerAdapter;
 import com.wmods.wppenhacer.preference.ContactData;
 
+import com.wmods.wppenhacer.xposed.bridge.client.BridgeClient;
+import com.wmods.wppenhacer.xposed.bridge.WaeIIFace;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ContactPickerSheet extends BottomSheetDialogFragment {
 
@@ -39,6 +48,7 @@ public class ContactPickerSheet extends BottomSheetDialogFragment {
     private final List<ContactData> allContacts = new ArrayList<>();
     private final List<ContactData> selectedContacts = new ArrayList<>();
     private OnContactsSelectedListener listener;
+    private BridgeClient bridgeClient;
 
     public void setOnContactsSelectedListener(OnContactsSelectedListener listener) {
         this.listener = listener;
@@ -71,6 +81,70 @@ public class ContactPickerSheet extends BottomSheetDialogFragment {
         } else {
             loadContacts();
         }
+
+        bridgeClient = new BridgeClient(requireContext());
+        bridgeClient.connect().thenAccept(connected -> {
+            if (Boolean.TRUE.equals(connected)) {
+                syncPhotosWithBridge();
+            }
+        });
+    }
+
+    private void syncPhotosWithBridge() {
+        if (bridgeClient == null) return;
+        WaeIIFace service = bridgeClient.getService();
+        if (service == null) return;
+
+        new Thread(() -> {
+            try {
+                // Get contacts from bridge to see if we missed any or have new JIDs
+                List<String> bridgeContacts = service.getContacts();
+                if (bridgeContacts != null && !bridgeContacts.isEmpty()) {
+                    // Just log for now, mainly want to sync photos
+                }
+
+                // For each contact already loaded, try to refresh its photo via bridge if not found locally
+                List<ContactData> contactsToRefresh;
+                synchronized (allContacts) {
+                    contactsToRefresh = new ArrayList<>(allContacts);
+                }
+
+                File cacheDir = new File(requireContext().getCacheDir(), "profile_sync");
+                if (!cacheDir.exists()) cacheDir.mkdirs();
+
+                for (ContactData contact : contactsToRefresh) {
+                    if (contact.getPhotoUri() == null || contact.getPhotoUri().startsWith("android.resource")) {
+                        try {
+                            android.os.ParcelFileDescriptor pfd = service.getContactPhoto(contact.getJid());
+                            if (pfd != null) {
+                                File localFile = new File(cacheDir, contact.getJid() + ".jpg");
+                                try (InputStream in = new FileInputStream(pfd.getFileDescriptor());
+                                     OutputStream out = new FileOutputStream(localFile)) {
+                                    byte[] buffer = new byte[8192];
+                                    int read;
+                                    while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+                                }
+                                pfd.close();
+                                
+                                String newUri = android.net.Uri.fromFile(localFile).toString();
+                                contact.setPhotoUri(newUri);
+                                
+                                // Notify adapter
+                                if (isAdded()) {
+                                    requireActivity().runOnUiThread(() -> {
+                                        if (adapter != null) adapter.notifyDataSetChanged();
+                                    });
+                                }
+                            }
+                        } catch (Exception e) {
+                            // Quietly fail for individual photos
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 
     @Override
@@ -104,9 +178,15 @@ public class ContactPickerSheet extends BottomSheetDialogFragment {
             List<ContactData> contacts = fetchContacts();
             if (isAdded()) {
                 requireActivity().runOnUiThread(() -> {
-                    allContacts.clear();
-                    allContacts.addAll(contacts);
+                    synchronized (allContacts) {
+                        allContacts.clear();
+                        allContacts.addAll(contacts);
+                    }
                     setupAdapter();
+                    // Re-trigger sync if bridge is already connected
+                    if (bridgeClient != null && bridgeClient.getService() != null) {
+                        syncPhotosWithBridge();
+                    }
                 });
             }
         }).start();
@@ -209,16 +289,32 @@ public class ContactPickerSheet extends BottomSheetDialogFragment {
     }
 
     private String findWhatsAppPhoto(String phone) {
-        String[] paths = {
+        if (phone == null || phone.isEmpty()) return null;
+
+        String[] basePaths = {
             "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/Profile Pictures/",
             "/storage/emulated/0/WhatsApp/Media/Profile Pictures/",
             "/storage/emulated/0/Android/media/com.whatsapp.w4b/WhatsApp Business/Media/Profile Pictures/",
-            "/storage/emulated/0/WhatsApp Business/Media/Profile Pictures/"
+            "/storage/emulated/0/WhatsApp Business/Media/Profile Pictures/",
+            // Dual App / Parallel Space paths
+            "/storage/emulated/999/Android/media/com.whatsapp/WhatsApp/Media/Profile Pictures/",
+            "/storage/emulated/999/WhatsApp/Media/Profile Pictures/",
+            "/storage/emulated/10/Android/media/com.whatsapp/WhatsApp/Media/Profile Pictures/"
         };
-        
-        for (String path : paths) {
-            java.io.File file = new java.io.File(path + phone + ".jpg");
-            if (file.exists()) return android.net.Uri.fromFile(file).toString();
+
+        String[] fileFormats = {
+            phone + ".jpg",
+            phone + "@s.whatsapp.net.jpg",
+            phone + "@g.us.jpg"
+        };
+
+        for (String path : basePaths) {
+            for (String format : fileFormats) {
+                java.io.File file = new java.io.File(path + format);
+                if (file.exists()) {
+                    return android.net.Uri.fromFile(file).toString();
+                }
+            }
         }
         return null;
     }

@@ -109,7 +109,16 @@ public class ContactPickerAdapter extends RecyclerView.Adapter<ContactPickerAdap
 
             // Set photo if available
             if (contact.getPhotoUri() != null) {
-                imageContactPhoto.setImageURI(android.net.Uri.parse(contact.getPhotoUri()));
+                imageContactPhoto.setImageURI(null);
+                android.net.Uri uri = android.net.Uri.parse(contact.getPhotoUri());
+                // Append timestamp to URI to prevent stale cache if the file changed
+                if ("file".equals(uri.getScheme())) {
+                    java.io.File file = new java.io.File(uri.getPath());
+                    if (file.exists()) {
+                        uri = uri.buildUpon().appendQueryParameter("t", String.valueOf(file.lastModified())).build();
+                    }
+                }
+                imageContactPhoto.setImageURI(uri);
                 imageContactPhoto.setColorFilter(null);
                 imageContactPhoto.setPadding(0, 0, 0, 0);
             } else {
