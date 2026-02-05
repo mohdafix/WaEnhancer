@@ -10,12 +10,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import android.util.LruCache;
 import de.robv.android.xposed.XposedBridge;
 
 public class MessageStore {
 
     private static MessageStore mInstance;
     private SQLiteDatabase sqLiteDatabase;
+    private final LruCache<Long, String> messageIdCache = new LruCache<>(200);
+    private final LruCache<String, String> messageKeyCache = new LruCache<>(200);
+    private final LruCache<String, Long> keyToIdCache = new LruCache<>(200);
+
 
     private MessageStore() {
         try {
@@ -52,6 +57,10 @@ public class MessageStore {
     }
 
     public String getMessageById(long id) {
+        synchronized (messageIdCache) {
+            String cached = messageIdCache.get(id);
+            if (cached != null) return cached;
+        }
         if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) {
             XposedBridge.log("MessageStore: DB not open when getting message by ID");
             return "";
@@ -66,6 +75,11 @@ public class MessageStore {
             cursor = sqLiteDatabase.query("message_ftsv2_content", columns, selection, selectionArgs, null, null, null);
             if (cursor != null && cursor.moveToFirst()) {
                 message = cursor.getString(cursor.getColumnIndexOrThrow("c0content"));
+                if (message != null) {
+                    synchronized (messageIdCache) {
+                        messageIdCache.put(id, message);
+                    }
+                }
             }
         } catch (Exception e) {
             XposedBridge.log("MessageStore: Error getting message by ID: " + e.getMessage());
@@ -75,14 +89,26 @@ public class MessageStore {
         return message;
     }
 
+
     public String getCurrentMessageByKey(String message_key) {
+        if (message_key == null) return "";
+        synchronized (messageKeyCache) {
+            String cached = messageKeyCache.get(message_key);
+            if (cached != null) return cached;
+        }
         if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return "";
         String[] columns = new String[]{"text_data"};
         String selection = "key_id=?";
         String[] selectionArgs = new String[]{message_key};
         try (Cursor cursor = sqLiteDatabase.query("message", columns, selection, selectionArgs, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
-                return cursor.getString(0);
+                String text = cursor.getString(0);
+                if (text != null) {
+                    synchronized (messageKeyCache) {
+                        messageKeyCache.put(message_key, text);
+                    }
+                }
+                return text;
             }
         } catch (Exception e) {
             XposedBridge.log(e);
@@ -90,20 +116,31 @@ public class MessageStore {
         return "";
     }
 
+
     public long getIdfromKey(String message_key) {
+        if (message_key == null) return -1;
+        synchronized (keyToIdCache) {
+            Long cached = keyToIdCache.get(message_key);
+            if (cached != null) return cached;
+        }
         if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return -1;
         String[] columns = new String[]{"_id"};
         String selection = "key_id=?";
         String[] selectionArgs = new String[]{message_key};
         try (Cursor cursor = sqLiteDatabase.query("message", columns, selection, selectionArgs, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
-                return cursor.getLong(0);
+                long id = cursor.getLong(0);
+                synchronized (keyToIdCache) {
+                    keyToIdCache.put(message_key, id);
+                }
+                return id;
             }
         } catch (Exception e) {
             XposedBridge.log(e);
         }
         return -1;
     }
+
 
     public String getMediaFromID(long id) {
         if (sqLiteDatabase == null || !sqLiteDatabase.isOpen()) return null;

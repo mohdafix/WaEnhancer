@@ -11,6 +11,7 @@ import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 import android.util.Pair;
 import android.widget.Toast;
+import android.util.LruCache;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -113,9 +114,13 @@ public class WppCore {
 
     private static final Map<FMessageWpp.UserJid, String> contactNameCache = new LinkedHashMap<>(16, 0.75f, true) {
         protected boolean removeEldestEntry(Map.Entry<FMessageWpp.UserJid, String> eldest) {
-            return size() > 100;
+            return size() > 500;
         }
     };
+    private static final LruCache<Object, Object> lidToPhoneCache = new LruCache<>(200);
+    private static final LruCache<Object, Object> phoneToLidCache = new LruCache<>(200);
+    private static final LruCache<String, Object> rawJidToJidCache = new LruCache<>(200);
+
     private static final AtomicReference<Class<?>> homeActivityClassRef = new AtomicReference<>();
     private static final AtomicReference<Class<?>> tabsPagerClassRef = new AtomicReference<>();
     private static final AtomicReference<Class<?>> viewOnceViewerActivityClassRef = new AtomicReference<>();
@@ -232,13 +237,21 @@ public class WppCore {
 
     public static Object getPhoneJidFromUserJid(Object lid) {
         if (lid == null) return null;
+        synchronized (lidToPhoneCache) {
+            Object cached = lidToPhoneCache.get(lid);
+            if (cached != null) return cached;
+        }
         try {
             var rawString = (String) XposedHelpers.callMethod(lid, "getRawString");
             if (rawString == null || !rawString.contains("@lid")) return lid;
             rawString = rawString.replaceFirst("\\.[\\d:]+@", "@");
             var newUser = WppCore.createUserJid(rawString);
             var result = ReflectionUtils.callMethod(convertLidToJid, mWaJidMapRepository, newUser);
-            return result == null ? lid : result;
+            Object finalResult = result == null ? lid : result;
+            synchronized (lidToPhoneCache) {
+                lidToPhoneCache.put(lid, finalResult);
+            }
+            return finalResult;
         } catch (Exception e) {
             XposedBridge.log(e);
         }
@@ -247,18 +260,27 @@ public class WppCore {
 
     public static Object getUserJidFromPhoneJid(Object userJid) {
         if (userJid == null) return null;
+        synchronized (phoneToLidCache) {
+            Object cached = phoneToLidCache.get(userJid);
+            if (cached != null) return cached;
+        }
         try {
             var rawString = (String) XposedHelpers.callMethod(userJid, "getRawString");
             if (rawString == null || rawString.contains("@lid")) return userJid;
             rawString = rawString.replaceFirst("\\.[\\d:]+@", "@");
             var newUser = WppCore.createUserJid(rawString);
             var result = ReflectionUtils.callMethod(convertJidToLid, mWaJidMapRepository, newUser);
-            return result == null ? userJid : result;
+            Object finalResult = result == null ? userJid : result;
+            synchronized (phoneToLidCache) {
+                phoneToLidCache.put(userJid, finalResult);
+            }
+            return finalResult;
         } catch (Exception e) {
             XposedBridge.log(e);
         }
         return userJid;
     }
+
 
     public static void initBridge(Context context) throws Exception {
         var prefsCacheHooks = UnobfuscatorCache.getInstance().sPrefsCacheHooks;
@@ -894,17 +916,30 @@ public class WppCore {
     @Nullable
     public static Object createUserJid(@Nullable String rawjid) {
         if (rawjid == null || mGenJidMethod == null) return null;
+        synchronized (rawJidToJidCache) {
+            Object cached = rawJidToJidCache.get(rawjid);
+            if (cached != null) return cached;
+        }
         try {
+            Object result;
             if (java.lang.reflect.Modifier.isStatic(mGenJidMethod.getModifiers())) {
-                return mGenJidMethod.invoke(null, rawjid);
+                result = mGenJidMethod.invoke(null, rawjid);
+            } else {
+                var genInstance = XposedHelpers.newInstance(mGenJidClass);
+                result = mGenJidMethod.invoke(genInstance, rawjid);
             }
-            var genInstance = XposedHelpers.newInstance(mGenJidClass);
-            return mGenJidMethod.invoke(genInstance, rawjid);
+            if (result != null) {
+                synchronized (rawJidToJidCache) {
+                    rawJidToJidCache.put(rawjid, result);
+                }
+            }
+            return result;
         } catch (Exception e) {
             XposedBridge.log(e);
         }
         return null;
     }
+
 
     @Nullable
     public static FMessageWpp.UserJid getCurrentUserJid() {

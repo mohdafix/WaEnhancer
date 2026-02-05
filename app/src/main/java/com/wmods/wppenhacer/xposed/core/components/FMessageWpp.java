@@ -14,6 +14,7 @@ import org.luckypray.dexkit.query.enums.StringMatchType;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import android.util.LruCache;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -55,9 +56,11 @@ public class FMessageWpp {
     private final Object userJid;
     private final boolean valid;
     private Key key;
+    private static final LruCache<Class<?>, Field> baseMessageFieldCache = new LruCache<>(100);
     private static final Set<String> VALID_DOMAINS = new HashSet<>(Arrays.asList(
             "s.whatsapp.net", "newsletter", "lid", "g.us", "broadcast", "status"
     ));
+
 
     public FMessageWpp(Object rawMsg) {
         // Aggressive unwrapping in constructor
@@ -160,19 +163,31 @@ public class FMessageWpp {
         if (rawMsg == null) return null;
         if (isFMessage(rawMsg)) return rawMsg;
 
+        Class<?> clazz = rawMsg.getClass();
+        Field cachedField = baseMessageFieldCache.get(clazz);
+        if (cachedField != null) {
+            try {
+                return cachedField.get(rawMsg);
+            } catch (Exception ignored) {}
+        }
+
         try {
-            for (Field field : rawMsg.getClass().getDeclaredFields()) {
+            for (Field field : clazz.getDeclaredFields()) {
                 if (field.getType().isPrimitive() || field.getType().equals(String.class)) continue;
-                field.setAccessible(true);
-                Object potential = field.get(rawMsg);
-                if (potential != null && isFMessage(potential)) {
-                    return potential;
+                if (isFMessageClass(field.getType())) {
+                    field.setAccessible(true);
+                    Object potential = field.get(rawMsg);
+                    if (potential != null) {
+                        baseMessageFieldCache.put(clazz, field);
+                        return potential;
+                    }
                 }
             }
         } catch (Exception ignored) {}
 
         return null;
     }
+
 
     public static boolean isFMessage(Object obj) {
         if (obj == null) return false;
@@ -529,6 +544,10 @@ public class FMessageWpp {
 
         public Object phoneJid;
         public Object userJid;
+        private String cachedPhoneRaw;
+        private String cachedUserRaw;
+        private String cachedPhoneNumber;
+
 
         public static final Class<?> TYPE_JID = com.wmods.wppenhacer.xposed.core.components.FMessageWpp.UserJid.class;
 
@@ -578,6 +597,7 @@ public class FMessageWpp {
 
         @Nullable
         public String getPhoneRawString() {
+            if (cachedPhoneRaw != null) return cachedPhoneRaw;
             if (this.phoneJid == null) return null;
             try {
                 String raw;
@@ -587,14 +607,17 @@ public class FMessageWpp {
                     raw = (String) XposedHelpers.callMethod(this.phoneJid, "getRawString");
                 }
                 if (raw == null) return null;
-                return raw.replaceFirst("\\.[\\d:]+@", "@");
+                cachedPhoneRaw = raw.replaceFirst("\\.[\\d:]+@", "@");
+                return cachedPhoneRaw;
             } catch (Exception e) {
                 return null;
             }
         }
 
+
         @Nullable
         public String getUserRawString() {
+            if (cachedUserRaw != null) return cachedUserRaw;
             if (this.userJid == null) return null;
             try {
                 String raw;
@@ -604,28 +627,36 @@ public class FMessageWpp {
                     raw = (String) XposedHelpers.callMethod(this.userJid, "getRawString");
                 }
                 if (raw == null) return null;
-                return raw.replaceFirst("\\.[\\d:]+@", "@");
+                cachedUserRaw = raw.replaceFirst("\\.[\\d:]+@", "@");
+                return cachedUserRaw;
             } catch (Exception e) {
                 return null;
             }
         }
 
+
         @Nullable
         public String getPhoneNumber() {
+            if (cachedPhoneNumber != null) return cachedPhoneNumber;
             String str = getPhoneRawString();
             try {
                 if (str == null) return null;
+                String result;
                 if (str.contains(".") && str.contains("@") && str.indexOf(".") < str.indexOf("@")) {
-                    return str.substring(0, str.indexOf("."));
+                    result = str.substring(0, str.indexOf("."));
                 } else if (str.contains("@g.us") || str.contains("@s.whatsapp.net")
                         || str.contains("@broadcast") || str.contains("@lid")) {
-                    return str.substring(0, str.indexOf("@"));
+                    result = str.substring(0, str.indexOf("@"));
+                } else {
+                    result = str;
                 }
-                return str;
+                cachedPhoneNumber = result;
+                return result;
             } catch (Exception e) {
                 return str;
             }
         }
+
 
         private boolean isInvalidJid(String rawjid) {
             if (rawjid == null) return true;
