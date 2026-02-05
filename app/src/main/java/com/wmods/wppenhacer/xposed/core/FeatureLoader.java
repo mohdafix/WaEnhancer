@@ -45,6 +45,7 @@ import com.wmods.wppenhacer.xposed.features.general.ChatLimit;
 import com.wmods.wppenhacer.xposed.features.general.DeleteStatus;
 
 import com.wmods.wppenhacer.xposed.features.general.LiteMode;
+import com.wmods.wppenhacer.xposed.features.general.ScrollToTop;
 import com.wmods.wppenhacer.xposed.features.general.MenuStatus;
 import com.wmods.wppenhacer.xposed.features.general.NewChat;
 import com.wmods.wppenhacer.xposed.features.general.Others;
@@ -385,7 +386,8 @@ Others.class,
                 ContactBlockedVerify.class,
                 CallRecording.class,
                 VideoCallRecording.class,
-                OwnMessageStatus.class
+                OwnMessageStatus.class,
+                ScrollToTop.class
         };
         XposedBridge.log("Loading Plugins");
         var executorService = Executors.newWorkStealingPool(Math.min(Runtime.getRuntime().availableProcessors(), 4));

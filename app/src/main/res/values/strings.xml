@@ -226,6 +226,8 @@
     <string name="new_context_menu_ui_sum">Enable Apple-style message context menu</string>
     <string name="tap_to_menu">Tap Outside to Menu</string>
     <string name="tap_to_menu_sum">Single tap on message background to open menu</string>
+    <string name="tap_to_scroll_top">Jump to Top</string>
+    <string name="tap_to_scroll_top_sum">Double tap on Toolbar or tap active tab in Bottom Navigation to scroll to top</string>
     <string name="filter_items_by_id">Filter Items By ID</string>
     <string name="filter_items_by_id_sum">Filter items by id name</string>
     <string name="custom_theme_css">Custom Theme CSS</string>

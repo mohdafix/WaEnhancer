@@ -86,6 +86,11 @@
             app:summary="@string/disable_status_in_the_profile_photo_sum"
             app:title="@string/disable_status_in_the_profile_photo" />
 
+        <rikka.material.preference.MaterialSwitchPreference
+            app:key="tap_to_scroll_top"
+            app:summary="@string/tap_to_scroll_top_sum"
+            app:title="@string/tap_to_scroll_top" />
+
 
     </PreferenceCategory>
 

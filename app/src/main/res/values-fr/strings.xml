@@ -215,6 +215,8 @@
     <string name="new_context_menu_ui_sum">Active le menu contextuel des messages de style Apple</string>
     <string name="tap_to_menu">Appuyer dehors pour le menu</string>
     <string name="tap_to_menu_sum">Appui simple sur le bord du message pour ouvrir le menu</string>
+    <string name="tap_to_scroll_top">Aller en haut</string>
+    <string name="tap_to_scroll_top_sum">Double-cliquez sur la barre d\'outils ou appuyez sur l\'onglet actif pour défiler vers le haut</string>
     <string name="filter_items_by_id">Filtrer les éléments par identifiant</string>
     <string name="filter_items_by_id_sum">Filtrer les éléments par nom d\'identifiant</string>
     <string name="custom_theme_css">Feuilles de style en cascade de thème personnalisé</string>

@@ -58,7 +58,6 @@ public class CustomToolbar extends Feature {
         var showName = prefs.getBoolean("shownamehome", false);
         var showBio = prefs.getBoolean("showbiohome", false);
         var typeArchive = prefs.getString("typearchive", "0");
-
         onMenuItemSelected = Unobfuscator.loadOnMenuItemSelected(classLoader);
 
         var methodHook = new ToolbarMethodHook(showName, showBio, typeArchive);

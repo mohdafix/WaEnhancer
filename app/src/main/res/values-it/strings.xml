@@ -215,6 +215,8 @@
     <string name="new_context_menu_ui_sum">Attiva il menu contestuale dei messaggi in stile Apple</string>
     <string name="tap_to_menu">Tocca fuori per il menu</string>
     <string name="tap_to_menu_sum">Tocco singolo sul bordo del messaggio per aprire il menu</string>
+    <string name="tap_to_scroll_top">Torna su</string>
+    <string name="tap_to_scroll_top_sum">Doppio tocco sulla barra o tocca la scheda attiva per scorrere verso l\'alto</string>
     <string name="filter_items_by_id">Filtra elementi per ID</string>
     <string name="filter_items_by_id_sum">Filtra elementi per nome id</string>
     <string name="custom_theme_css">Tema CSS personalizzato</string>
