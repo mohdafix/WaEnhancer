@@ -21,6 +21,7 @@ import com.wmods.wppenhacer.xposed.utils.Utils;
 import org.luckypray.dexkit.query.enums.StringMatchType;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Objects;
@@ -59,6 +60,7 @@ public class ContactBlockedVerify extends Feature {
     @SuppressLint("ResourceType")
     @Override
     public void doHook() throws Throwable {
+        XposedBridge.log("WaEnhancer: ContactBlockedVerify.doHook called");
         if (!prefs.getBoolean("verify_blocked_contact", false) ||
                 Utils.getApplication().getPackageName().equals(FeatureLoader.PACKAGE_BUSINESS))
             return;
@@ -77,17 +79,17 @@ public class ContactBlockedVerify extends Feature {
         });
 
         WppCore.addListenerActivity((activity, state) -> {
-            if (activity.getClass().getSimpleName().equals("Conversation") && state == WppCore.ActivityChangeState.ChangeType.STARTED) {
+            if (activity.getClass().getSimpleName().equals("Conversation") && state == WppCore.ActivityChangeState.ChangeType.STARTED && meManagerInstance != null) {
                 CompletableFuture.runAsync(
                         () -> {
                             try {
                                 var userJid = WppCore.getCurrentUserJid();
                                 var view = (ViewGroup) activity.findViewById(Utils.getID("conversation_contact", "id"));
                                 if (userJid == null || !userJid.isContact() || view == null) {
-                                    log("User is not a contact or view is null");
                                     return;
                                 }
-                                var textView = (TextView) view.findViewById(0x7f990001);
+
+                                var textView = (TextView) view.findViewWithTag("contact_checker");
                                 if (textView != null) {
                                     textView.post(() -> {
                                         textView.setText(ResId.string.checking_if_the_contact_is_blocked);
@@ -95,12 +97,15 @@ public class ContactBlockedVerify extends Feature {
                                     });
                                 } else {
                                     var textView1 = createTextMessageView(activity);
+                                    textView1.setTag("contact_checker");
                                     view.post(() -> view.addView(textView1));
                                 }
+
                                 var mePhoneJid = meManagerPhoneJidField.get(meManagerInstance);
                                 var clazzInterface = verifyKeyClass.getDeclaredConstructors()[0].getParameterTypes()[0];
                                 var methodResult = ReflectionUtils.findMethodUsingFilter(clazzInterface, method1 -> method1.getParameterCount() == 1 && method1.getParameterTypes()[0] == Integer.class);
                                 long startTime = System.currentTimeMillis();
+                                
                                 var clazzProxy = Proxy.newProxyInstance(classLoader,
                                         new Class[]{clazzInterface},
                                         (o, method, objects) -> {
@@ -108,26 +113,38 @@ public class ContactBlockedVerify extends Feature {
                                                 int value = (Integer) objects[0];
                                                 if (!view.isAttachedToWindow()) return null;
                                                 view.post(() -> {
-                                                    var textView2 = (TextView) view.findViewById(0x7f990001);
+                                                    var textView2 = (TextView) view.findViewWithTag("contact_checker");
                                                     if (textView2 == null) return;
                                                     textView2.setSelected(true);
-                                                    if (System.currentTimeMillis() - startTime < 2000) {
-                                                        textView2.setText(ResId.string.block_unverified);
-                                                        return;
-                                                    }
+                                                    
                                                     if (value == 2) {
                                                         textView2.setText(ResId.string.possible_block_detected);
                                                         textView2.setTextColor(Color.RED);
+                                                    } else if (value == 401) {
+                                                        textView2.setText(ResId.string.contact_probably_not_added);
+                                                        textView2.setTextColor(Color.YELLOW);
                                                     } else {
-                                                        textView2.setText(ResId.string.block_not_detected);
-                                                        textView2.setTextColor(Color.GREEN);
+                                                        if (System.currentTimeMillis() - startTime < 2000) {
+                                                            textView2.setText(ResId.string.block_unverified);
+                                                            textView2.setTextColor(Color.GRAY);
+                                                        } else {
+                                                            textView2.setText(ResId.string.block_not_detected);
+                                                            textView2.setTextColor(Color.GREEN);
+                                                        }
                                                     }
                                                 });
                                             }
                                             return null;
                                         });
+
                                 var instance = XposedHelpers.newInstance(verifyKeyClass, clazzProxy, List.of(userJid.userJid, mePhoneJid));
-                                XposedHelpers.callMethod(instance, "A00", 1);
+                                // Find the execution method dynamically
+                                Method execMethod = ReflectionUtils.findMethodUsingFilter(verifyKeyClass, m -> m.getParameterCount() == 1 && m.getParameterTypes()[0] == int.class);
+                                if (execMethod != null) {
+                                    execMethod.invoke(instance, 1);
+                                } else {
+                                    XposedHelpers.callMethod(instance, "A00", 1);
+                                }
                             } catch (Exception e) {
                                 XposedBridge.log(e);
                             }

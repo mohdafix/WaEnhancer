@@ -99,6 +99,19 @@ public class DesignUtils {
                 shapeDrawable.getPaint().setColor(color);
                 return shapeDrawable;
             }
+            case "oval" -> {
+                var gd = new android.graphics.drawable.GradientDrawable();
+                gd.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                gd.setColor(color);
+                return gd;
+            }
+            case "rect" -> {
+                var gd = new android.graphics.drawable.GradientDrawable();
+                gd.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+                gd.setCornerRadius(Utils.dipToPixels(8.0f));
+                gd.setColor(color);
+                return gd;
+            }
             case "stroke_border" -> {
                 float radius = Utils.dipToPixels(18.0f);
                 float[] outerRadii = new float[]{radius, radius, radius, radius, radius, radius, radius, radius};

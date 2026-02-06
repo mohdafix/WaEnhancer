@@ -114,6 +114,7 @@
             app:summary="@string/show_button_to_send_blue_tick_sum"
             app:title="@string/show_button_to_send_blue_tick" />
 
+
     </PreferenceCategory>
 
     <PreferenceCategory

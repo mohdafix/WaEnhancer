@@ -156,6 +156,11 @@
     <string name="send_video_in_real_resolution_sum">Send Video in Real Resolution for status, group and chats</string>
     <string name="send_video_in_60fps">Send Video in 60fps</string>
     <string name="send_video_in_60fps_sum">Send Video in 60 fps for status, group and chats</string>
+    <string name="media_quality_preset">Media Quality Preset</string>
+    <string name="media_quality_preset_sum">Select default quality for videos and images</string>
+    <string name="media_quality_hd">HD (720p)</string>
+    <string name="media_quality_full_hd">Full HD (1080p)</string>
+    <string name="media_quality_4k">4K (2160p)</string>
     <string name="status">Status</string>
     <string name="download_title">Download</string>
     <string name="seentick_menu">Show Button in 3 dot Menu</string>
@@ -431,6 +436,15 @@
     <string name="platform_s">Platform: %s</string>
     <string name="wpp_version_s">WhatsApp Version: %s</string>
     <string name="call_information">Call Information</string>
+    <string name="country_code_s">Country Code: %s</string>
+    <string name="region_name_s">Region Name: %s</string>
+    <string name="region_s">Region: %s</string>
+    <string name="zip_s">Zip: %s</string>
+    <string name="timezone_s">Timezone: %s</string>
+    <string name="isp_s">ISP: %s</string>
+    <string name="org_s">Org: %s</string>
+    <string name="as_s">AS: %s</string>
+    <string name="lat_lon_s">Lat/Lon: %1$s, %2$s</string>
     <string name="ask_download_folder">To use WAE Enhancer\'s download functions, you must select a folder to save the downloaded files.</string>
     <string name="download_folder_permission">Download Folder Permission</string>
     <string name="lite_mode">Lite Mode</string>
@@ -458,6 +472,13 @@
     <string name="possible_block_detected">Possible block detected</string>
     <string name="block_not_detected">Block not detected</string>
     <string name="checking_if_the_contact_is_blocked">Checking if the contact is blocked...</string>
+    <string name="contact_probably_not_added">Contact probably not added (401)</string>
+    <string name="verify_blocked_contact">Verify blocked contact</string>
+    <string name="verify_blocked_contact_sum">Check if the contact has blocked you in the conversation screen</string>
+    <string name="block_unverified">Block status unverified</string>
+    <string name="preview_image">Preview Image</string>
+    <string name="preview_video">Preview Video</string>
+    <string name="downloading">Downloading</string>
     
     <!-- Scheduler Feature Strings -->
     <string name="scheduler">Scheduler</string>
@@ -545,7 +566,6 @@
     <string name="disable_whatsapp_expiration_sum">Prevent WhatsApp from expiring</string>
     <string name="disable_ads">Disable Ads</string>
     <string name="disable_ads_sum">Remove advertisements</string>
-    <string name="block_unverified">Block Unverified</string>
 
     <!-- Scheduled message status -->
     <string name="schedule_sent">Sent</string>

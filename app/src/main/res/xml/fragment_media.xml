@@ -58,6 +58,15 @@
             app:summary="@string/send_video_in_real_resolution_sum"
             app:title="@string/send_video_in_real_resolution" />
 
+        <ListPreference
+            android:defaultValue="hd"
+            android:dependency="videoquality"
+            android:entries="@array/media_quality_preset_entries"
+            android:entryValues="@array/media_quality_preset_values"
+            app:key="media_quality_preset"
+            app:summary="@string/media_quality_preset_sum"
+            app:title="@string/media_quality_preset" />
+
         <rikka.material.preference.MaterialSwitchPreference
             app:dependency="videoquality"
             app:key="video_maxfps"

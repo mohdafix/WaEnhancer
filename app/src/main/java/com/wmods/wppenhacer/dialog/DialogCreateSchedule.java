@@ -101,7 +101,7 @@ public class DialogCreateSchedule extends BottomSheetDialogFragment {
 
         binding.editContact.setOnClickListener(v -> showContactPicker());
 
-        binding.getRoot().findViewById(R.id.saveButton).setOnClickListener(v -> saveMessage());
+        binding.saveButton.setOnClickListener(v -> saveMessage());
     }
 
     private void showDatePicker() {

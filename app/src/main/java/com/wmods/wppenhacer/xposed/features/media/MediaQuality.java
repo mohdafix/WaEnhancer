@@ -156,30 +156,56 @@ public class MediaQuality extends Feature {
 
             });
 
-            // HD video must be sent in maximum resolution (up to 4K)
+            var preset = prefs.getString("media_quality_preset", "hd");
+            int resolution;
+            switch (preset) {
+                case "full_hd":
+                    resolution = 1920;
+                    break;
+                case "4k":
+                    resolution = 3840;
+                    break;
+                default:
+                    resolution = 1280;
+                    break;
+            }
+
+            // HD video must be sent in maximum resolution
             if (realResolution) {
                 Others.propsInteger.put(594, 8000);
                 Others.propsInteger.put(12852, 8000);
             } else {
-                Others.propsInteger.put(594, 1920);
-                Others.propsInteger.put(12852, 1920);
+                Others.propsInteger.put(594, resolution);
+                Others.propsInteger.put(12852, resolution);
             }
 
             // Non-HD video must be sent in HD resolution
-            Others.propsInteger.put(4686, 1280);
-            Others.propsInteger.put(3654, 1280);
-            Others.propsInteger.put(3183, 1280); // Stories
-            Others.propsInteger.put(4685, 1280); // Stories
+            Others.propsInteger.put(4686, resolution);
+            Others.propsInteger.put(3654, resolution);
+            Others.propsInteger.put(3183, resolution); // Stories
+            Others.propsInteger.put(4685, resolution); // Stories
 
             // Max bitrate
             Others.propsInteger.put(3755, 96000);
             Others.propsInteger.put(3756, 96000);
             Others.propsInteger.put(3757, 96000);
             Others.propsInteger.put(3758, 96000);
-
         }
 
         if (imageQuality) {
+            var preset = prefs.getString("media_quality_preset", "hd");
+            int resolution;
+            switch (preset) {
+                case "full_hd":
+                    resolution = 4096; // Some devices might not support 4K images well, 4K is ~4000
+                    break;
+                case "4k":
+                    resolution = 6000;
+                    break;
+                default:
+                    resolution = 2048; // Standard HD
+                    break;
+            }
 
             // Image Max Size
             int maxImageSize = 50 * 1024; // 50MB
@@ -195,16 +221,16 @@ public class MediaQuality extends Feature {
             Others.propsInteger.put(6029, imageMaxQuality);
             Others.propsInteger.put(2655, imageMaxQuality);
 
-            // HD image must be sent in maximum 4K resolution
+            // HD image resolution
             Others.propsBoolean.put(6033, true);
-            Others.propsInteger.put(2654, 6000); // Only HD images
-            Others.propsInteger.put(6032, 6000); // Only HD images
+            Others.propsInteger.put(2654, resolution); // Only HD images
+            Others.propsInteger.put(6032, resolution); // Only HD images
 
-            // Non-HD image must be sent in HD resolution
-            Others.propsInteger.put(1580, 4160);
-            Others.propsInteger.put(1574, 4160);
-            Others.propsInteger.put(1576, 4160);
-            Others.propsInteger.put(12902, 4160);
+            // Non-HD image resolution
+            Others.propsInteger.put(1580, resolution);
+            Others.propsInteger.put(1574, resolution);
+            Others.propsInteger.put(1576, resolution);
+            Others.propsInteger.put(12902, resolution);
 
             // Prevent crashes in Media preview
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

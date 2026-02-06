@@ -14,6 +14,7 @@
         <!-- Contact Input -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/input_contact"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
@@ -30,9 +31,12 @@
         <!-- Message Input -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/input_message"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
+            app:counterEnabled="true"
+            app:counterMaxLength="32768"
             android:hint="Message">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -47,6 +51,7 @@
         <!-- Date Input -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/input_date"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
@@ -64,6 +69,7 @@
         <!-- Time Input -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/input_time"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"

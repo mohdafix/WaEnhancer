@@ -115,6 +115,15 @@ public class ResId {
         public static int platform_s;
         public static int wpp_version_s;
         public static int call_information;
+        public static int country_code_s;
+        public static int region_name_s;
+        public static int region_s;
+        public static int zip_s;
+        public static int timezone_s;
+        public static int isp_s;
+        public static int org_s;
+        public static int as_s;
+        public static int lat_lon_s;
         public static int ask_download_folder;
         public static int download_folder_permission;
         public static int no_contact_with_custom_privacy;
@@ -124,6 +133,10 @@ public class ResId {
         public static int possible_block_detected;
         public static int checking_if_the_contact_is_blocked;
         public static int block_unverified;
+        public static int contact_probably_not_added;
+        public static int preview_image;
+        public static int preview_video;
+        public static int downloading;
     }
 
     public static class array {
