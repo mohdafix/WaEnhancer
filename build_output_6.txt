@@ -1,0 +1,130 @@
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preBusinessDebugBuild UP-TO-DATE
+> Task :app:mergeBusinessDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:dataBindingMergeDependencyArtifactsBusinessDebug UP-TO-DATE
+> Task :app:generateBusinessDebugMaterialThemeBuilderRes
+> Task :app:generateBusinessDebugResValues UP-TO-DATE
+> Task :app:generateBusinessDebugResources UP-TO-DATE
+> Task :app:mergeBusinessDebugResources UP-TO-DATE
+> Task :app:packageBusinessDebugResources UP-TO-DATE
+> Task :app:processBusinessDebugNavigationResources UP-TO-DATE
+> Task :app:parseBusinessDebugLocalResources UP-TO-DATE
+> Task :app:dataBindingGenBaseClassesBusinessDebug UP-TO-DATE
+> Task :app:generateBusinessDebugBuildConfig UP-TO-DATE
+> Task :app:generateBusinessDebugMaterialThemeBuilderSource
+> Task :app:checkBusinessDebugAarMetadata UP-TO-DATE
+> Task :app:compileBusinessDebugNavigationResources UP-TO-DATE
+> Task :app:mapBusinessDebugSourceSetPaths UP-TO-DATE
+> Task :app:createBusinessDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksBusinessDebug UP-TO-DATE
+> Task :app:processBusinessDebugMainManifest UP-TO-DATE
+> Task :app:processBusinessDebugManifest UP-TO-DATE
+> Task :app:processBusinessDebugManifestForPackage UP-TO-DATE
+> Task :app:processBusinessDebugResources UP-TO-DATE
+> Task :app:preBusinessReleaseBuild UP-TO-DATE
+> Task :app:compileBusinessReleaseAidl UP-TO-DATE
+> Task :app:preWhatsappDebugBuild UP-TO-DATE
+> Task :app:compileBusinessDebugAidl
+> Task :app:compileWhatsappDebugAidl UP-TO-DATE
+> Task :app:compileBusinessDebugKotlin NO-SOURCE
+> Task :app:preWhatsappReleaseBuild UP-TO-DATE
+> Task :app:compileWhatsappReleaseAidl UP-TO-DATE
+
+> Task :app:fixAidlGeneratedJava
+fixAidlGeneratedJava: patched C:\Project\WaEnhancer\app\build\generated\aidl_source_output_dir\businessDebug\out\com\wmods\wppenhacer\xposed\bridge\WaeIIFace.java
+fixAidlGeneratedJava: patched C:\Project\WaEnhancer\app\build\generated\aidl_source_output_dir\businessRelease\out\com\wmods\wppenhacer\xposed\bridge\WaeIIFace.java
+fixAidlGeneratedJava: patched C:\Project\WaEnhancer\app\build\generated\aidl_source_output_dir\whatsappDebug\out\com\wmods\wppenhacer\xposed\bridge\WaeIIFace.java
+fixAidlGeneratedJava: patched C:\Project\WaEnhancer\app\build\generated\aidl_source_output_dir\whatsappRelease\out\com\wmods\wppenhacer\xposed\bridge\WaeIIFace.java
+fixAidlGeneratedJava: patched 4 file(s).
+
+> Task :app:javaPreCompileBusinessDebug UP-TO-DATE
+
+> Task :app:compileBusinessDebugJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :app:mergeBusinessDebugShaders UP-TO-DATE
+> Task :app:compileBusinessDebugShaders NO-SOURCE
+> Task :app:generateBusinessDebugAssets UP-TO-DATE
+> Task :app:mergeBusinessDebugAssets UP-TO-DATE
+> Task :app:compressBusinessDebugAssets UP-TO-DATE
+> Task :app:desugarBusinessDebugFileDependencies UP-TO-DATE
+> Task :app:dexBuilderBusinessDebug
+> Task :app:mergeBusinessDebugGlobalSynthetics UP-TO-DATE
+> Task :app:processBusinessDebugJavaRes UP-TO-DATE
+> Task :app:mergeBusinessDebugJavaResource UP-TO-DATE
+> Task :app:checkBusinessDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexBusinessDebug UP-TO-DATE
+> Task :app:mergeLibDexBusinessDebug UP-TO-DATE
+> Task :app:mergeBusinessDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeBusinessDebugNativeLibs UP-TO-DATE
+> Task :app:stripBusinessDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningBusinessDebug UP-TO-DATE
+> Task :app:writeBusinessDebugAppMetadata UP-TO-DATE
+> Task :app:writeBusinessDebugSigningConfigVersions UP-TO-DATE
+> Task :app:mergeWhatsappDebugNativeDebugMetadata NO-SOURCE
+> Task :app:dataBindingMergeDependencyArtifactsWhatsappDebug UP-TO-DATE
+> Task :app:mergeProjectDexBusinessDebug
+> Task :app:generateWhatsappDebugMaterialThemeBuilderRes
+> Task :app:generateWhatsappDebugResValues UP-TO-DATE
+> Task :app:generateWhatsappDebugResources UP-TO-DATE
+> Task :app:mergeWhatsappDebugResources UP-TO-DATE
+> Task :app:packageWhatsappDebugResources UP-TO-DATE
+> Task :app:processWhatsappDebugNavigationResources UP-TO-DATE
+> Task :app:parseWhatsappDebugLocalResources UP-TO-DATE
+> Task :app:dataBindingGenBaseClassesWhatsappDebug UP-TO-DATE
+> Task :app:generateWhatsappDebugBuildConfig UP-TO-DATE
+> Task :app:generateWhatsappDebugMaterialThemeBuilderSource
+> Task :app:checkWhatsappDebugAarMetadata UP-TO-DATE
+> Task :app:compileWhatsappDebugNavigationResources UP-TO-DATE
+> Task :app:mapWhatsappDebugSourceSetPaths UP-TO-DATE
+> Task :app:createWhatsappDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksWhatsappDebug UP-TO-DATE
+> Task :app:processWhatsappDebugMainManifest UP-TO-DATE
+> Task :app:processWhatsappDebugManifest UP-TO-DATE
+> Task :app:processWhatsappDebugManifestForPackage UP-TO-DATE
+> Task :app:processWhatsappDebugResources UP-TO-DATE
+> Task :app:compileWhatsappDebugKotlin NO-SOURCE
+> Task :app:javaPreCompileWhatsappDebug UP-TO-DATE
+
+> Task :app:compileWhatsappDebugJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :app:mergeWhatsappDebugShaders UP-TO-DATE
+> Task :app:compileWhatsappDebugShaders NO-SOURCE
+> Task :app:generateWhatsappDebugAssets UP-TO-DATE
+> Task :app:mergeWhatsappDebugAssets UP-TO-DATE
+> Task :app:compressWhatsappDebugAssets UP-TO-DATE
+> Task :app:checkWhatsappDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarWhatsappDebugFileDependencies UP-TO-DATE
+> Task :app:packageBusinessDebug
+> Task :app:createBusinessDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleBusinessDebug
+> Task :app:mergeExtDexWhatsappDebug UP-TO-DATE
+> Task :app:mergeLibDexWhatsappDebug UP-TO-DATE
+> Task :app:dexBuilderWhatsappDebug
+> Task :app:mergeWhatsappDebugGlobalSynthetics UP-TO-DATE
+> Task :app:processWhatsappDebugJavaRes UP-TO-DATE
+> Task :app:mergeWhatsappDebugJavaResource UP-TO-DATE
+> Task :app:mergeWhatsappDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeWhatsappDebugNativeLibs UP-TO-DATE
+> Task :app:stripWhatsappDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningWhatsappDebug UP-TO-DATE
+> Task :app:writeWhatsappDebugAppMetadata UP-TO-DATE
+> Task :app:writeWhatsappDebugSigningConfigVersions UP-TO-DATE
+> Task :app:mergeProjectDexWhatsappDebug
+> Task :app:packageWhatsappDebug
+> Task :app:createWhatsappDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleWhatsappDebug
+> Task :app:assembleDebug
+
+[Incubating] Problems report is available at: file:///C:/Project/WaEnhancer/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 11s
+89 actionable tasks: 14 executed, 75 up-to-date

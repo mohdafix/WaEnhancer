@@ -481,7 +481,6 @@
     <string name="downloading">Downloading...</string>
     <string name="lockedchats_enhancer">Enhanced Locked Chats</string>
     <string name="lockedchats_enhancer_sum">Improve locked chats by hiding notifications and contacts from the contact list</string>
-    <string name="voice_note_speed">Voice Note Speed</string>
     <string name="audio_speed_control">Audio Speed Control</string>
     <string name="audio_speed_control_sum">Set a custom speed for audio playback</string>
     
@@ -563,8 +562,7 @@
     <string name="call_recording_path">Recording Path</string>
     <string name="video_call_screen_rec">Video Call Screen Recording</string>
     <string name="video_call_screen_rec_sum">Record screen during video calls</string>
-    <string name="lockedchats_enhancer">Locked Chats Enhancer</string>
-    <string name="lockedchats_enhancer_sum">Enhance locked chats functionality</string>
+
     <string name="show_contact_blocked">Show Contact Blocked</string>
     <string name="show_contact_blocked_sum">Display blocked contact indicator</string>
     <string name="disable_whatsapp_expiration">Disable WhatsApp Expiration</string>
