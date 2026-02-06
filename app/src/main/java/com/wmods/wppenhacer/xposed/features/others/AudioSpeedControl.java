@@ -41,7 +41,10 @@ public class AudioSpeedControl extends Feature {
 
     @Override
     public void doHook() {
-        if (!this.prefs.getBoolean("audio_speed_control", true)) return;
+        boolean enabled = this.prefs.getBoolean("audio_speed_control", false);
+        XposedBridge.log("AudioSpeedControl: doHook called. Enabled in prefs: " + enabled);
+
+        if (!enabled) return;
 
         try {
             XposedBridge.hookMethod(Unobfuscator.loadPlaybackSpeed(this.classLoader), new XC_MethodHook() {
@@ -60,11 +63,14 @@ public class AudioSpeedControl extends Feature {
             @SuppressLint("ClickableViewAccessibility")
             @Override
             public void onItemBind(FMessageWpp fMessageWpp, ViewGroup root) {
+                XposedBridge.log("AudioSpeedControl: onItemBind called. Root: " + root.getClass().getName());
                 try {
                     // 1. Try to find the speed TextView
                     TextView textView = null;
                     
-                    int speedBtnId = Utils.getID("playback_speed_text", "id");
+                    int speedBtnId = Utils.getID("fast_playback_overlay", "id");
+                    if (speedBtnId == 0) speedBtnId = Utils.getID("playback_speed_text", "id");
+
                     if (speedBtnId != 0) {
                         View v = root.findViewById(speedBtnId);
                         if (v instanceof TextView) textView = (TextView) v;
@@ -77,22 +83,42 @@ public class AudioSpeedControl extends Feature {
 
                     if (textView == null) {
                          // Debug: Log that we couldn't find the speed text in this view
-                         // XposedBridge.log("AudioSpeedControl: No speed text found in row " + fMessageWpp.getKey().messageID);
+                         // XposedBridge.log("AudioSpeedControl: No speed text found in this view.");
                          return;
                     }
 
-                    XposedBridge.log("AudioSpeedControl: Found speed text: " + textView.getText());
+                    XposedBridge.log("AudioSpeedControl: Found speed text: " + textView.getText() + " View: " + textView.getClass().getName());
 
                     // 2. Find or create the container
-                    if (root.findViewWithTag("audio_speed_seekbar") != null) return; // Already added
+                    View existingSeekbar = root.findViewWithTag("audio_speed_seekbar");
+                    if (existingSeekbar != null) {
+                         // Already added: Ensure correct visibility state on re-bind
+                         try {
+                             View parent = (View) existingSeekbar.getParent(); // This is the LinearLayout
+                             if (parent != null && parent.getVisibility() == View.VISIBLE && textView != null) {
+                                 textView.setVisibility(View.GONE);
+                             }
+                         } catch (Exception e) {}
+                         return;
+                    }
 
                     ViewGroup voiceNoteContainer = null;
+                    View refView = null; // The view to insert after
+
+                    // Traverse up to find the main content container
+                    // Hierarchy typically: textView -> VoiceNoteProfileAvatarView -> Row(LinearLayout) -> ContentWrapper(LinearLayout)
                     if (textView.getParent() instanceof ViewGroup) {
-                        ViewGroup parent = (ViewGroup) textView.getParent();
-                        if (parent.getChildCount() > 1) voiceNoteContainer = parent;
-                        else if (parent.getParent() instanceof ViewGroup) voiceNoteContainer = (ViewGroup) parent.getParent();
+                        ViewGroup avatarView = (ViewGroup) textView.getParent();
+                        if (avatarView.getParent() instanceof ViewGroup) {
+                            ViewGroup playerRow = (ViewGroup) avatarView.getParent();
+                            if (playerRow.getParent() instanceof LinearLayout) {
+                                voiceNoteContainer = (ViewGroup) playerRow.getParent();
+                                refView = playerRow;
+                            }
+                        }
                     }
                     
+                    // Fallback to old logic if traversal failed (unlikely if hierarchy matches dump)
                     if (voiceNoteContainer == null) {
                          int containerId = Utils.getID("voice_note_player_container", "id");
                          if (containerId == 0) containerId = Utils.getID("audio_player_container", "id");
@@ -103,17 +129,31 @@ public class AudioSpeedControl extends Feature {
                         XposedBridge.log("AudioSpeedControl: Could not find container for " + textView.getText());
                         return; 
                     }
+                    
+                    final TextView finalTextView = textView;
+                    
+                    // Sync with current text
+                    float currentSpeed = 1.0f;
+                    try {
+                        String txt = finalTextView.getText().toString();
+                        txt = txt.replace("x", "").replace("×", "").trim();
+                        if (!txt.isEmpty()) {
+                            currentSpeed = Float.parseFloat(txt);
+                            audioSpeed.set(currentSpeed);
+                        }
+                    } catch (Exception e) {}
 
-                    XposedBridge.log("AudioSpeedControl: Injecting UI...");
+                    XposedBridge.log("AudioSpeedControl: Injecting UI into " + voiceNoteContainer.getClass().getName());
 
                     Context context = voiceNoteContainer.getContext();
                     final LinearLayout linearLayout = new LinearLayout(context);
                     linearLayout.setOrientation(LinearLayout.HORIZONTAL);
-                    linearLayout.setGravity(16);
+                    linearLayout.setGravity(16); // Center Vertical
                     linearLayout.setPadding(Utils.dipToPixels(10.0f), Utils.dipToPixels(6.0f), Utils.dipToPixels(10.0f), Utils.dipToPixels(6.0f));
                     
                     Drawable bg = DesignUtils.getDrawable(ResId.drawable.audio_speed_container_bg);
                     if (bg != null) linearLayout.setBackground(bg);
+                    
                     linearLayout.setVisibility(View.GONE);
 
                     ImageView imageView = new ImageView(context);
@@ -130,14 +170,20 @@ public class AudioSpeedControl extends Feature {
                     SeekBar seekBar = new SeekBar(context);
                     seekBar.setTag("audio_speed_seekbar");
                     seekBar.setMax(50); // 0.1x to 5.1x
-                    seekBar.setProgress(9); // Default 1.0x (9 + 1 = 10 * 0.1 = 1.0)
+                    
+                    // Sync initial progress with current global speed
+                    int initialProgress = (int) ((currentSpeed - 0.1f) / 0.1f);
+                    if (initialProgress < 0) initialProgress = 0;
+                    if (initialProgress > 50) initialProgress = 50;
+                    seekBar.setProgress(initialProgress);
+                    
                     seekBar.setSplitTrack(false);
                     
                     Drawable thumb = DesignUtils.getDrawable(ResId.drawable.audio_speed_seekbar_thumb);
                     if (thumb != null) seekBar.setThumb(thumb);
                     
-                    Drawable progress = DesignUtils.getDrawable(ResId.drawable.audio_speed_seekbar_progress);
-                    if (progress != null) seekBar.setProgressDrawable(progress);
+                    Drawable progressDrawable = DesignUtils.getDrawable(ResId.drawable.audio_speed_seekbar_progress);
+                    if (progressDrawable != null) seekBar.setProgressDrawable(progressDrawable);
                     
                     seekBar.setPadding(Utils.dipToPixels(6.0f), Utils.dipToPixels(10.0f), Utils.dipToPixels(6.0f), Utils.dipToPixels(10.0f));
                     seekBar.setLayoutParams(new LinearLayout.LayoutParams(0, Utils.dipToPixels(32.0f), 1.0f));
@@ -145,19 +191,16 @@ public class AudioSpeedControl extends Feature {
 
                     final Animation slideIn = AnimationUtil.getAnimation("slide_in_bottom");
                     final Animation slideOut = AnimationUtil.getAnimation("slide_out_bottom");
-                    final LinearLayout finalLayout = linearLayout;
 
                     if (slideOut != null) {
                         slideOut.setAnimationListener(new Animation.AnimationListener() {
                             @Override public void onAnimationStart(Animation animation) {}
                             @Override public void onAnimationRepeat(Animation animation) {}
                             @Override public void onAnimationEnd(Animation animation) {
-                                finalLayout.setVisibility(View.GONE);
+                                linearLayout.setVisibility(View.GONE);
                             }
                         });
                     }
-
-                    final TextView finalTextView = textView;
 
                     seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                         @Override
@@ -177,7 +220,13 @@ public class AudioSpeedControl extends Feature {
                         @Override public void onStopTrackingTouch(SeekBar seekBar) {}
                     });
 
-                    textView.setOnLongClickListener(v -> {
+                    finalTextView.setLongClickable(true);
+                    finalTextView.setFocusable(true);
+                    finalTextView.setClickable(true);
+
+                    // Revert to Toggle Mode
+                    finalTextView.setOnLongClickListener(v -> {
+                        XposedBridge.log("AudioSpeedControl: Long click detected!");
                         if (linearLayout.getVisibility() == View.GONE) {
                             linearLayout.setVisibility(View.VISIBLE);
                             if (slideIn != null) linearLayout.startAnimation(slideIn);
@@ -188,19 +237,20 @@ public class AudioSpeedControl extends Feature {
                         }
                         return true;
                     });
+                    
+                    finalTextView.requestLayout();
 
                     // Add the linear layout to the container
-                    // Try to add it near the speed button if possible, otherwise at the end
-                     int index = -1;
-                     if (textView.getParent() == voiceNoteContainer) {
-                         index = voiceNoteContainer.indexOfChild(textView) + 1;
-                     }
-                     
-                     if (index >= 0 && index <= voiceNoteContainer.getChildCount()) {
+                    int index = -1;
+                    if (refView != null) {
+                         index = voiceNoteContainer.indexOfChild(refView) + 1;
+                    }
+                    
+                    if (index >= 0 && index <= voiceNoteContainer.getChildCount()) {
                          voiceNoteContainer.addView(linearLayout, index);
-                     } else {
+                    } else {
                          voiceNoteContainer.addView(linearLayout);
-                     }
+                    }
                     
                 } catch (Throwable th) {
                     XposedBridge.log("AudioSpeedControl: Error in onItemBind - " + th.getMessage());
@@ -215,7 +265,11 @@ public class AudioSpeedControl extends Feature {
             if (txt != null) {
                 String text = txt.toString();
                 // Check for standard speed strings or format like "1.5x"
-                if (text.equals("1x") || text.equals("1.5x") || text.equals("2x") || (text.endsWith("x") && text.length() < 5 && Character.isDigit(text.charAt(0)))) {
+                // Added check for multiplication sign '×' which is used in newer WA versions
+                if (text.equals("1x") || text.equals("1.5x") || text.equals("2x") || 
+                    text.equals("1×") || text.equals("1.5×") || text.equals("2×") ||
+                    (text.endsWith("x") && text.length() < 5 && Character.isDigit(text.charAt(0))) ||
+                    (text.endsWith("×") && text.length() < 5 && Character.isDigit(text.charAt(0)))) {
                     return (TextView) view;
                 }
             }
@@ -227,7 +281,7 @@ public class AudioSpeedControl extends Feature {
                 if (found != null) return found;
             }
         }
-        return null;
+        return null; // dumpViewHierarchy method was here but removed
     }
 
     @Override
