@@ -91,6 +91,12 @@
             app:summary="@string/tap_to_scroll_top_sum"
             app:title="@string/tap_to_scroll_top" />
 
+        <rikka.material.preference.MaterialSwitchPreference
+            app:key="jump_to_first_chat"
+            app:summary="@string/jump_to_first_chat_sum"
+            app:title="@string/jump_to_first_chat"
+            app:defaultValue="true" />
+
 
     </PreferenceCategory>
 

@@ -38,10 +38,22 @@ public abstract class SmartMultiClickListener implements View.OnClickListener {
             }, delay);
         } else if (clicks == 2) {
             handler.removeCallbacksAndMessages(null);
-            onDoubleClick(v);
+            handler.postDelayed(() -> {
+                if (clicks == 2) {
+                    onDoubleClick(v);
+                    clicks = 0;
+                }
+            }, delay);
+        } else if (clicks == 3) {
+            handler.removeCallbacksAndMessages(null);
+            onTripleClick(v);
             clicks = 0;
         }
     }
 
     public abstract void onDoubleClick(View v);
+
+    public void onTripleClick(View v) {
+        // Optional override
+    }
 }

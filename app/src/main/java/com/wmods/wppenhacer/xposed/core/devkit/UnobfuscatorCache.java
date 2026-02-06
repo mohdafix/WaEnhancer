@@ -195,16 +195,19 @@ public class UnobfuscatorCache {
     }
 
     public Field getField(ClassLoader loader, FunctionCall<Field> functionCall) throws Exception {
-        var methodName = getKeyName();
-        String value = sPrefsCacheHooks.getString(methodName, null);
+        return getField(loader, getKeyName(), functionCall);
+    }
+
+    public Field getField(ClassLoader loader, String key, FunctionCall<Field> functionCall) throws Exception {
+        String value = sPrefsCacheHooks.getString(key, null);
         if (value == null) {
             try {
                 Field result = functionCall.call();
                 if (result == null) throw new NoSuchFieldException("Field is null");
-                saveField(methodName, result);
+                saveField(key, result);
                 return result;
             } catch (Exception e) {
-                throw new Exception("Error getting field " + methodName + ": " + e.getMessage(), e);
+                throw new Exception("Error getting field " + key + ": " + e.getMessage(), e);
             }
         }
         String[] ClassAndName = value.split(":");

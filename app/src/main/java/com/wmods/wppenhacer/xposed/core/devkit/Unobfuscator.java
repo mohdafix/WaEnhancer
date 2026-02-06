@@ -2500,4 +2500,66 @@ public class Unobfuscator {
             throw new NoSuchMethodException("loadSendTextUserAction method not found in " + actionClass.getName());
         });
     }
+
+    public synchronized static Class<?> loadConversationDelegateClass(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getClass(loader, "ConversationDelegate", () -> {
+            var conversationClass = XposedHelpers.findClass("com.whatsapp.Conversation", loader);
+            if (conversationClass == null) return null;
+            for (var field : conversationClass.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) continue;
+                var type = field.getType();
+                if (type.getName().startsWith("com.whatsapp.conversation.delegate")) {
+                    return type;
+                }
+            }
+            return findFirstClassUsingName(loader, StringMatchType.EndsWith, "ConversationDelegate");
+        });
+    }
+
+    public synchronized static Field loadConversationDelegateField(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getField(loader, "ConversationDelegateField", () -> {
+            var conversationClass = XposedHelpers.findClass("com.whatsapp.Conversation", loader);
+            var delegateClass = loadConversationDelegateClass(loader);
+            for (var field : conversationClass.getDeclaredFields()) {
+                if (field.getType().equals(delegateClass)) return field;
+            }
+            throw new RuntimeException("ConversationDelegate field not found");
+        });
+    }
+
+    public synchronized static Class<?> loadConversationSearchHandlerClass(ClassLoader loader) throws Exception {
+        return UnobfuscatorCache.getInstance().getClass(loader, "ConversationSearchHandler", () -> {
+            var searchString = "search_fragment_conversation";
+            
+            // Try to find classes containing the fragment tag string
+            for (var clazz : findAllClassUsingStrings(loader, StringMatchType.Equals, searchString)) {
+                // Should not be a Fragment itself
+                if (androidx.fragment.app.Fragment.class.isAssignableFrom(clazz)) continue;
+                // Exclude the activity itself 
+                if (clazz.getName().endsWith("Conversation")) continue;
+                
+                // Check if it has the DateSetListener field
+                for (var field : clazz.getDeclaredFields()) {
+                    if (android.app.DatePickerDialog.OnDateSetListener.class.isAssignableFrom(field.getType())) {
+                        return clazz;
+                    }
+                }
+            }
+
+            // Fallback to SQL strings in methods
+            var method = findFirstMethodUsingStrings(loader, StringMatchType.Contains, "available_message_view", "chat_row_id", "timestamp >= ?");
+            if (method != null) {
+                var constructors = method.getDeclaringClass().getDeclaredConstructors();
+                if (constructors.length > 0) {
+                    var constructor = constructors[0];
+                    var params = constructor.getParameterTypes();
+                    if (params.length > 0) {
+                        return params[0];
+                    }
+                }
+            }
+            
+            throw new RuntimeException("ConversationSearchHandler not found");
+        });
+    }
 }

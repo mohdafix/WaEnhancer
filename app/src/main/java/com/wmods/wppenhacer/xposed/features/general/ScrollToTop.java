@@ -32,10 +32,10 @@ public class ScrollToTop extends Feature {
 
     @Override
     public void doHook() throws Exception {
-        if (!prefs.getBoolean("tap_to_scroll_top", false)) return;
-
-        hookTabPagerInstance();
-        hookOnMenuItemSelected();
+        if (prefs.getBoolean("tap_to_scroll_top", false)) {
+            hookTabPagerInstance();
+            hookOnMenuItemSelected();
+        }
         hookToolbarDoubleTap();
     }
 
@@ -83,14 +83,11 @@ public class ScrollToTop extends Feature {
             }
         };
 
-        XposedHelpers.findAndHookMethod(WppCore.getHomeActivityClass(classLoader), "onCreate", Bundle.class, hook);
+        if (prefs.getBoolean("tap_to_scroll_top", false)) {
+            XposedHelpers.findAndHookMethod(WppCore.getHomeActivityClass(classLoader), "onCreate", Bundle.class, hook);
+        }
 
-        var conversationClass = Unobfuscator.findFirstClassUsingName(
-                classLoader,
-                StringMatchType.EndsWith,
-                "Conversation"
-        );
-        XposedHelpers.findAndHookMethod(conversationClass, "onCreate", Bundle.class, hook);
+        XposedHelpers.findAndHookMethod("com.whatsapp.Conversation", classLoader, "onCreate", Bundle.class, hook);
     }
 
     private void setupToolbar(Activity activity) {
@@ -99,26 +96,164 @@ public class ScrollToTop extends Feature {
 
         View clickableView = findClickableView(toolbar);
         if (clickableView == null) {
-            // Fallback to toolbar if no child is clickable (unlikely for Convo, possible for Home)
             clickableView = toolbar;
         }
 
         View.OnClickListener originalListener = getOnClickListener(clickableView);
-        if (originalListener instanceof SmartMultiClickListener) return; // Already hooked
+        if (originalListener instanceof SmartMultiClickListener) return; 
 
         clickableView.setOnClickListener(new SmartMultiClickListener(originalListener, 300) {
             @Override
             public void onDoubleClick(View v) {
-                scrollToTop(activity);
+                if (prefs.getBoolean("tap_to_scroll_top", false)) {
+                    scrollToTop(activity);
+                } else if (originalListener != null) {
+                    originalListener.onClick(v);
+                }
+            }
+
+            @Override
+            public void onTripleClick(View v) {
+                if (prefs.getBoolean("jump_to_first_chat", true) && activity.getClass().getName().endsWith("Conversation")) {
+                    jumpToFirst(activity);
+                }
             }
         });
     }
 
-    private View findClickableView(ViewGroup root) {
-        // BFS or DFS to find the first clickable child. 
-        // In Toolbar, usually the title container is what we want.
-        // It's often a LinearLayout or RelativeLayout inside the Toolbar.
+    private void jumpToFirst(Activity activity) {
+        try {
+            var delegateField = Unobfuscator.loadConversationDelegateField(classLoader);
+            delegateField.setAccessible(true);
+            Object delegate = delegateField.get(activity);
+            if (delegate == null) return;
+
+            Class<?> handlerClass = Unobfuscator.loadConversationSearchHandlerClass(classLoader);
+            Object handler = null;
+            
+            // Search for SearchHandler instance in delegate fields or superclasses
+            Class<?> current = delegate.getClass();
+            while (current != null && current != Object.class) {
+                for (java.lang.reflect.Field f : current.getDeclaredFields()) {
+                    f.setAccessible(true);
+                    Object val = f.get(delegate);
+                    if (val == null) continue;
+                    
+                    if (handlerClass.isInstance(val)) {
+                        handler = val;
+                        break;
+                    }
+                    
+                    // If it's a provider/lazy
+                    if (val.getClass().getName().contains("AnonymousClass00p") || val.getClass().getName().contains("Provider") || val.getClass().getName().contains("Lazy")) {
+                        try {
+                            Object provided = XposedHelpers.callMethod(val, "get");
+                            if (provided != null && handlerClass.isInstance(provided)) {
+                                handler = provided;
+                                break;
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+                }
+                if (handler != null) break;
+                current = current.getSuperclass();
+            }
+
+            if (handler == null) {
+                // Last ditch: iterate all fields and look for the one containing DateSetListener
+                handler = delegate;
+            }
+
+            // Find OnDateSetListener in handler or its superclasses
+            android.app.DatePickerDialog.OnDateSetListener listener = findOnDateSetListener(handler);
+
+            if (listener == null && handler != delegate) {
+                // Try finding it in delegate directly
+                listener = findOnDateSetListener(delegate);
+            }
+
+            if (listener == null) {
+                // Deep search in all non-primitive fields of delegate
+                listener = deepSearchListener(delegate, 0);
+            }
+
+            if (listener != null) {
+                // Jump to the past
+                listener.onDateSet(null, 1900, 0, 1);
+                Utils.showToast("Jumping to first message...", 0);
+            } else {
+                Utils.showToast("Date listener not found!", 0);
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
+    }
+
+    private android.app.DatePickerDialog.OnDateSetListener deepSearchListener(Object obj, int depth) {
+        if (obj == null || depth > 2) return null;
         
+        // Check current object fields
+        android.app.DatePickerDialog.OnDateSetListener listener = findOnDateSetListener(obj);
+        if (listener != null) return listener;
+        
+        // Recurse into fields
+        Class<?> current = obj.getClass();
+        while (current != null && current != Object.class) {
+            if (current.getName().startsWith("android.") || current.getName().startsWith("java.")) {
+                current = current.getSuperclass();
+                continue;
+            }
+            
+            for (java.lang.reflect.Field f : current.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+                if (f.getType().isPrimitive()) continue;
+                
+                f.setAccessible(true);
+                try {
+                    Object val = f.get(obj);
+                    if (val == null || val == obj) continue;
+                    
+                    // Specific check for providers
+                    if (val.getClass().getName().contains("AnonymousClass00p") || val.getClass().getName().contains("Provider") || val.getClass().getName().contains("Lazy")) {
+                        try {
+                            Object provided = XposedHelpers.callMethod(val, "get");
+                            if (provided != null) {
+                                if (provided instanceof android.app.DatePickerDialog.OnDateSetListener) {
+                                    return (android.app.DatePickerDialog.OnDateSetListener) provided;
+                                }
+                                listener = deepSearchListener(provided, depth + 1);
+                                if (listener != null) return listener;
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+                    
+                    listener = deepSearchListener(val, depth + 1);
+                    if (listener != null) return listener;
+                } catch (Throwable ignored) {}
+            }
+            current = current.getSuperclass();
+        }
+        return null;
+    }
+
+    private android.app.DatePickerDialog.OnDateSetListener findOnDateSetListener(Object obj) {
+        if (obj == null) return null;
+        Class<?> current = obj.getClass();
+        while (current != null && current != Object.class) {
+            for (java.lang.reflect.Field f : current.getDeclaredFields()) {
+                if (android.app.DatePickerDialog.OnDateSetListener.class.isAssignableFrom(f.getType())) {
+                    f.setAccessible(true);
+                    try {
+                        return (android.app.DatePickerDialog.OnDateSetListener) f.get(obj);
+                    } catch (Throwable ignored) {}
+                }
+            }
+            current = current.getSuperclass();
+        }
+        return null;
+    }
+
+    private View findClickableView(ViewGroup root) {
         for (int i = 0; i < root.getChildCount(); i++) {
             View child = root.getChildAt(i);
             if (child.isClickable() && child.hasOnClickListeners()) {
@@ -130,20 +265,16 @@ public class ScrollToTop extends Feature {
             }
         }
         if (root.isClickable() && root.hasOnClickListeners()) return root;
-        return null; // Nothing found
+        return null; 
     }
 
     private View.OnClickListener getOnClickListener(View view) {
         try {
-            // View.mListenerInfo
             var listenerInfo = XposedHelpers.getObjectField(view, "mListenerInfo");
             if (listenerInfo != null) {
-                // ListenerInfo.mOnClickListener
                 return (View.OnClickListener) XposedHelpers.getObjectField(listenerInfo, "mOnClickListener");
             }
-        } catch (Throwable e) {
-            // ignore
-        }
+        } catch (Throwable ignored) {}
         return null;
     }
 
@@ -158,7 +289,6 @@ public class ScrollToTop extends Feature {
     private void scrollToPosition(View scrollable, int position) {
         if (scrollable instanceof android.widget.AbsListView absListView) {
             try {
-                // For AbsListView, setSelection usually works
                 absListView.setSelection(position);
             } catch (Throwable ignored) {}
         } else {
@@ -189,6 +319,6 @@ public class ScrollToTop extends Feature {
     @NonNull
     @Override
     public String getPluginName() {
-        return "Scroll To Top";
+        return "Scroll To Top / Jump To First";
     }
 }

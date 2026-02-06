@@ -559,4 +559,6 @@
     <string name="enabled">Enabled</string>
     <string name="custom_privacy_global_status">Global Status: %s</string>
     <string name="profile_picture_has_been_updated">%s updated their profile picture</string>
+    <string name="jump_to_first_chat">Jump To First Chat</string>
+    <string name="jump_to_first_chat_sum">Triple tap on Conversation Toolbar to jump to the very first message</string>
 </resources>
