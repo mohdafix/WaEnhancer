@@ -28,6 +28,12 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
+import android.content.BroadcastReceiver;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.app.PendingIntent;
+import androidx.core.app.NotificationCompat;
+
 import com.wmods.wppenhacer.listeners.OnMultiClickListener;
 import com.wmods.wppenhacer.xposed.core.ActivityStateRegistry;
 import com.wmods.wppenhacer.xposed.core.Feature;
@@ -457,8 +463,34 @@ public class Others extends Feature {
         });
     }
 
+
     private void callInfo() throws Exception {
         if (!prefs.getBoolean("call_info", false)) return;
+
+        try {
+            Context context = Utils.getApplication();
+            if (context != null) {
+                // Fix: Use correct flags for receiver registration on newer Android
+                int flags = Build.VERSION.SDK_INT >= 34 ? Context.RECEIVER_EXPORTED : 0;
+                context.registerReceiver(new BroadcastReceiver() {
+                    @Override
+                    public void onReceive(Context context, Intent intent) {
+                        if ("com.wmods.wppenhacer.copy_call_info".equals(intent.getAction())) {
+                            String text = intent.getStringExtra("text");
+                            if (text != null) {
+                                Utils.setToClipboard(text);
+                                Utils.showToast(context.getString(ResId.string.copied_to_clipboard), Toast.LENGTH_SHORT);
+                                // Optional: Close notification drawer
+                                Intent closeIntent = new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
+                                context.sendBroadcast(closeIntent);
+                            }
+                        }
+                    }
+                }, new IntentFilter("com.wmods.wppenhacer.copy_call_info"), flags);
+            }
+        } catch (Throwable e) {
+             XposedBridge.log(e);
+        }
 
         var clsCallEventCallback = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "VoiceServiceEventCallback");
         Class<?> clsWamCall = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "WamCall");
@@ -492,61 +524,131 @@ public class Others extends Feature {
         if (!TextUtils.isEmpty(contact))
             sb.append(String.format(Utils.getApplication().getString(ResId.string.contact_s), contact)).append("\n");
         sb.append(String.format(Utils.getApplication().getString(ResId.string.phone_number_s), number)).append("\n");
-        var ip = (String) XposedHelpers.getObjectField(wamCall, "callPeerIpStr");
-        if (ip != null) {
-            var client = new OkHttpClient.Builder().build();
-            var url = "http://ip-api.com/json/" + ip;
-            var request = new okhttp3.Request.Builder().url(url).build();
-            var response = client.newCall(request).execute();
-            if (response.body() != null) {
-                var json = new JSONObject(response.body().string());
-                if (json.optString("status").equalsIgnoreCase("success")) {
-                    String country = json.optString("country");
-                    String countryCode = json.optString("countryCode");
-                    String regionName = json.optString("regionName");
-                    String region = json.optString("region");
-                    String city = json.optString("city");
-                    String zip = json.optString("zip");
-                    String timezone = json.optString("timezone");
-                    String isp = json.optString("isp");
-                    String org = json.optString("org");
-                    String as = json.optString("as");
-                    String lat = json.optString("lat");
-                    String lon = json.optString("lon");
-
-                    if (!TextUtils.isEmpty(country))
-                        sb.append(String.format(Utils.getApplication().getString(ResId.string.country_s), country)).append("\n");
-                    if (!TextUtils.isEmpty(countryCode))
-                        sb.append(String.format(Utils.getApplication().getString(ResId.string.country_code_s), countryCode)).append("\n");
-                    if (!TextUtils.isEmpty(regionName))
-                        sb.append(String.format(Utils.getApplication().getString(ResId.string.region_name_s), regionName)).append("\n");
-                    if (!TextUtils.isEmpty(region))
-                        sb.append(String.format(Utils.getApplication().getString(ResId.string.region_s), region)).append("\n");
-                    if (!TextUtils.isEmpty(city))
-                        sb.append(String.format(Utils.getApplication().getString(ResId.string.city_s), city)).append("\n");
-                    if (!TextUtils.isEmpty(zip))
-                        sb.append(String.format(Utils.getApplication().getString(ResId.string.zip_s), zip)).append("\n");
-                    if (!TextUtils.isEmpty(timezone))
-                        sb.append(String.format(Utils.getApplication().getString(ResId.string.timezone_s), timezone)).append("\n");
-                    if (!TextUtils.isEmpty(isp))
-                        sb.append(String.format(Utils.getApplication().getString(ResId.string.isp_s), isp)).append("\n");
-                    if (!TextUtils.isEmpty(org))
-                        sb.append(String.format(Utils.getApplication().getString(ResId.string.org_s), org)).append("\n");
-                    if (!TextUtils.isEmpty(as))
-                        sb.append(String.format(Utils.getApplication().getString(ResId.string.as_s), as)).append("\n");
-                    if (!TextUtils.isEmpty(lat) && !TextUtils.isEmpty(lon))
-                        sb.append(String.format(Utils.getApplication().getString(ResId.string.lat_lon_s), lat, lon)).append("\n");
+        // Dynamically find IP field in WamCall (obfuscated)
+        String ip = null;
+        try {
+            Field[] fields = wamCall.getClass().getDeclaredFields();
+            for (Field field : fields) {
+                if (field.getType() == String.class) {
+                    field.setAccessible(true);
+                    String val = (String) field.get(wamCall);
+                    // Simple IP pattern check (IPv4)
+                    if (val != null && val.matches("^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$")) {
+                        ip = val;
+                        break;
+                    }
                 }
             }
-            sb.append(String.format(Utils.getApplication().getString(ResId.string.ip_s), ip)).append("\n");
+        } catch (Exception e) {}
+        
+        if (ip == null) {
+            // Fallback: try known name just in case mapping exists
+             ip = (String) XposedHelpers.getObjectField(wamCall, "callPeerIpStr");
         }
+
+        if (ip != null) {
+            final String finalIp = ip;
+            sb.append(String.format(Utils.getApplication().getString(ResId.string.ip_s), finalIp)).append("\n");
+
+            var client = new OkHttpClient.Builder().build();
+            // Revert to ip-api.com as requested
+            var url = "http://ip-api.com/json/" + ip; 
+            var request = new okhttp3.Request.Builder().url(url).build();
+            try {
+                var response = client.newCall(request).execute();
+                if (response.body() != null) {
+                    var json = new JSONObject(response.body().string());
+                    if ("success".equals(json.optString("status"))) {
+                        String country = json.optString("country");
+                        String countryCode = json.optString("countryCode");
+                        String regionName = json.optString("regionName");
+                        String region = json.optString("region");
+                        String city = json.optString("city");
+                        String zip = json.optString("zip");
+                        String timezone = json.optString("timezone");
+                        String isp = json.optString("isp");
+                        String org = json.optString("org");
+                        String asn = json.optString("as");
+                        
+                        double latVal = json.optDouble("lat");
+                        double lonVal = json.optDouble("lon");
+                        String lat = String.valueOf(latVal);
+                        String lon = String.valueOf(lonVal);
+
+                        if (!TextUtils.isEmpty(country))
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.country_s), country)).append("\n");
+                        if (!TextUtils.isEmpty(countryCode))
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.country_code_s), countryCode)).append("\n");
+                        
+                        // "Region Name" explicit display
+                        if (!TextUtils.isEmpty(regionName))
+                            sb.append("Region Name: ").append(regionName).append("\n");
+
+                        if (!TextUtils.isEmpty(region))
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.region_s), region)).append("\n");
+                        
+                        if (!TextUtils.isEmpty(city))
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.city_s), city)).append("\n");
+                        if (!TextUtils.isEmpty(zip))
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.zip_s), zip)).append("\n");
+                        if (!TextUtils.isEmpty(timezone))
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.timezone_s), timezone)).append("\n");
+                        if (!TextUtils.isEmpty(isp))
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.isp_s), isp)).append("\n");
+                        if (!TextUtils.isEmpty(org))
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.org_s), org)).append("\n");
+                        if (!TextUtils.isEmpty(asn))
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.as_s), asn)).append("\n");
+                        if (!TextUtils.isEmpty(lat) && !TextUtils.isEmpty(lon))
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.lat_lon_s), lat, lon)).append("\n");
+                    }
+                }
+            } catch (Exception e) {
+                logDebug("IP Lookup failed: " + e.getMessage());
+            }
+        }
+        
+        // --- Add New Metrics ---
+        try {
+            Long rtt = (Long) XposedHelpers.getObjectField(wamCall, "callAvgRtt");
+            if (rtt != null) {
+                sb.append("Avg RTT: ").append(rtt).append(" ms\n");
+            }
+        } catch (Exception e) {}
+
+        try {
+             // Try to infer transport from fields if Integer/Enum is hard to map
+             // Mapping callTransport or checking boolean callP2pDisabled/callUsedVpn
+             Integer transport = (Integer) XposedHelpers.getObjectField(wamCall, "callTransport");
+             if (transport != null) {
+                 // Usually 1=P2P, 2=Relay (This is a guess based on standard UDP vs Relay)
+                 // Let's refine based on callRelayServer
+                 sb.append("Transport Code: ").append(transport).append("\n");
+             }
+             String relayServer = (String) XposedHelpers.getObjectField(wamCall, "callRelayServer");
+             if (relayServer != null && !relayServer.isEmpty()) {
+                 sb.append("Relay Server: ").append(relayServer).append("\n");
+                 sb.append("Transport: Relay\n");
+             } else {
+                 sb.append("Transport: P2P (Likely)\n");
+             }
+        } catch (Exception e) {}
+
         var platform = (String) XposedHelpers.getObjectField(wamCall, "callPeerPlatform");
         if (platform != null)
             sb.append(String.format(Utils.getApplication().getString(ResId.string.platform_s), platform)).append("\n");
         var wppVersion = (String) XposedHelpers.getObjectField(wamCall, "callPeerAppVersion");
         if (wppVersion != null)
             sb.append(String.format(Utils.getApplication().getString(ResId.string.wpp_version_s), wppVersion)).append("\n");
-        Utils.showNotification(Utils.getApplication().getString(ResId.string.call_information), sb.toString());
+        
+        Intent copyIntent = new Intent("com.wmods.wppenhacer.copy_call_info");
+        copyIntent.putExtra("text", sb.toString());
+        // Use FLAG_IMMUTABLE | FLAG_UPDATE_CURRENT for PendingIntent safety
+        PendingIntent pi = PendingIntent.getBroadcast(Utils.getApplication(), (int) System.currentTimeMillis(), copyIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        
+        NotificationCompat.Action action = new NotificationCompat.Action.Builder(0, Utils.getApplication().getString(ResId.string.copy_to_clipboard), pi).build();
+        
+        Utils.showNotification(Utils.getApplication().getString(ResId.string.call_information), sb.toString(), null, null, new java.util.Random().nextInt(), null, null, new NotificationCompat.Action[]{action});
     }
 
     private void alwaysOnline() throws Exception {

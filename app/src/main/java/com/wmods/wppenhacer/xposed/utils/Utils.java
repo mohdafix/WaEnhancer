@@ -366,6 +366,11 @@ public class Utils {
 
     @SuppressLint("MissingPermission")
     public static void showNotification(String title, String content, @Nullable PendingIntent contentIntent, String tag, int id, String groupKey, @Nullable NotificationCompat.Style style) {
+        showNotification(title, content, contentIntent, tag, id, groupKey, style, null);
+    }
+
+    @SuppressLint("MissingPermission")
+    public static void showNotification(String title, String content, @Nullable PendingIntent contentIntent, String tag, int id, String groupKey, @Nullable NotificationCompat.Style style, @Nullable NotificationCompat.Action[] actions) {
         try {
             var context = Utils.getApplication();
             if (context == null) return;
@@ -398,6 +403,12 @@ public class Utils {
                 notificationBuilder.setStyle(style);
             } else {
                 notificationBuilder.setStyle(new NotificationCompat.BigTextStyle().bigText(content));
+            }
+
+            if (actions != null) {
+                for (NotificationCompat.Action action : actions) {
+                    notificationBuilder.addAction(action);
+                }
             }
 
             if (groupKey != null) {

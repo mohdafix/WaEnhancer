@@ -11,6 +11,15 @@
             app:summary="@string/imagequality_sum"
             app:title="@string/imagequality" />
 
+        <ListPreference
+            android:defaultValue="hd"
+            android:dependency="imagequality"
+            android:entries="@array/media_quality_preset_entries"
+            android:entryValues="@array/media_quality_preset_values"
+            app:key="image_quality_preset"
+            app:summary="@string/media_quality_preset_sum"
+            app:title="@string/media_quality_preset" />
+
     </PreferenceCategory>
 
     <PreferenceCategory
