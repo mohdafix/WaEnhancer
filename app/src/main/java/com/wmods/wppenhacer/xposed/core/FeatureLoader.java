@@ -387,7 +387,9 @@ Others.class,
                 CallRecording.class,
                 VideoCallRecording.class,
                 OwnMessageStatus.class,
-                ScrollToTop.class
+                ScrollToTop.class,
+                com.wmods.wppenhacer.xposed.features.others.AudioSpeedControl.class,
+                com.wmods.wppenhacer.xposed.features.privacy.LockedChatsEnhancer.class
         };
         XposedBridge.log("Loading Plugins");
         var executorService = Executors.newWorkStealingPool(Math.min(Runtime.getRuntime().availableProcessors(), 4));

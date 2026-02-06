@@ -476,9 +476,14 @@
     <string name="verify_blocked_contact">Verify blocked contact</string>
     <string name="verify_blocked_contact_sum">Check if the contact has blocked you in the conversation screen</string>
     <string name="block_unverified">Block status unverified</string>
-    <string name="preview_image">Preview Image</string>
-    <string name="preview_video">Preview Video</string>
-    <string name="downloading">Downloading</string>
+    <string name="preview_image">Image Preview</string>
+    <string name="preview_video">Video Preview</string>
+    <string name="downloading">Downloading...</string>
+    <string name="lockedchats_enhancer">Enhanced Locked Chats</string>
+    <string name="lockedchats_enhancer_sum">Improve locked chats by hiding notifications and contacts from the contact list</string>
+    <string name="voice_note_speed">Voice Note Speed</string>
+    <string name="audio_speed_control">Audio Speed Control</string>
+    <string name="audio_speed_control_sum">Set a custom speed for audio playback</string>
     
     <!-- Scheduler Feature Strings -->
     <string name="scheduler">Scheduler</string>

@@ -1,89 +1,111 @@
 package com.wmods.wppenhacer.xposed.features.privacy;
 
-import androidx.annotation.NonNull;
-
 import com.wmods.wppenhacer.xposed.core.Feature;
-import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
 import com.wmods.wppenhacer.xposed.core.components.WaContactWpp;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
 import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
-
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XSharedPreferences;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XSharedPreferences;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
-
 public class LockedChatsEnhancer extends Feature {
+    /* access modifiers changed from: private */
+    public Object chatCache;
 
-    private Object chatCache;
-
-    public LockedChatsEnhancer(@NonNull ClassLoader classLoader, @NonNull XSharedPreferences preferences) {
-        super(classLoader, preferences);
+    public LockedChatsEnhancer(ClassLoader classLoader, XSharedPreferences xSharedPreferences) {
+        super(classLoader, xSharedPreferences);
     }
 
-    @Override
-    public void doHook() throws Throwable {
-        if (!prefs.getBoolean("lockedchats_enhancer", false)) return;
+    public void doHook() {
+        if (this.prefs.getBoolean("lockedchats_enhancer", false)) {
+            try {
+                // Hook Notification processing to hide locked chats content/notification
+                Method loadNotificationMethod = Unobfuscator.loadNotificationMethod(this.classLoader);
+                final Method loadLockedChatsMethod = Unobfuscator.loadLockedChatsMethod(this.classLoader);
+                
+                if (loadNotificationMethod != null && loadLockedChatsMethod != null) {
+                    XposedBridge.hookMethod(loadNotificationMethod, new XC_MethodHook() {
+                        private XC_MethodHook.Unhook unhook;
 
-        Method jidNotifications = Unobfuscator.loadNotificationMethod(classLoader);
-        Method lockedChatsMethod = Unobfuscator.loadLockedChatsMethod(classLoader);
+                        public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
+                            if (this.unhook != null) {
+                                this.unhook.unhook();
+                            }
+                        }
 
-        XposedBridge.hookMethod(jidNotifications, new XC_MethodHook() {
-            private Unhook unhook;
+                        public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
+                            // Temporarily hook loadLockedChatsMethod to return empty list
+                            // This tricks the notification generator into thinking there are no locked chats
+                            this.unhook = XposedBridge.hookMethod(loadLockedChatsMethod, new XC_MethodHook() {
+                                public void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
+                                    param.setResult(new ArrayList());
+                                }
+                            });
+                        }
+                    });
+                }
+            } catch (Throwable t) {
+                XposedBridge.log("LockedChatsEnhancer: Failed notification hook - " + t.getMessage());
+            }
 
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                this.unhook = XposedBridge.hookMethod(lockedChatsMethod, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        param.setResult(new ArrayList<>());
+            try {
+                // Hook ChatCache to filter locked contacts from the contact list
+                Class<?> loadChatCacheClass = Unobfuscator.loadChatCacheClass(this.classLoader);
+                
+                // Find the field that holds the locked chats (HashSet<String> jid)
+                final Field[] findAllFieldsUsingFilter = ReflectionUtils.findAllFieldsUsingFilter(loadChatCacheClass, field -> field.getType() == HashSet.class);
+                
+                if (findAllFieldsUsingFilter != null && findAllFieldsUsingFilter.length > 1) {
+                    XposedBridge.hookAllConstructors(loadChatCacheClass, new XC_MethodHook() {
+                        public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
+                            LockedChatsEnhancer.this.chatCache = methodHookParam.thisObject;
+                        }
+                    });
+
+                    Method loadedContactsMethod = Unobfuscator.loadLoadedContactsMethod(this.classLoader);
+                    if (loadedContactsMethod != null) {
+                        XposedBridge.hookMethod(loadedContactsMethod, new XC_MethodHook() {
+                            public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
+                                if (LockedChatsEnhancer.this.chatCache == null) return;
+                                
+                                try {
+                                    List list = (List) XposedHelpers.getObjectField(methodHookParam.args[0], "allContacts"); // Assuming field name, might need adjustment
+                                    if (list == null) return;
+                                    
+                                    // Get the set of locked JIDs
+                                    HashSet lockedJids = (HashSet) findAllFieldsUsingFilter[1].get(LockedChatsEnhancer.this.chatCache);
+                                    if (lockedJids == null) return;
+
+                                    // Filter the list
+                                    // We need to iterate and remove. WaContactWpp wrapper helps us get the JID string
+                                    list.removeIf(obj -> {
+                                        if (!WaContactWpp.TYPE.isInstance(obj)) {
+                                            return false;
+                                        }
+                                        return lockedJids.contains(new WaContactWpp(obj).getUserJid().getPhoneNumber()); // Verify if getPhoneNumber returns the raw JID string used in the set
+                                    });
+                                } catch (Throwable e) {
+                                     // Silent fail to avoid crashing the contact list
+                                     // XposedBridge.log(e);
+                                }
+                            }
+                        });
                     }
-                });
+                }
+            } catch (Throwable t) {
+                 XposedBridge.log("LockedChatsEnhancer: Failed chat cache hook - " + t.getMessage());
             }
-
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                unhook.unhook();
-            }
-        });
-
-        var chatCacheClass = Unobfuscator.loadChatCacheClass(classLoader);
-        var lockedChatsFields = ReflectionUtils.findAllFieldsUsingFilter(chatCacheClass, f -> f.getType() == HashSet.class);
-
-        XposedBridge.hookAllConstructors(chatCacheClass, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                chatCache = param.thisObject;
-            }
-        });
-
-        var loadedContacts = Unobfuscator.loadLoadedContactsMethod(classLoader);
-
-        XposedBridge.hookMethod(loadedContacts, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                var list = (List) XposedHelpers.getObjectField(param.args[0], "A01");
-                HashSet<?> lockedChats = (HashSet<?>) lockedChatsFields[1].get(chatCache);
-                var lockedNumbers = lockedChats.stream().map(userjid -> new FMessageWpp.UserJid(userjid).getPhoneNumber()).collect(Collectors.toList());
-                list.removeIf(item -> {
-                    if (!WaContactWpp.TYPE.isInstance(item)) return false;
-                    var waContact = new WaContactWpp(item);
-                    var phoneNumber = waContact.getUserJid().getPhoneNumber();
-                    return lockedNumbers.contains(phoneNumber);
-                });
-            }
-        });
+        }
     }
 
-    @NonNull
-    @Override
     public String getPluginName() {
-        return "Locked Chats Enhancer";
+        return "LockedChatsEnhancer";
     }
 }

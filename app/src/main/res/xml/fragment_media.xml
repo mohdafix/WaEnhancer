@@ -132,6 +132,12 @@
             app:key="audio_type"
             app:title="@string/send_audio_as_voice_audio_note" />
 
+        <rikka.material.preference.MaterialSwitchPreference
+            app:defaultValue="true"
+            app:key="audio_speed_control"
+            app:summary="@string/audio_speed_control_sum"
+            app:title="@string/audio_speed_control" />
+
         <com.wmods.wppenhacer.preference.FloatSeekBarPreference
             android:defaultValue="2"
             app:key="voicenote_speed"

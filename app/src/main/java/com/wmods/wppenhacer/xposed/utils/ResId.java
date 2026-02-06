@@ -24,6 +24,10 @@ public class ResId {
         public static int ic_status_pending_fb;
         public static int ic_status_delivered_fb;
         public static int ic_status_read_fb;
+        public static int audio_speed_container_bg;
+        public static int audio_speed_seekbar_progress;
+        public static int audio_speed_seekbar_thumb;
+        public static int ic_audio_speed;
     }
 
     public static class string {
@@ -137,6 +141,11 @@ public class ResId {
         public static int preview_image;
         public static int preview_video;
         public static int downloading;
+        public static int lockedchats_enhancer;
+        public static int lockedchats_enhancer_sum;
+        public static int voice_note_speed;
+        public static int audio_speed_control;
+        public static int audio_speed_control_sum;
     }
 
     public static class array {
