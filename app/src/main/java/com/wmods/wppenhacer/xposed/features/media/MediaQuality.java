@@ -193,7 +193,7 @@ public class MediaQuality extends Feature {
         }
 
         if (imageQuality) {
-            var preset = prefs.getString("media_quality_preset", "hd");
+            var preset = prefs.getString("image_quality_preset", "hd");
             int resolution;
             switch (preset) {
                 case "full_hd":
