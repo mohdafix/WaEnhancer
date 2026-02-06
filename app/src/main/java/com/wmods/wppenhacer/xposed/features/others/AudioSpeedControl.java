@@ -75,17 +75,20 @@ public class AudioSpeedControl extends Feature {
                         textView = findSpeedTextView(root);
                     }
 
-                    if (textView == null) return;
+                    if (textView == null) {
+                         // Debug: Log that we couldn't find the speed text in this view
+                         // XposedBridge.log("AudioSpeedControl: No speed text found in row " + fMessageWpp.getKey().messageID);
+                         return;
+                    }
+
+                    XposedBridge.log("AudioSpeedControl: Found speed text: " + textView.getText());
 
                     // 2. Find or create the container
-                    // We try to find a suitable parent or existing container
                     if (root.findViewWithTag("audio_speed_seekbar") != null) return; // Already added
 
-                    // Try to finding the player container. It's usually the parent or grandparent of the speed text
                     ViewGroup voiceNoteContainer = null;
                     if (textView.getParent() instanceof ViewGroup) {
                         ViewGroup parent = (ViewGroup) textView.getParent();
-                        // This might be too small, check if it has enough width/siblings
                         if (parent.getChildCount() > 1) voiceNoteContainer = parent;
                         else if (parent.getParent() instanceof ViewGroup) voiceNoteContainer = (ViewGroup) parent.getParent();
                     }
@@ -96,7 +99,12 @@ public class AudioSpeedControl extends Feature {
                          if (containerId != 0) voiceNoteContainer = (ViewGroup) root.findViewById(containerId);
                     }
 
-                    if (voiceNoteContainer == null) return; // Can't find place to inject
+                    if (voiceNoteContainer == null) {
+                        XposedBridge.log("AudioSpeedControl: Could not find container for " + textView.getText());
+                        return; 
+                    }
+
+                    XposedBridge.log("AudioSpeedControl: Injecting UI...");
 
                     Context context = voiceNoteContainer.getContext();
                     final LinearLayout linearLayout = new LinearLayout(context);
@@ -203,9 +211,13 @@ public class AudioSpeedControl extends Feature {
 
     private TextView findSpeedTextView(View view) {
         if (view instanceof TextView) {
-            String text = ((TextView) view).getText().toString();
-            if (text.equals("1x") || text.equals("1.5x") || text.equals("2x")) {
-                return (TextView) view;
+            CharSequence txt = ((TextView) view).getText();
+            if (txt != null) {
+                String text = txt.toString();
+                // Check for standard speed strings or format like "1.5x"
+                if (text.equals("1x") || text.equals("1.5x") || text.equals("2x") || (text.endsWith("x") && text.length() < 5 && Character.isDigit(text.charAt(0)))) {
+                    return (TextView) view;
+                }
             }
         }
         if (view instanceof ViewGroup) {
