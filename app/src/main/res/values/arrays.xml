@@ -420,10 +420,20 @@
 
     <string-array name="tick_style_entries">
         <item>Default</item>
+        <item>AB</item>
         <item>Alien</item>
         <item>Allo</item>
         <item>BBM</item>
+        <item>BBM 2</item>
+        <item>BPG</item>
+        <item>Circle Check</item>
+        <item>Feet</item>
+        <item>Gab Face</item>
+        <item>Gabi Flo</item>
+        <item>Gif Con</item>
         <item>Google</item>
+        <item>HD</item>
+        <item>Heart</item>
         <item>iOS</item>
         <item>Joker</item>
         <item>Messenger</item>
@@ -433,10 +443,20 @@
     </string-array>
     <string-array name="tick_style_values">
         <item>default</item>
+        <item>ab</item>
         <item>alien</item>
         <item>allo</item>
         <item>bbm</item>
+        <item>bbm2</item>
+        <item>bpg</item>
+        <item>circheck</item>
+        <item>feet</item>
+        <item>gabface</item>
+        <item>gabiflo</item>
+        <item>gifcon</item>
         <item>google</item>
+        <item>hd</item>
+        <item>heart</item>
         <item>ios</item>
         <item>joker</item>
         <item>messenger</item>

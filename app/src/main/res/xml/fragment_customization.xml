@@ -216,6 +216,14 @@
             app:key="bubble_style"
             app:summary="%s"
             app:title="@string/bubble_style" />
+
+        <ListPreference
+            android:defaultValue="default"
+            android:entries="@array/tick_style_entries"
+            android:entryValues="@array/tick_style_values"
+            app:key="tick_style"
+            app:summary="%s"
+            app:title="@string/tick_style" />
     </PreferenceCategory>
 
     <PreferenceCategory

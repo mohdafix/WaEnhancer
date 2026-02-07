@@ -3,6 +3,12 @@ package com.wmods.wppenhacer;
 import android.annotation.SuppressLint;
 import android.content.ContextWrapper;
 import android.content.res.XModuleResources;
+import android.content.res.XResources;
+import android.graphics.Canvas;
+import android.graphics.ColorFilter;
+import android.graphics.PorterDuff;
+import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.view.Window;
 import android.view.WindowManager;
 
@@ -101,6 +107,162 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
             field.set(null, resparam.res.addResource(modRes, field1.getInt(null)));
         }
 
+        // Tick Styles: replace WhatsApp's stock tick drawables at the resource level.
+        // This works regardless of how WhatsApp loads the drawable (setImageResource,
+        // setImageDrawable, getDrawable, etc.).
+        applyTickStyleReplacements(resparam, modRes);
+    }
+
+    /**
+     * WhatsApp's 8 stock tick drawable names used for message status indicators.
+     */
+    private static final String[] TICK_DRAWABLE_NAMES = {
+            "message_unsent",
+            "message_unsent_onmedia",
+            "message_got_receipt_from_server",
+            "message_got_receipt_from_server_onmedia",
+            "message_got_receipt_from_target",
+            "message_got_receipt_from_target_onmedia",
+            "message_got_read_receipt_from_target",
+            "message_got_read_receipt_from_target_onmedia"
+    };
+
+    /**
+     * Replace WhatsApp's stock tick drawables with custom style variants using
+     * Xposed resource replacement. This intercepts at the resource table level
+     * so it works no matter how WhatsApp resolves/loads the drawable.
+     * The returned drawables ignore color filters and tints so custom tick PNGs
+     * display their original colors (not tinted by Monet/custom color themes).
+     */
+    private void applyTickStyleReplacements(
+            XC_InitPackageResources.InitPackageResourcesParam resparam,
+            XModuleResources modRes) {
+        try {
+            var prefs = getPref();
+            prefs.reload();
+            String tickStyle = prefs.getString("tick_style", "default");
+
+            if (tickStyle == null || tickStyle.equals("default")) {
+                return;
+            }
+
+            int replacedCount = 0;
+            for (String tickName : TICK_DRAWABLE_NAMES) {
+                // Find the module's replacement drawable resource ID
+                String moduleFieldName = tickStyle + "_" + tickName;
+                int moduleResId;
+                try {
+                    var field = R.drawable.class.getField(moduleFieldName);
+                    moduleResId = field.getInt(null);
+                } catch (NoSuchFieldException e) {
+                    XposedBridge.log("[Tick Styles] No module drawable: " + moduleFieldName);
+                    continue;
+                }
+
+                if (moduleResId == 0) continue;
+
+                // Create a DrawableLoader that returns a tint-proof wrapper.
+                // This prevents WhatsApp and Monet/custom color themes from
+                // recoloring our custom tick PNGs.
+                final int finalModuleResId = moduleResId;
+                final XModuleResources finalModRes = modRes;
+                try {
+                    resparam.res.setReplacement(resparam.packageName, "drawable", tickName,
+                            new XResources.DrawableLoader() {
+                                @Override
+                                public Drawable newDrawable(XResources res, int id) throws Throwable {
+                                    Drawable original = finalModRes.getDrawable(finalModuleResId);
+                                    return new TintProofDrawable(original);
+                                }
+                            });
+                    replacedCount++;
+                    XposedBridge.log("[Tick Styles] Replaced: " + tickName + " -> " + moduleFieldName);
+                } catch (Exception e) {
+                    XposedBridge.log("[Tick Styles] Failed to replace " + tickName + ": " + e.getMessage());
+                }
+            }
+
+            if (replacedCount > 0) {
+                XposedBridge.log("[Tick Styles] Style '" + tickStyle + "' applied with " + replacedCount + " resource replacements.");
+            }
+        } catch (Exception e) {
+            XposedBridge.log("[Tick Styles] Error applying tick replacements: " + e.getMessage());
+        }
+    }
+
+    /**
+     * A Drawable wrapper that ignores all color filter, tint, and tintList calls.
+     * This ensures custom tick PNGs display their original colors exactly as designed,
+     * regardless of WhatsApp's internal tinting or WaEnhancer's Monet/custom color features.
+     */
+    public static class TintProofDrawable extends Drawable {
+        private final Drawable wrapped;
+
+        TintProofDrawable(Drawable wrapped) {
+            this.wrapped = wrapped;
+            setBounds(wrapped.getBounds());
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            wrapped.draw(canvas);
+        }
+
+        @Override
+        public int getIntrinsicWidth() {
+            return wrapped.getIntrinsicWidth();
+        }
+
+        @Override
+        public int getIntrinsicHeight() {
+            return wrapped.getIntrinsicHeight();
+        }
+
+        @Override
+        protected void onBoundsChange(Rect bounds) {
+            wrapped.setBounds(bounds);
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            wrapped.setAlpha(alpha);
+        }
+
+        @Override
+        public int getOpacity() {
+            return wrapped.getOpacity();
+        }
+
+        // Ignore all color filter / tint calls
+        @Override
+        public void setColorFilter(ColorFilter colorFilter) {
+            // no-op: preserve original tick colors
+        }
+
+        @Override
+        public void setColorFilter(int color, PorterDuff.Mode mode) {
+            // no-op: preserve original tick colors
+        }
+
+        @Override
+        public void setTint(int tintColor) {
+            // no-op: preserve original tick colors
+        }
+
+        @Override
+        public void setTintMode(PorterDuff.Mode tintMode) {
+            // no-op: preserve original tick colors
+        }
+
+        @Override
+        public void setTintList(android.content.res.ColorStateList tint) {
+            // no-op: preserve original tick colors
+        }
+
+        @Override
+        public Drawable.ConstantState getConstantState() {
+            return wrapped.getConstantState();
+        }
     }
 
     @Override

@@ -21,9 +21,6 @@ public class ResId {
         public static int edit2;
         public static int ic_privacy;
         public static int user_foreground;
-        public static int ic_status_pending_fb;
-        public static int ic_status_delivered_fb;
-        public static int ic_status_read_fb;
         public static int audio_speed_container_bg;
         public static int audio_speed_seekbar_progress;
         public static int audio_speed_seekbar_thumb;
@@ -119,6 +116,96 @@ public class ResId {
         public static int twitter_message_got_receipt_from_target_onmedia;
         public static int twitter_message_unsent;
         public static int twitter_message_unsent_onmedia;
+
+        public static int ab_message_got_read_receipt_from_target;
+        public static int ab_message_got_read_receipt_from_target_onmedia;
+        public static int ab_message_got_receipt_from_server;
+        public static int ab_message_got_receipt_from_server_onmedia;
+        public static int ab_message_got_receipt_from_target;
+        public static int ab_message_got_receipt_from_target_onmedia;
+        public static int ab_message_unsent;
+        public static int ab_message_unsent_onmedia;
+
+        public static int bbm2_message_got_read_receipt_from_target;
+        public static int bbm2_message_got_read_receipt_from_target_onmedia;
+        public static int bbm2_message_got_receipt_from_server;
+        public static int bbm2_message_got_receipt_from_server_onmedia;
+        public static int bbm2_message_got_receipt_from_target;
+        public static int bbm2_message_got_receipt_from_target_onmedia;
+        public static int bbm2_message_unsent;
+        public static int bbm2_message_unsent_onmedia;
+
+        public static int bpg_message_got_read_receipt_from_target;
+        public static int bpg_message_got_read_receipt_from_target_onmedia;
+        public static int bpg_message_got_receipt_from_server;
+        public static int bpg_message_got_receipt_from_server_onmedia;
+        public static int bpg_message_got_receipt_from_target;
+        public static int bpg_message_got_receipt_from_target_onmedia;
+        public static int bpg_message_unsent;
+        public static int bpg_message_unsent_onmedia;
+
+        public static int circheck_message_got_read_receipt_from_target;
+        public static int circheck_message_got_read_receipt_from_target_onmedia;
+        public static int circheck_message_got_receipt_from_server;
+        public static int circheck_message_got_receipt_from_server_onmedia;
+        public static int circheck_message_got_receipt_from_target;
+        public static int circheck_message_got_receipt_from_target_onmedia;
+        public static int circheck_message_unsent;
+        public static int circheck_message_unsent_onmedia;
+
+        public static int feet_message_got_read_receipt_from_target;
+        public static int feet_message_got_read_receipt_from_target_onmedia;
+        public static int feet_message_got_receipt_from_server;
+        public static int feet_message_got_receipt_from_server_onmedia;
+        public static int feet_message_got_receipt_from_target;
+        public static int feet_message_got_receipt_from_target_onmedia;
+        public static int feet_message_unsent;
+        public static int feet_message_unsent_onmedia;
+
+        public static int gabface_message_got_read_receipt_from_target;
+        public static int gabface_message_got_read_receipt_from_target_onmedia;
+        public static int gabface_message_got_receipt_from_server;
+        public static int gabface_message_got_receipt_from_server_onmedia;
+        public static int gabface_message_got_receipt_from_target;
+        public static int gabface_message_got_receipt_from_target_onmedia;
+        public static int gabface_message_unsent;
+        public static int gabface_message_unsent_onmedia;
+
+        public static int gabiflo_message_got_read_receipt_from_target;
+        public static int gabiflo_message_got_read_receipt_from_target_onmedia;
+        public static int gabiflo_message_got_receipt_from_server;
+        public static int gabiflo_message_got_receipt_from_server_onmedia;
+        public static int gabiflo_message_got_receipt_from_target;
+        public static int gabiflo_message_got_receipt_from_target_onmedia;
+        public static int gabiflo_message_unsent;
+        public static int gabiflo_message_unsent_onmedia;
+
+        public static int gifcon_message_got_read_receipt_from_target;
+        public static int gifcon_message_got_read_receipt_from_target_onmedia;
+        public static int gifcon_message_got_receipt_from_server;
+        public static int gifcon_message_got_receipt_from_server_onmedia;
+        public static int gifcon_message_got_receipt_from_target;
+        public static int gifcon_message_got_receipt_from_target_onmedia;
+        public static int gifcon_message_unsent;
+        public static int gifcon_message_unsent_onmedia;
+
+        public static int hd_message_got_read_receipt_from_target;
+        public static int hd_message_got_read_receipt_from_target_onmedia;
+        public static int hd_message_got_receipt_from_server;
+        public static int hd_message_got_receipt_from_server_onmedia;
+        public static int hd_message_got_receipt_from_target;
+        public static int hd_message_got_receipt_from_target_onmedia;
+        public static int hd_message_unsent;
+        public static int hd_message_unsent_onmedia;
+
+        public static int heart_message_got_read_receipt_from_target;
+        public static int heart_message_got_read_receipt_from_target_onmedia;
+        public static int heart_message_got_receipt_from_server;
+        public static int heart_message_got_receipt_from_server_onmedia;
+        public static int heart_message_got_receipt_from_target;
+        public static int heart_message_got_receipt_from_target_onmedia;
+        public static int heart_message_unsent;
+        public static int heart_message_unsent_onmedia;
 
     }
 
