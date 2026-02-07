@@ -439,8 +439,10 @@
     <string name="toastdeleted_option_disabled">Desativado</string>
     <string name="toastdeleted_option_toast">Mostrar Toast</string>
     <string name="toastdeleted_option_notification">Mostrar Notificação</string>
-    <string name="monet_theme">AMOLED Material You</string>
-    <string name="monet_theme_sum">Usar cores de destaque do sistema com fundo preto puro no Modo Escuro</string>
+    <string name="monet_theme">Material You (Cores dinâmicas)</string>
+    <string name="monet_theme_sum">Aplicar cores de destaque do sistema na interface</string>
+    <string name="amoled_theme">Preto puro (AMOLED)</string>
+    <string name="amoled_theme_sum">Usar fundo preto puro no Modo Escuro</string>
 
     <!-- Scheduler Feature Strings -->
     <string name="scheduler">Agendador</string>

@@ -439,8 +439,10 @@
     <string name="toastdeleted_option_disabled">Desactivado</string>
     <string name="toastdeleted_option_toast">Mostrar Toast</string>
     <string name="toastdeleted_option_notification">Mostrar Notificación</string>
-    <string name="monet_theme">AMOLED Material You</string>
-    <string name="monet_theme_sum">Usa colores de acento del sistema con fondo negro puro en modo oscuro</string>
+    <string name="monet_theme">Material You (Colores dinámicos)</string>
+    <string name="monet_theme_sum">Aplica los colores de acento del sistema a la interfaz</string>
+    <string name="amoled_theme">Negro puro (AMOLED)</string>
+    <string name="amoled_theme_sum">Usa fondo negro puro en el modo oscuro</string>
 
     <!-- Scheduler Feature Strings -->
     <string name="scheduler">Programador</string>

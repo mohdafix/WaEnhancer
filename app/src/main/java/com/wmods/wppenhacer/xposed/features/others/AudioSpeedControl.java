@@ -44,7 +44,6 @@ public class AudioSpeedControl extends Feature {
     @Override
     public void doHook() {
         boolean enabled = this.prefs.getBoolean("audio_speed_control", false);
-        XposedBridge.log("AudioSpeedControl: doHook called. Enabled in prefs: " + enabled);
 
         if (!enabled) return;
 
@@ -57,15 +56,13 @@ public class AudioSpeedControl extends Feature {
                     }
                 }
             });
-        } catch (Throwable e) {
-            XposedBridge.log("AudioSpeedControl: Failed to hook loadPlaybackSpeed - " + e.getMessage());
+        } catch (Throwable ignored) {
         }
 
         ConversationItemListener.conversationListeners.add(new ConversationItemListener.OnConversationItemListener() {
             @SuppressLint("ClickableViewAccessibility")
             @Override
             public void onItemBind(FMessageWpp fMessageWpp, ViewGroup root) {
-                XposedBridge.log("AudioSpeedControl: onItemBind called. Root: " + root.getClass().getName());
                 try {
                     // 1. Try to find the speed TextView
                     TextView textView = null;
@@ -84,12 +81,8 @@ public class AudioSpeedControl extends Feature {
                     }
 
                     if (textView == null) {
-                         // Debug: Log that we couldn't find the speed text in this view
-                         // XposedBridge.log("AudioSpeedControl: No speed text found in this view.");
-                         return;
+                        return;
                     }
-
-                    XposedBridge.log("AudioSpeedControl: Found speed text: " + textView.getText() + " View: " + textView.getClass().getName());
 
                     // 2. Find or create the container
                     View existingSeekbar = root.findViewWithTag("audio_speed_seekbar");
@@ -128,7 +121,6 @@ public class AudioSpeedControl extends Feature {
                     }
 
                     if (voiceNoteContainer == null) {
-                        XposedBridge.log("AudioSpeedControl: Could not find container for " + textView.getText());
                         return; 
                     }
                     
@@ -144,8 +136,6 @@ public class AudioSpeedControl extends Feature {
                             audioSpeed.set(currentSpeed);
                         }
                     } catch (Exception e) {}
-
-                    XposedBridge.log("AudioSpeedControl: Injecting UI into " + voiceNoteContainer.getClass().getName());
 
                     Context context = voiceNoteContainer.getContext();
                     final LinearLayout linearLayout = new LinearLayout(context);
@@ -249,7 +239,6 @@ public class AudioSpeedControl extends Feature {
 
                     // Revert to Toggle Mode
                     finalTextView.setOnLongClickListener(v -> {
-                        XposedBridge.log("AudioSpeedControl: Long click detected!");
                         if (linearLayout.getVisibility() == View.GONE) {
                             linearLayout.setVisibility(View.VISIBLE);
                             if (slideIn != null) linearLayout.startAnimation(slideIn);
@@ -275,8 +264,7 @@ public class AudioSpeedControl extends Feature {
                          voiceNoteContainer.addView(linearLayout);
                     }
                     
-                } catch (Throwable th) {
-                    XposedBridge.log("AudioSpeedControl: Error in onItemBind - " + th.getMessage());
+                } catch (Throwable ignored) {
                 }
             }
         });
