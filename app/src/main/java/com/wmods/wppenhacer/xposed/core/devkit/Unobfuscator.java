@@ -2254,28 +2254,23 @@ public class Unobfuscator {
 
     public static Class<?> loadRefreshStatusClass(ClassLoader classLoader) throws Exception {
         return UnobfuscatorCache.getInstance().getClass(classLoader, () -> {
-            var strings = new String[]{"liveStatusUpdatesActive", "Statuses refreshed"};
+            var strings = new String[]{"liveStatusUpdatesActive", "Statuses refreshed", "status_updates_active", "StatusUpdateStore"};
             for (var s : strings) {
                 MethodDataList methods = dexkit.findMethod(FindMethod.create().matcher(MethodMatcher.create().addUsingString(s, StringMatchType.Contains)));
-                if (methods.isEmpty())
-                    continue;
-                return methods.get(0).getClassInstance(classLoader);
+                if (!methods.isEmpty()) {
+                    return methods.get(0).getClassInstance(classLoader);
+                }
             }
 
-            // Let's look for forcibly on WhatsApp Web (very boring this)
-            var opcodes = List.of(
-                    "invoke-virtual",
-                    "move-result",
-                    "xor-int/lit8"
-            );
-
+            // Alternative: find by specialized status constant
             var constant = 0x3684;
-            MethodDataList methods = dexkit.findMethod(FindMethod.create().matcher(MethodMatcher.create().addUsingNumber(constant).opCodes(
-                    OpCodesMatcher.create().opNames(opcodes).matchType(OpCodeMatchType.Contains)
-            )));
-            if (methods.size() == 1)
+            MethodDataList methods = dexkit.findMethod(FindMethod.create().matcher(MethodMatcher.create().addUsingNumber(constant)));
+            if (!methods.isEmpty())
                 return methods.get(0).getClassInstance(classLoader);
-            throw new Exception("Refresh Status Class Not Found!");
+            
+            // If we still can't find it, don't crash the whole process, but this feature will be disabled
+            XposedBridge.log("WaEnhancer: Refresh Status Class Not Found (Tried strings and constant 0x3684)");
+            return null;
         });
     }
 
