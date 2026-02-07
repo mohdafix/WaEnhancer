@@ -282,4 +282,18 @@
         <item>full_hd</item>
         <item>4k</item>
     </string-array>
+    <string-array name="monet_palette_entries">
+        <item>Accent 1 (Primary)</item>
+        <item>Accent 2 (Secondary)</item>
+        <item>Accent 3 (Tertiary)</item>
+        <item>Neutral 1 (Background)</item>
+        <item>Neutral 2 (Secondary Background)</item>
+    </string-array>
+    <string-array name="monet_palette_values">
+        <item>accent1</item>
+        <item>accent2</item>
+        <item>accent3</item>
+        <item>neutral1</item>
+        <item>neutral2</item>
+    </string-array>
 </resources>

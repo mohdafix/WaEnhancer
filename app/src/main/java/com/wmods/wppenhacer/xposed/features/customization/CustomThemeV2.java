@@ -279,21 +279,31 @@ public class CustomThemeV2 extends Feature {
     }
 
     public void loadAndApplyColors() {
-
+        if (prefs != null) prefs.reload();
         IColors.initColors();
+        if (prefs.getBoolean("amoled_theme", false) && DesignUtils.isNightMode()) {
+            IColors.loadAmoled();
+        }
 
         var primaryColorInt = prefs.getInt("primary_color", 0);
         var textColorInt = prefs.getInt("text_color", 0);
         var backgroundColorInt = prefs.getInt("background_color", 0);
 
+        if (prefs.getBoolean("monet_theme", false) && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            int systemAccent = com.wmods.wppenhacer.xposed.utils.MonetColorEngine.getSystemAccentColor(com.wmods.wppenhacer.xposed.utils.Utils.getApplication());
+            if (systemAccent != -1) primaryColorInt = systemAccent;
+        }
+
         var primaryColor = DesignUtils.checkSystemColor(properties.getProperty("primary_color", "0"));
         var textColor = DesignUtils.checkSystemColor(properties.getProperty("text_color", "0"));
         var backgroundColor = DesignUtils.checkSystemColor(properties.getProperty("background_color", "0"));
 
-        if (prefs.getBoolean("changecolor", false)) {
+        if (prefs.getBoolean("changecolor", false) || prefs.getBoolean("monet_theme", false)) {
             primaryColor = primaryColorInt == 0 ? "0" : IColors.toString(primaryColorInt);
-            textColor = textColorInt == 0 ? "0" : IColors.toString(textColorInt);
-            backgroundColor = backgroundColorInt == 0 ? "0" : IColors.toString(backgroundColorInt);
+            if (prefs.getBoolean("changecolor", false)) {
+                textColor = textColorInt == 0 ? "0" : IColors.toString(textColorInt);
+                backgroundColor = backgroundColorInt == 0 ? "0" : IColors.toString(backgroundColorInt);
+            }
         }
 
         if (!DesignUtils.isNightMode()) {
@@ -302,7 +312,7 @@ public class CustomThemeV2 extends Feature {
             backgroundColors.clear();
         }
 
-        if (prefs.getBoolean("changecolor", false) || Objects.equals(properties.getProperty("change_colors"), "true")) {
+        if (prefs.getBoolean("changecolor", false) || prefs.getBoolean("monet_theme", false) || Objects.equals(properties.getProperty("change_colors"), "true")) {
 
             if (!primaryColor.equals("0") && DesignUtils.isValidColor(primaryColor)) {
                 processColors(primaryColor, primaryColors);

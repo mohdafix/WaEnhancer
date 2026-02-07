@@ -467,8 +467,10 @@
     <string name="disable_status_in_the_profile_photo">Disable Status in the profile photo</string>
     <string name="disable_status_in_the_profile_photo_sum">Disables the circle that appears in the profile photo of each contact when there is new status</string>
     <string name="download_not_available">Download not available or media has not been fully downloaded</string>
-    <string name="monet_theme">AMOLED Material You</string>
-    <string name="monet_theme_sum">Use system accent colors with pure black background in Dark Mode</string>
+    <string name="monet_theme">Material You (Dynamic Colors)</string>
+    <string name="monet_theme_sum">Apply system accent colors to the interface</string>
+    <string name="amoled_theme">Pure Black (AMOLED)</string>
+    <string name="amoled_theme_sum">Use pure black background in Dark Mode</string>
     <string name="possible_block_detected">Possible block detected</string>
     <string name="block_not_detected">Block not detected</string>
     <string name="checking_if_the_contact_is_blocked">Checking if the contact is blocked...</string>
@@ -584,4 +586,9 @@
     <string name="profile_picture_has_been_updated">%s updated their profile picture</string>
     <string name="jump_to_first_chat">Jump To First Chat</string>
     <string name="jump_to_first_chat_sum">Triple tap on Conversation Toolbar to jump to the very first message</string>
+    <string name="monet_palette">Monet Color Palette</string>
+    <string name="monet_custom_color">Custom Monet Color</string>
+    <string name="monet_custom_color_sum">Use a custom seed color instead of wallpaper colors</string>
+    <string name="monet_seed_color">Seed Color</string>
+    <string name="monet_seed_color_sum">Select the base color for your custom Monet theme</string>
 </resources>

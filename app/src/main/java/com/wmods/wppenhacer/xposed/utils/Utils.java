@@ -68,7 +68,8 @@ public class Utils {
     public static XSharedPreferences xprefs;
     private static final HashMap<String, Integer> ids = new HashMap<>();
 
-    public static void init(ClassLoader loader) {
+    public static void init(ClassLoader loader, XSharedPreferences pref) {
+        xprefs = pref;
         var context = Utils.getApplication();
         var notificationManager = NotificationManagerCompat.from(context);
         var channel = new NotificationChannel("wppenhacer", "WAE Enhancer", NotificationManager.IMPORTANCE_HIGH);

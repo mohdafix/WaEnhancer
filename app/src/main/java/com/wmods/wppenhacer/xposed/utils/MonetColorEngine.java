@@ -11,18 +11,40 @@ import android.util.TypedValue;
 import androidx.annotation.ColorInt;
 import androidx.annotation.RequiresApi;
 
+import androidx.core.graphics.ColorUtils;
+import de.robv.android.xposed.XposedBridge;
+
 public class MonetColorEngine {
 
     @ColorInt
     public static int getSystemAccentColor(Context context) {
+        if (Utils.xprefs != null) Utils.xprefs.reload();
+        
+        boolean customEnabled = Utils.xprefs != null && Utils.xprefs.getBoolean("monet_custom_color_enabled", false);
+        XposedBridge.log("MonetColorEngine: getSystemAccentColor. customEnabled=" + customEnabled);
+
+        if (customEnabled) {
+            int customColor = Utils.xprefs.getInt("monet_custom_color", 0xFF25D366);
+            int shade = isNightMode(context) ? 200 : 600;
+            int finalColor = generateShade(customColor, shade);
+            XposedBridge.log("MonetColorEngine: Using Custom Secret Color: " + Integer.toHexString(finalColor));
+            return finalColor;
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                // Dark mode: lighter pastel (200) for better contrast
-                // Light mode: vibrant mid-tone (600)
-                int resId = isNightMode(context) 
+                String palette = Utils.xprefs != null ? Utils.xprefs.getString("monet_palette", "accent1") : "accent1";
+                String colorName = "system_" + palette + (isNightMode(context) ? "_200" : "_600");
+                int resId = context.getResources().getIdentifier(colorName, "color", "android");
+                if (resId != 0) {
+                    return context.getColor(resId);
+                }
+                
+                // Fallback to legacy logic if dynamic lookup fails
+                int fallbackResId = isNightMode(context) 
                     ? android.R.color.system_accent1_200 
                     : android.R.color.system_accent1_600;
-                return context.getColor(resId);
+                return context.getColor(fallbackResId);
             } catch (Exception e) {
                 return getColorFromAttr(context, android.R.attr.colorAccent);
             }
@@ -32,31 +54,36 @@ public class MonetColorEngine {
 
     @ColorInt
     public static int getSystemPrimaryColor(Context context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                // Dark mode: lighter primary (200)
-                // Light mode: darker primary (600)
-                int resId = isNightMode(context)
-                    ? android.R.color.system_accent1_200
-                    : android.R.color.system_accent1_600;
-                return context.getColor(resId);
-            } catch (Exception e) {
-                return getColorFromAttr(context, android.R.attr.colorPrimary);
-            }
-        }
-        return -1;
+        return getSystemAccentColor(context); // Primarily uses the same accent logic for consistency
     }
 
     @ColorInt
     public static int getSystemSecondaryColor(Context context) {
+        if (Utils.xprefs != null) Utils.xprefs.reload();
+        if (Utils.xprefs != null && Utils.xprefs.getBoolean("monet_custom_color_enabled", false)) {
+            int customColor = Utils.xprefs.getInt("monet_custom_color", 0xFF25D366);
+            // Secondary is desaturated and slightly shifted
+            float[] hsv = new float[3];
+            Color.colorToHSV(customColor, hsv);
+            hsv[1] *= 0.5f; // Desaturate
+            int secondaryBase = Color.HSVToColor(hsv);
+            return generateShade(secondaryBase, isNightMode(context) ? 200 : 500);
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                // Dark mode: lighter secondary (200)
-                // Light mode: standard secondary (500)
-                int resId = isNightMode(context)
+                String palette = Utils.xprefs != null ? Utils.xprefs.getString("monet_palette", "accent1") : "accent1";
+                // If main is accent1, secondary is accent2. Otherwise follow a shift.
+                String secondaryPalette = palette.equals("accent1") ? "accent2" : "accent1";
+                
+                String colorName = "system_" + secondaryPalette + (isNightMode(context) ? "_200" : "_500");
+                int resId = context.getResources().getIdentifier(colorName, "color", "android");
+                if (resId != 0) return context.getColor(resId);
+
+                int fallbackResId = isNightMode(context)
                     ? android.R.color.system_accent2_200
                     : android.R.color.system_accent2_500;
-                return context.getColor(resId);
+                return context.getColor(fallbackResId);
             } catch (Exception e) {
                 return getColorFromAttr(context, android.R.attr.colorSecondary);
             }
@@ -82,10 +109,19 @@ public class MonetColorEngine {
 
     @ColorInt
     public static int getBubbleOutgoingColor(Context context) {
+        if (Utils.xprefs != null) Utils.xprefs.reload();
+        if (Utils.xprefs != null && Utils.xprefs.getBoolean("monet_custom_color_enabled", false)) {
+            int customColor = Utils.xprefs.getInt("monet_custom_color", 0xFF25D366);
+            return generateShade(customColor, 500);
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                // Outgoing bubble: accent1_500 (primary accent tone) used consistently
-                // for better contrast/readability as per user preference.
+                String palette = Utils.xprefs != null ? Utils.xprefs.getString("monet_palette", "accent1") : "accent1";
+                String colorName = "system_" + palette + "_500";
+                int resId = context.getResources().getIdentifier(colorName, "color", "android");
+                if (resId != 0) return context.getColor(resId);
+                
                 return context.getColor(android.R.color.system_accent1_500);
             } catch (Exception e) {
                 return -1;
@@ -96,21 +132,63 @@ public class MonetColorEngine {
 
     @ColorInt
     public static int getBubbleIncomingColor(Context context) {
+        if (Utils.xprefs != null) Utils.xprefs.reload();
+        if (Utils.xprefs != null && Utils.xprefs.getBoolean("monet_custom_color_enabled", false)) {
+            int customColor = Utils.xprefs.getInt("monet_custom_color", 0xFF25D366);
+            float[] hsv = new float[3];
+            Color.colorToHSV(customColor, hsv);
+            hsv[0] = (hsv[0] + 45) % 360; // Less drastic hue shift
+            hsv[1] = Math.max(hsv[1], 0.8f); // High saturation for incoming bubbles
+            int incomingBase = Color.HSVToColor(hsv);
+            return generateShade(incomingBase, isNightMode(context) ? 200 : 500);
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                // Incoming: Tertiary/Secondary logic
-                // Dark mode: 200 (Pastel)
-                // Light mode: 500 (Vibrant) - changed to accent2 for better distinction if desired, 
-                // but sticking to accent3 as per original implementation intent
-                int resId = isNightMode(context)
+                String palette = Utils.xprefs != null ? Utils.xprefs.getString("monet_palette", "accent1") : "accent1";
+                // Shift palette for incoming color (accent3 if primary is accent1)
+                String incomingPalette = palette.equals("accent1") ? "accent3" : "neutral2";
+                
+                String colorName = "system_" + incomingPalette + (isNightMode(context) ? "_200" : "_500");
+                int resId = context.getResources().getIdentifier(colorName, "color", "android");
+                if (resId != 0) return context.getColor(resId);
+
+                int fallbackResId = isNightMode(context)
                     ? android.R.color.system_accent3_200
                     : android.R.color.system_accent3_500;
-                return context.getColor(resId);
+                return context.getColor(fallbackResId);
             } catch (Exception e) {
                 return -1;
             }
         }
         return -1;
+    }
+
+    @ColorInt
+    private static int generateShade(int baseColor, int shade) {
+        float[] hsl = new float[3];
+        ColorUtils.colorToHSL(baseColor, hsl);
+
+        // Boost saturation to 90% of original or min 85% for high vibrancy
+        hsl[1] = Math.max(hsl[1], 0.85f);
+
+        switch (shade) {
+            case 200 -> {
+                // Dark Mode Accent: Lowered to 50% lightness.
+                // This ensures the color is "deep" and provides excellent contrast for white icons.
+                hsl[2] = 0.50f; 
+            }
+            case 500 -> {
+                // Outgoing Bubbles: 45% lightness for a solid, premium look.
+                hsl[2] = 0.45f;
+            }
+            case 600 -> {
+                // Light Mode Accent: 45% lightness.
+                hsl[2] = 0.45f;
+                hsl[1] = 1.0f; // Pure saturation for light mode punch
+            }
+        }
+        return ColorUtils.HSLToColor(hsl);
     }
 
     private static boolean isNightMode(Context context) {

@@ -141,6 +141,11 @@ public class DesignUtils {
 
 
     public static int getUnSeenColor() {
+        if (mPrefs.getBoolean("monet_theme", false)) {
+            int monetColor = MonetColorEngine.getSystemAccentColor(Utils.getApplication());
+            if (monetColor != -1) return monetColor;
+        }
+
         var primaryColor = mPrefs.getInt("primary_color", 0);
         if (primaryColor == 0 || !mPrefs.getBoolean("changecolor", false)) {
             return 0xFF25d366;

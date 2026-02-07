@@ -12,6 +12,33 @@
             app:title="@string/monet_theme" />
 
         <ListPreference
+            android:defaultValue="accent1"
+            android:entries="@array/monet_palette_entries"
+            android:entryValues="@array/monet_palette_values"
+            app:dependency="monet_theme"
+            app:key="monet_palette"
+            app:summary="%s"
+            app:title="@string/monet_palette" />
+
+        <rikka.material.preference.MaterialSwitchPreference
+            app:dependency="monet_theme"
+            app:key="monet_custom_color_enabled"
+            app:summary="@string/monet_custom_color_sum"
+            app:title="@string/monet_custom_color" />
+
+        <com.jaredrummler.android.colorpicker.ColorPreferenceCompat
+            app:cpv_showAlphaSlider="false"
+            app:dependency="monet_custom_color_enabled"
+            app:key="monet_custom_color"
+            app:summary="@string/monet_seed_color_sum"
+            app:title="@string/monet_seed_color" />
+
+        <rikka.material.preference.MaterialSwitchPreference
+            app:key="amoled_theme"
+            app:summary="@string/amoled_theme_sum"
+            app:title="@string/amoled_theme" />
+
+        <ListPreference
             android:defaultValue="green"
             android:entries="@array/app_color_entries"
             android:entryValues="@array/app_color_values"

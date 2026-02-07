@@ -121,7 +121,6 @@ public class FeatureLoader {
     public final static String PACKAGE_WPP = "com.whatsapp";
     public final static String PACKAGE_BUSINESS = "com.whatsapp.w4b";
 
-    private static final ArrayList<ErrorItem> list = new ArrayList<>();
     private static List<String> supportedVersions;
     private static String currentVersion;
 
@@ -160,6 +159,8 @@ public class FeatureLoader {
                 XposedBridge.log(packageInfo.versionName);
                 currentVersion = packageInfo.versionName;
                 supportedVersions = Arrays.asList(mApp.getResources().getStringArray(Objects.equals(mApp.getPackageName(), FeatureLoader.PACKAGE_WPP) ? ResId.array.supported_versions_wpp : ResId.array.supported_versions_business));
+                ErrorDialogManager.setCurrentVersion(currentVersion);
+                ErrorDialogManager.setSupportedVersions(supportedVersions);
                 mApp.registerActivityLifecycleCallbacks(new WaCallback());
                 registerReceivers();
                 try {
@@ -187,13 +188,7 @@ public class FeatureLoader {
                     XposedBridge.log("Loaded Hooks in " + timemillis2 + "ms");
                 } catch (Throwable e) {
                     XposedBridge.log(e);
-                    var error = new ErrorItem();
-                    error.setPluginName("MainFeatures[Critical]");
-                    error.setWhatsAppVersion(packageInfo.versionName);
-                    error.setModuleVersion(BuildConfig.VERSION_NAME);
-                    error.setMessage(e.getMessage());
-                    error.setError(Arrays.toString(Arrays.stream(e.getStackTrace()).filter(s -> !s.getClassName().startsWith("android") && !s.getClassName().startsWith("com.android")).map(StackTraceElement::toString).toArray()));
-                    list.add(error);
+                    ErrorDialogManager.addError(ErrorDialogManager.createError("MainFeatures[Critical]", packageInfo.versionName, e));
                 }
 
             }
@@ -203,22 +198,7 @@ public class FeatureLoader {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 super.afterHookedMethod(param);
-                if (!list.isEmpty()) {
-                    var activity = (Activity) param.thisObject;
-                    var msg = String.join("\n", list.stream().map(item -> item.getPluginName() + " - " + item.getMessage()).toArray(String[]::new));
-
-                    new AlertDialogWpp(activity)
-                            .setTitle(activity.getString(ResId.string.error_detected))
-                            .setMessage(activity.getString(ResId.string.version_error) + msg + "\n\nCurrent Version: " + currentVersion + "\nSupported Versions:\n" + String.join("\n", supportedVersions))
-                            .setPositiveButton(activity.getString(ResId.string.copy_to_clipboard), (dialog, which) -> {
-                                var clipboard = (ClipboardManager) mApp.getSystemService(Context.CLIPBOARD_SERVICE);
-                                ClipData clip = ClipData.newPlainText("text", String.join("\n", list.stream().map(ErrorItem::toString).toArray(String[]::new)));
-                                clipboard.setPrimaryClip(clip);
-                                Toast.makeText(mApp, ResId.string.copied_to_clipboard, Toast.LENGTH_SHORT).show();
-                                dialog.dismiss();
-                            })
-                            .show();
-                }
+                ErrorDialogManager.showErrorsIfAny((Activity) param.thisObject);
             }
         });
     }
@@ -240,7 +220,7 @@ public class FeatureLoader {
         WppCore.Initialize(loader, pref);
         FMessageWpp.initialize(loader);
         DesignUtils.setPrefs(pref);
-        Utils.init(loader);
+        Utils.init(loader, pref);
         AlertDialogWpp.initDialog(loader);
         WaContactWpp.initialize(loader);
         WppCore.addListenerActivity((activity, state) -> {
@@ -403,13 +383,7 @@ Others.class,
                     plugin.doHook();
                 } catch (Throwable e) {
                     XposedBridge.log(e);
-                    var error = new ErrorItem();
-                    error.setPluginName(classe.getSimpleName());
-                    error.setWhatsAppVersion(versionWpp);
-                    error.setModuleVersion(BuildConfig.VERSION_NAME);
-                    error.setMessage(e.getMessage());
-                    error.setError(Arrays.toString(Arrays.stream(e.getStackTrace()).filter(s -> !s.getClassName().startsWith("android") && !s.getClassName().startsWith("com.android")).map(StackTraceElement::toString).toArray()));
-                    list.add(error);
+                    ErrorDialogManager.addError(ErrorDialogManager.createError(classe.getSimpleName(), versionWpp, e));
                 }
                 var timemillis2 = System.currentTimeMillis() - timemillis;
                 times.add("* Loaded Plugin " + classe.getSimpleName() + " in " + timemillis2 + "ms");
@@ -425,24 +399,4 @@ Others.class,
         }
     }
 
-    @Getter
-    @Setter
-    private static class ErrorItem {
-        private String pluginName;
-        private String whatsAppVersion;
-        private String error;
-        private String moduleVersion;
-        private String message;
-
-        @NonNull
-        @Override
-        public String toString() {
-            return "pluginName='" + getPluginName() + '\'' +
-                    "\nmoduleVersion='" + getModuleVersion() + '\'' +
-                    "\nwhatsAppVersion='" + getWhatsAppVersion() + '\'' +
-                    "\nMessage=" + getMessage() +
-                    "\nerror='" + getError() + '\'';
-        }
-
-    }
 }
