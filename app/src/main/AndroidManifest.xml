@@ -153,7 +153,7 @@
             android:name=".services.VideoRecordingService"
             android:foregroundServiceType="mediaProjection"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="true" />
 
         <service
             android:name=".services.ScheduledMessageService"

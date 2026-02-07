@@ -5,6 +5,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.ComponentName;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -30,7 +31,7 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
-import com.wmods.wppenhacer.R;
+import com.wmods.wppenhacer.BuildConfig;
 import com.wmods.wppenhacer.xposed.features.media.VideoCallRecording;
 
 import java.io.File;
@@ -40,20 +41,17 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-public class VideoRecordingService extends Service {
-    private static final String TAG = "VideoRecordingService";
-    private static final String CHANNEL_ID = "video_recording_channel";
-    private static final int NOTIFICATION_ID = 1001;
+import de.robv.android.xposed.XposedBridge;
 
-    // CONSTANTS
+public class VideoRecordingService extends Service {
+    private static final String TAG = "WaEnhancer-Rec";
+    private static final String CHANNEL_ID = "video_recording_channel";
+    private static final int NOTIFICATION_ID = 2024;
+
     public static final String ACTION_START = "ACTION_START";
-    public static final String ACTION_START_ROOT = "ACTION_START_ROOT";
     public static final String ACTION_STOP = "ACTION_STOP";
     public static final String EXTRA_RESULT_CODE = "EXTRA_RESULT_CODE";
     public static final String EXTRA_DATA = "EXTRA_DATA";
-
-    // Define RESULT_OK locally (value is -1) to avoid importing Activity
-    private static final int RESULT_OK = -1;
 
     private MediaProjectionManager mProjectionManager;
     private MediaProjection mMediaProjection;
@@ -67,122 +65,69 @@ public class VideoRecordingService extends Service {
     private boolean isRecording = false;
 
     public static void startService(Context context, int resultCode, Intent data) {
-        Intent intent = new Intent(context, VideoRecordingService.class);
+        XposedBridge.log("VideoRecordingService: [DEBUG] Preparing to start service from " + context.getPackageName());
+        Intent intent = new Intent();
+        intent.setComponent(new ComponentName(BuildConfig.APPLICATION_ID, VideoRecordingService.class.getName()));
         intent.setAction(ACTION_START);
         intent.putExtra(EXTRA_RESULT_CODE, resultCode);
         intent.putExtra(EXTRA_DATA, data);
-        startForegroundServiceCompat(context, intent);
-    }
-
-    public static void startServiceRoot(Context context) {
-        Intent intent = new Intent(context, VideoRecordingService.class);
-        intent.setAction(ACTION_START_ROOT);
-        startForegroundServiceCompat(context, intent);
+        
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent);
+            } else {
+                context.startService(intent);
+            }
+            XposedBridge.log("VideoRecordingService: [DEBUG] startService command sent successfully");
+        } catch (Exception e) {
+            XposedBridge.log("VideoRecordingService: [ERROR] Failed to send startService: " + e.getMessage());
+        }
     }
 
     public static void stopService(Context context) {
-        Intent intent = new Intent(context, VideoRecordingService.class);
+        XposedBridge.log("VideoRecordingService: [DEBUG] stopService called");
+        Intent intent = new Intent();
+        intent.setComponent(new ComponentName(BuildConfig.APPLICATION_ID, VideoRecordingService.class.getName()));
         intent.setAction(ACTION_STOP);
-        context.startService(intent);
-    }
-
-    private static void startForegroundServiceCompat(Context context, Intent intent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent);
-        } else {
+        try {
             context.startService(intent);
+        } catch (Exception e) {
+            XposedBridge.log("VideoRecordingService: [ERROR] Failed to send stopService: " + e.getMessage());
         }
     }
 
     @Override
     public void onCreate() {
         super.onCreate();
+        Log.i(TAG, "Service onCreate");
         mProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+        updateDisplayMetrics();
+    }
 
-        // Dynamically detect screen size for better quality
+    private void updateDisplayMetrics() {
         WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         Display display = wm.getDefaultDisplay();
         DisplayMetrics metrics = new DisplayMetrics();
         display.getRealMetrics(metrics);
-
         mScreenWidth = metrics.widthPixels;
         mScreenHeight = metrics.heightPixels;
         mScreenDensity = metrics.densityDpi;
 
-        // Ensure even dimensions
         if (mScreenWidth % 2 != 0) mScreenWidth--;
         if (mScreenHeight % 2 != 0) mScreenHeight--;
+        Log.i(TAG, "Metrics: " + mScreenWidth + "x" + mScreenHeight + " d=" + mScreenDensity);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null || intent.getAction() == null) return START_NOT_STICKY;
+        if (intent == null) return START_NOT_STICKY;
 
         String action = intent.getAction();
-
-        if (action.equals(ACTION_START) || action.equals(ACTION_START_ROOT)) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(NOTIFICATION_ID, createNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
-            } else {
-                startForeground(NOTIFICATION_ID, createNotification());
-            }
-
-            try {
-                if (action.equals(ACTION_START_ROOT)) {
-                    mMediaProjection = VideoCallRecording.rootMediaProjection;
-
-                    // Fallback logic if static variable is null but data is passed
-                    if (mMediaProjection == null && intent.hasExtra(EXTRA_DATA)) {
-                        Intent data = intent.getParcelableExtra(EXTRA_DATA);
-                        int code = intent.getIntExtra(EXTRA_RESULT_CODE, RESULT_OK);
-                         if (data != null && mProjectionManager != null) {
-                             mMediaProjection = mProjectionManager.getMediaProjection(code, data);
-                             Log.d(TAG, "mMediaProjection created: " + mMediaProjection);
-                         }
-                    }
-
-                     if (mMediaProjection != null) {
-                         VideoCallRecording.rootMediaProjection = null;
-                         mMediaProjection.registerCallback(new MediaProjection.Callback() {
-                             @Override
-                             public void onStop() {
-                                 Log.w(TAG, "MediaProjection stopped by system");
-                                 stopRecording();
-                             }
-                         }, new Handler(Looper.getMainLooper()));
-                         proceedToStart();
-                     } else {
-                        Log.e(TAG, "Root start failed: rootMediaProjection is null");
-                        showToast("Failed to get MediaProjection");
-                        stopSelf();
-                    }
-                } else {
-                    int resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, RESULT_OK);
-                    Intent data = intent.getParcelableExtra(EXTRA_DATA);
-                    if (data == null) throw new IOException("No MediaProjection intent data");
-
-                    if (mProjectionManager != null) {
-                        mMediaProjection = mProjectionManager.getMediaProjection(resultCode, data);
-                    }
-
-                    if (mMediaProjection == null) throw new IOException("Failed to get MediaProjection token");
-
-                    mMediaProjection.registerCallback(new MediaProjection.Callback() {
-                        @Override
-                        public void onStop() {
-                            Log.w(TAG, "MediaProjection stopped by system");
-                            stopRecording();
-                        }
-                    }, new Handler(Looper.getMainLooper()));
-
-                    proceedToStart();
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Recording start failed", e);
-                showToast("Video Recording failed to start");
-                stopSelf();
-            }
-        } else if (action.equals(ACTION_STOP)) {
+        Log.i(TAG, "onStartCommand: " + action);
+        if (ACTION_START.equals(action)) {
+            startForegroundNotification();
+            handleStart(intent);
+        } else if (ACTION_STOP.equals(action)) {
             stopRecording();
             stopForeground(true);
             stopSelf();
@@ -191,127 +136,166 @@ public class VideoRecordingService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void proceedToStart() throws IOException {
-        if (mMediaProjection == null) return;
-
-        mMediaRecorder = new MediaRecorder();
-        // mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC); // Disabled for testing
-        mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-
-        String fileName = "VideoCall_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date()) + ".mp4";
-        FileDescriptor fileDescriptor = null;
-
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ContentValues values = new ContentValues();
-                values.put(MediaStore.Video.Media.DISPLAY_NAME, fileName);
-                values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
-                values.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/WaEnhancer/Recordings");
-
-                mVideoUri = getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
-                if (mVideoUri == null) throw new IOException("Failed to create MediaStore entry");
-
-                fileDescriptor = getContentResolver().openFileDescriptor(mVideoUri, "rw").getFileDescriptor();
-                mMediaRecorder.setOutputFile(fileDescriptor);
-            } else {
-                File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "WaEnhancer/Recordings");
-                if (!dir.exists()) dir.mkdirs();
-                mMediaRecorder.setOutputFile(new File(dir, fileName).getAbsolutePath());
-            }
-
-            mMediaRecorder.setVideoSize(mScreenWidth, mScreenHeight);
-            mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-             // mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC); // Disabled for testing
-             mMediaRecorder.setVideoEncodingBitRate(2 * 1024 * 1024);
-             mMediaRecorder.setVideoFrameRate(24);
-
-             Log.d(TAG, "About to prepare MediaRecorder");
-             mMediaRecorder.prepare();
-             Log.d(TAG, "MediaRecorder prepared");
-
-             mVirtualDisplay = mMediaProjection.createVirtualDisplay(TAG,
-                     mScreenWidth, mScreenHeight, mScreenDensity,
-                     DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                     mMediaRecorder.getSurface(), null, null);
-             Log.d(TAG, "VirtualDisplay created: " + mVirtualDisplay);
-
-             mMediaRecorder.start();
-             Log.d(TAG, "MediaRecorder started");
-             isRecording = true;
-             showToast("Video Recording started");
-
-        } catch (Exception e) {
-            if (mMediaRecorder != null) {
-                mMediaRecorder.reset();
-                mMediaRecorder.release();
-                mMediaRecorder = null;
-            }
-            throw e;
+    private void startForegroundNotification() {
+        createNotificationChannel();
+        Notification notification = createNotification();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+        } else {
+            startForeground(NOTIFICATION_ID, notification);
         }
     }
 
-    private void stopRecording() {
-        if (isRecording && mMediaRecorder != null) {
+    private void handleStart(Intent intent) {
+        if (isRecording) {
+            Log.w(TAG, "Already recording");
+            return;
+        }
+
+        int resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1);
+        Intent data = intent.getParcelableExtra(EXTRA_DATA);
+
+        if (data != null) {
+            Log.i(TAG, "Creating MediaProjection");
+            mMediaProjection = mProjectionManager.getMediaProjection(resultCode, data);
+        }
+
+        if (mMediaProjection == null) {
+            Log.e(TAG, "MediaProjection is null!");
+            stopSelf();
+            return;
+        }
+
+        mMediaProjection.registerCallback(new MediaProjection.Callback() {
+            @Override
+            public void onStop() {
+                Log.i(TAG, "MediaProjection onStop");
+                stopRecording();
+            }
+        }, new Handler(Looper.getMainLooper()));
+
+        try {
+            initRecorder();
+            Log.i(TAG, "Creating VirtualDisplay");
+            mVirtualDisplay = mMediaProjection.createVirtualDisplay(TAG,
+                    mScreenWidth, mScreenHeight, mScreenDensity,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    mMediaRecorder.getSurface(), null, null);
+            
+            Log.i(TAG, "MediaRecorder start");
+            mMediaRecorder.start();
+            isRecording = true;
+            showToast("Video Recording started");
+        } catch (Exception e) {
+            Log.e(TAG, "Start failed: " + e.getMessage(), e);
+            showToast("Failed to start video recording: " + e.getMessage());
+            stopRecording();
+            stopSelf();
+        }
+    }
+
+    private void initRecorder() throws IOException {
+        Log.i(TAG, "initRecorder");
+        mMediaRecorder = new MediaRecorder();
+        
+        boolean audioEnabled = true;
+        try {
+            mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION);
+        } catch (Exception e) {
+            Log.d(TAG, "VOICE_COMM fallback to MIC");
             try {
+                mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            } catch (Exception e2) {
+                Log.w(TAG, "No audio source available");
+                audioEnabled = false;
+            }
+        }
+        
+        mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+
+        if (audioEnabled) {
+            mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            mMediaRecorder.setAudioSamplingRate(44100);
+            mMediaRecorder.setAudioEncodingBitRate(128000);
+        }
+
+        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String fileName = "VideoCall_" + timestamp + ".mp4";
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Video.Media.DISPLAY_NAME, fileName);
+            values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
+            values.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/WaEnhancer");
+            mVideoUri = getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
+            if (mVideoUri != null) {
+                FileDescriptor fd = getContentResolver().openFileDescriptor(mVideoUri, "rw").getFileDescriptor();
+                mMediaRecorder.setOutputFile(fd);
+            }
+        } else {
+            File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "WaEnhancer");
+            if (!dir.exists()) dir.mkdirs();
+            mMediaRecorder.setOutputFile(new File(dir, fileName).getAbsolutePath());
+        }
+
+        mMediaRecorder.setVideoEncodingBitRate(5 * 1024 * 1024);
+        mMediaRecorder.setVideoFrameRate(30);
+        mMediaRecorder.setVideoSize(mScreenWidth, mScreenHeight);
+        mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+
+        Log.i(TAG, "MediaRecorder prepare (audio=" + audioEnabled + ")");
+        mMediaRecorder.prepare();
+    }
+
+    private void stopRecording() {
+        if (!isRecording) return;
+        isRecording = false;
+        Log.i(TAG, "stopRecording");
+
+        try {
+            if (mMediaRecorder != null) {
                 mMediaRecorder.stop();
-                mMediaRecorder.reset();
                 mMediaRecorder.release();
-                showToast("Video Recording saved to Movies/WhatsAppEnhancer");
-            } catch (RuntimeException e) {
-                Log.e(TAG, "Stop error (recording might be empty): " + e.getMessage());
-                if (mVideoUri != null) {
-                    try {
-                        getContentResolver().delete(mVideoUri, null, null);
-                    } catch (Exception ex) {
-                        // Ignore delete errors
-                    }
-                }
-                 showToast("Recording stopped (file discarded)");
-             }
-             mMediaRecorder = null;
-         }
+            }
+            showToast("Recording saved to Movies/WaEnhancer");
+        } catch (Exception e) {
+            Log.e(TAG, "Stop error: " + e.getMessage());
+            if (mVideoUri != null) getContentResolver().delete(mVideoUri, null, null);
+        } finally {
+            mMediaRecorder = null;
+            if (mVirtualDisplay != null) {
+                mVirtualDisplay.release();
+                mVirtualDisplay = null;
+            }
+            if (mMediaProjection != null) {
+                mMediaProjection.stop();
+                mMediaProjection = null;
+            }
+        }
+    }
 
-         if (mVirtualDisplay != null) {
-             mVirtualDisplay.release();
-             mVirtualDisplay = null;
-         }
+    private void showToast(String message) {
+        new Handler(Looper.getMainLooper()).post(() ->
+                Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show()
+        );
+    }
 
-         if (mMediaProjection != null) {
-             mMediaProjection.stop();
-             mMediaProjection = null;
-         }
+    private Notification createNotification() {
+        Intent stopIntent = new Intent();
+        stopIntent.setComponent(new ComponentName(BuildConfig.APPLICATION_ID, "com.wmods.wppenhacer.services.VideoRecordingService"));
+        stopIntent.setAction(ACTION_STOP);
+        PendingIntent stopPendingIntent = PendingIntent.getService(this, 0, stopIntent, 
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
-         isRecording = false;
-     }
-
-     private void showToast(String message) {
-         new Handler(Looper.getMainLooper()).post(() ->
-                 Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show()
-         );
-     }
-
-     private Notification createNotification() {
-         createNotificationChannel();
-         Intent stopIntent = new Intent(this, VideoRecordingService.class);
-         stopIntent.setAction(ACTION_STOP);
-
-         int flags = PendingIntent.FLAG_IMMUTABLE;
-         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-             flags = PendingIntent.FLAG_UPDATE_CURRENT;
-         }
-
-         PendingIntent stopPendingIntent = PendingIntent.getService(this, 0, stopIntent, flags);
-
-         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                 .setContentTitle("Video Recording Active")
-                 .setContentText("Recording WhatsApp Video Call...")
-                 .setSmallIcon(android.R.drawable.ic_menu_camera)
-                 .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
-                 .setOngoing(true)
-                 .setPriority(NotificationCompat.PRIORITY_LOW)
-                 .build();
-     }
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("WaEnhancer Recording")
+                .setContentText("Video call recording in progress...")
+                .setSmallIcon(android.R.drawable.ic_menu_camera)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
+                .setOngoing(true)
+                .build();
+    }
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

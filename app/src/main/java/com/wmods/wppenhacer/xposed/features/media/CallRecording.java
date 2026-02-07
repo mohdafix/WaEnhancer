@@ -86,17 +86,22 @@ public class CallRecording extends Feature {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         Object callInfo = XposedHelpers.callMethod(param.thisObject, "getCallInfo");
-                        if (callInfo != null) {
                             boolean isVideo = false;
                             try {
                                 isVideo = (boolean) XposedHelpers.callMethod(callInfo, "isVideoCall");
                             } catch (Throwable t) {
                                 try {
-                                    isVideo = XposedHelpers.getBooleanField(callInfo, "isVideoCall");
-                                } catch (Throwable ignored) {}
+                                    isVideo = XposedHelpers.getBooleanField(callInfo, "videoEnabled");
+                                } catch (Throwable ignored) {
+                                    try {
+                                        isVideo = XposedHelpers.getBooleanField(callInfo, "isVideoCall");
+                                    } catch (Throwable ignored2) {}
+                                }
                             }
-                            if (isVideo) return;
-                        }
+                            if (isVideo) {
+                                XposedBridge.log("WaEnhancer: CallRecording - Video call detected, skipping audio recording");
+                                return;
+                            }
 
                         isCallConnected.set(true);
                         extractContactInfo(param.thisObject);
