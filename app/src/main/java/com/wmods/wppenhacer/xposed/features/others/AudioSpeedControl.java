@@ -3,6 +3,7 @@ package com.wmods.wppenhacer.xposed.features.others;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,6 +20,7 @@ import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
 import com.wmods.wppenhacer.xposed.features.listeners.ConversationItemListener;
 import com.wmods.wppenhacer.xposed.utils.AnimationUtil;
 import com.wmods.wppenhacer.xposed.utils.DesignUtils;
+import com.wmods.wppenhacer.xposed.utils.MonetColorEngine;
 import com.wmods.wppenhacer.xposed.utils.ReflectionUtils;
 import com.wmods.wppenhacer.xposed.utils.ResId;
 import com.wmods.wppenhacer.xposed.utils.Utils;
@@ -163,7 +165,13 @@ public class AudioSpeedControl extends Feature {
                     
                     Drawable icon = DesignUtils.getDrawable(ResId.drawable.ic_audio_speed);
                     if (icon != null) {
-                        imageView.setImageDrawable(DesignUtils.coloredDrawable(icon, DesignUtils.getUnSeenColor()));
+                        int iconColor = DesignUtils.getUnSeenColor();
+                        boolean monetTheme = prefs.getBoolean("monet_theme", false);
+                        if (monetTheme && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                             int systemAccent = MonetColorEngine.getSystemAccentColor(context);
+                             if (systemAccent != -1) iconColor = systemAccent;
+                        }
+                        imageView.setImageDrawable(DesignUtils.coloredDrawable(icon, iconColor));
                     }
                     linearLayout.addView(imageView);
 
@@ -180,10 +188,25 @@ public class AudioSpeedControl extends Feature {
                     seekBar.setSplitTrack(false);
                     
                     Drawable thumb = DesignUtils.getDrawable(ResId.drawable.audio_speed_seekbar_thumb);
-                    if (thumb != null) seekBar.setThumb(thumb);
-                    
                     Drawable progressDrawable = DesignUtils.getDrawable(ResId.drawable.audio_speed_seekbar_progress);
-                    if (progressDrawable != null) seekBar.setProgressDrawable(progressDrawable);
+
+                    int waGreen = 0xFF25D366;
+                    int waDarkGreen = 0xFF128C7E;
+                    
+                    int thumbColor = waGreen;
+                    int progressColor = waGreen;
+                    
+                    boolean monetTheme = prefs.getBoolean("monet_theme", false);
+                    if (monetTheme && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                         int systemAccent = MonetColorEngine.getSystemAccentColor(context);
+                         if (systemAccent != -1) {
+                             thumbColor = systemAccent;
+                             progressColor = systemAccent;
+                         }
+                    }
+
+                    if (thumb != null) seekBar.setThumb(DesignUtils.coloredDrawable(thumb, thumbColor));
+                    if (progressDrawable != null) seekBar.setProgressDrawable(DesignUtils.coloredDrawable(progressDrawable, progressColor));
                     
                     seekBar.setPadding(Utils.dipToPixels(6.0f), Utils.dipToPixels(10.0f), Utils.dipToPixels(6.0f), Utils.dipToPixels(10.0f));
                     seekBar.setLayoutParams(new LinearLayout.LayoutParams(0, Utils.dipToPixels(32.0f), 1.0f));
