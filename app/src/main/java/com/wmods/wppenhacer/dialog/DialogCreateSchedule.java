@@ -130,7 +130,7 @@ public class DialogCreateSchedule extends BottomSheetDialogFragment {
         if (!isDarkMode) {
             try {
                 android.content.SharedPreferences prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext());
-                isDarkMode = prefs.getBoolean("monet_theme", false);
+                isDarkMode = prefs.getBoolean("amoled_theme", false);
             } catch (Exception ignored) {}
         }
         

@@ -97,7 +97,7 @@ public class BaseActivity extends AppCompatActivity implements SharedPreferences
     private void applyAppTheme() {
         var sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         var themeColor = sharedPreferences.getString("app_theme_color", "green");
-        var isAmoled = sharedPreferences.getBoolean("monet_theme", false);
+        var isAmoled = sharedPreferences.getBoolean("amoled_theme", false);
 
         setTheme(R.style.AppTheme);
         getTheme().applyStyle(rikka.material.preference.R.style.ThemeOverlay_Rikka_Material3_Preference, true);
@@ -270,7 +270,7 @@ public class BaseActivity extends AppCompatActivity implements SharedPreferences
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-        if ("app_theme_color".equals(key) || "changecolor".equals(key) || "monet_theme".equals(key)) {
+        if ("app_theme_color".equals(key) || "changecolor".equals(key) || "monet_theme".equals(key) || "amoled_theme".equals(key)) {
             recreate();
         } else if ("app_custom_color".equals(key)) {
             int newColor = sharedPreferences.getInt(key, 0);

@@ -87,4 +87,14 @@ public class IColors {
         // Alpha colors
         alphacolors.put("#ff15603e", "#8015603e");
     }
+    
+    public static void loadAmoled() {
+        backgroundColors.put("0b141a", "000000");
+        backgroundColors.put("#ff0b141a", "#ff000000");
+        backgroundColors.put("#ff111b21", "#ff000000");
+        backgroundColors.put("#ff0a1014", "#ff000000");
+        backgroundColors.put("#ff10161a", "#ff000000");
+        backgroundColors.put("#ff12181c", "#ff000000");
+        backgroundColors.put("#ff20272b", "#ff000000");
+    }
 }

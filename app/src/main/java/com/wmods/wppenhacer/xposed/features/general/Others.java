@@ -272,7 +272,11 @@ public class Others extends Feature {
         callInfo();
 
         if (disableProfileStatus) {
-            disablePhotoProfileStatus();
+            try {
+                disablePhotoProfileStatus();
+            } catch (Exception e) {
+                logDebug("Error in disablePhotoProfileStatus: " + e.getMessage());
+            }
         }
 
         if (disableExpiration) {
@@ -420,10 +424,33 @@ public class Others extends Feature {
     private void disablePhotoProfileStatus() throws Exception {
         var refreshStatusClass = Unobfuscator.loadRefreshStatusClass(classLoader);
         var photoProfileClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, ".WDSProfilePhoto");
+        
+        if (photoProfileClass != null) {
+            XposedBridge.hookAllMethods(photoProfileClass, "setStatusIndicatorEnabled", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    if ((boolean) param.args[0]) {
+                        param.setResult(null);
+                    }
+                }
+            });
+        }
+
+        if (refreshStatusClass == null) {
+            logDebug("disablePhotoProfileStatus: refreshStatusClass not found, skipping fragment hook");
+            return;
+        }
+
         var convClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, ".ConversationsFragment");
         var jidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.Jid");
+        
+        if (convClass == null || jidClass == null) return;
+
         var method = ReflectionUtils.findMethodUsingFilter(convClass, m -> m.getParameterCount() > 0 && !Modifier.isStatic(m.getModifiers()) && m.getParameterTypes()[0] == View.class && ReflectionUtils.findIndexOfType(m.getParameterTypes(), jidClass) != -1);
         var field = ReflectionUtils.getFieldByExtendType(convClass, refreshStatusClass);
+        
+        if (method == null || field == null) return;
+
         logDebug("disablePhotoProfileStatus", Unobfuscator.getMethodDescriptor(method));
         logDebug("disablePhotoProfileStatus Field", Unobfuscator.getFieldDescriptor(field));
         XposedBridge.hookMethod(method, new XC_MethodHook() {
