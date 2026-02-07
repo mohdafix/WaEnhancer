@@ -128,27 +128,16 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
     };
 
     /**
-     * Mapping from delivered tick drawable names to their read counterparts.
-     * WhatsApp reuses the delivered drawable and applies a blue tint for read status.
-     * We need to know the read counterpart so we can swap drawables instead of tinting.
-     */
-    private static final String[][] DELIVERED_TO_READ_MAPPING = {
-            {"message_got_receipt_from_target", "message_got_read_receipt_from_target"},
-            {"message_got_receipt_from_target_onmedia", "message_got_read_receipt_from_target_onmedia"}
-    };
-
-    /**
      * Replace WhatsApp's stock tick drawables with custom style variants using
      * Xposed resource replacement. This intercepts at the resource table level
      * so it works no matter how WhatsApp resolves/loads the drawable.
      * The returned drawables ignore color filters and tints so custom tick PNGs
      * display their original colors (not tinted by Monet/custom color themes).
      *
-     * For the delivered tick drawables (message_got_receipt_from_target), the
-     * TintProofDrawable is created with both delivered and read variants. When
-     * WhatsApp tries to tint the delivered tick blue (to indicate read status),
-     * OwnMessageStatus will call switchToRead() instead, swapping to our custom
-     * read tick PNG.
+     * WhatsApp has SEPARATE resources for delivered (message_got_receipt_from_target)
+     * and read (message_got_read_receipt_from_target) ticks, so each gets its own
+     * TintProofDrawable with the correct PNG. No drawable swapping needed — just
+     * tint blocking.
      */
     private void applyTickStyleReplacements(
             XC_InitPackageResources.InitPackageResourcesParam resparam,
@@ -177,49 +166,19 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
 
                 if (moduleResId == 0) continue;
 
-                // Check if this is a delivered tick that has a read counterpart
-                String readCounterpart = null;
-                for (String[] mapping : DELIVERED_TO_READ_MAPPING) {
-                    if (mapping[0].equals(tickName)) {
-                        readCounterpart = mapping[1];
-                        break;
-                    }
-                }
-
-                // Resolve the read counterpart resource ID if applicable
-                int readResId = 0;
-                if (readCounterpart != null) {
-                    String readFieldName = tickStyle + "_" + readCounterpart;
-                    try {
-                        var readField = R.drawable.class.getField(readFieldName);
-                        readResId = readField.getInt(null);
-                    } catch (NoSuchFieldException e) {
-                        XposedBridge.log("[Tick Styles] No read variant drawable: " + readFieldName);
-                    }
-                }
-
-                // Create a DrawableLoader that returns a tint-proof wrapper.
-                // For delivered ticks, include the read variant so we can swap instead of tint.
                 final int finalModuleResId = moduleResId;
-                final int finalReadResId = readResId;
                 final XModuleResources finalModRes = modRes;
-                final boolean hasReadPair = readResId != 0;
                 try {
                     resparam.res.setReplacement(resparam.packageName, "drawable", tickName,
                             new XResources.DrawableLoader() {
                                 @Override
                                 public Drawable newDrawable(XResources res, int id) throws Throwable {
-                                    Drawable deliveredDrawable = finalModRes.getDrawable(finalModuleResId);
-                                    if (hasReadPair) {
-                                        Drawable readDrawable = finalModRes.getDrawable(finalReadResId);
-                                        return new TintProofDrawable(deliveredDrawable, deliveredDrawable, readDrawable);
-                                    }
-                                    return new TintProofDrawable(deliveredDrawable);
+                                    Drawable drawable = finalModRes.getDrawable(finalModuleResId);
+                                    return new TintProofDrawable(drawable);
                                 }
                             });
                     replacedCount++;
-                    XposedBridge.log("[Tick Styles] Replaced: " + tickName + " -> " + moduleFieldName
-                            + (hasReadPair ? " (with read variant)" : ""));
+                    XposedBridge.log("[Tick Styles] Replaced: " + tickName + " -> " + moduleFieldName);
                 } catch (Exception e) {
                     XposedBridge.log("[Tick Styles] Failed to replace " + tickName + ": " + e.getMessage());
                 }
@@ -238,73 +197,15 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
      * This ensures custom tick PNGs display their original colors exactly as designed,
      * regardless of WhatsApp's internal tinting or WaEnhancer's Monet/custom color features.
      *
-     * For the delivered/read tick pair (message_got_receipt_from_target), this drawable
-     * holds both the "delivered" and "read" variants. WhatsApp uses a single drawable
-     * and applies a blue tint for "read" status — we instead swap between two separate
-     * PNGs to show visually distinct delivered vs read ticks without any tinting.
+     * WhatsApp has separate resources for delivered and read ticks, so each gets its
+     * own TintProofDrawable wrapping the correct PNG. No mutable state needed.
      */
     public static class TintProofDrawable extends Drawable {
-        private Drawable wrapped;
-        private final Drawable deliveredDrawable;
-        private final Drawable readDrawable;
-        private boolean isReadState = false;
+        private final Drawable wrapped;
 
-        /** Simple constructor for tick drawables that have no delivered/read pair (e.g. unsent, server receipt). */
         public TintProofDrawable(Drawable wrapped) {
-            this(wrapped, null, null);
-        }
-
-        /**
-         * Constructor for tick drawables that have a delivered/read pair.
-         * @param wrapped The initial drawable to display (delivered variant).
-         * @param deliveredDrawable The delivered tick drawable (grey double tick).
-         * @param readDrawable The read tick drawable (blue double tick). May be null if no read variant exists.
-         */
-        public TintProofDrawable(Drawable wrapped, Drawable deliveredDrawable, Drawable readDrawable) {
             this.wrapped = wrapped;
-            this.deliveredDrawable = deliveredDrawable;
-            this.readDrawable = readDrawable;
             setBounds(wrapped.getBounds());
-        }
-
-        /**
-         * Check if this drawable has separate delivered and read variants.
-         */
-        public boolean hasReadVariant() {
-            return readDrawable != null;
-        }
-
-        /**
-         * Switch to the "read" variant drawable (blue double tick).
-         * Called by OwnMessageStatus when WhatsApp tries to apply a tint to indicate read status.
-         */
-        public void switchToRead() {
-            if (readDrawable != null && !isReadState) {
-                isReadState = true;
-                wrapped = readDrawable;
-                wrapped.setBounds(getBounds());
-                invalidateSelf();
-            }
-        }
-
-        /**
-         * Switch to the "delivered" variant drawable (grey double tick).
-         * Called by OwnMessageStatus when the tint is cleared (view recycled to delivered state).
-         */
-        public void switchToDelivered() {
-            if (deliveredDrawable != null && isReadState) {
-                isReadState = false;
-                wrapped = deliveredDrawable;
-                wrapped.setBounds(getBounds());
-                invalidateSelf();
-            }
-        }
-
-        /**
-         * Whether this drawable is currently showing the "read" variant.
-         */
-        public boolean isReadState() {
-            return isReadState;
         }
 
         @Override

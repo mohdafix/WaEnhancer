@@ -24,16 +24,13 @@ import de.robv.android.xposed.XposedHelpers;
  * WhatsApp's stock tick drawables at the resource table level, which works regardless
  * of how WhatsApp loads them (setImageResource, setImageDrawable, getDrawable, etc.).
  *
- * The TintProofDrawable wrapper in WppXposed prevents tinting at the Drawable level.
- * This class adds ImageView-level hooks to:
- *   1. Prevent tinting at the View level (setImageTintList, setColorFilter)
- *   2. Swap between delivered/read tick drawables when WhatsApp applies a tint to
- *      indicate read status (instead of just blocking the tint).
+ * WhatsApp has SEPARATE resources for delivered (message_got_receipt_from_target) and
+ * read (message_got_read_receipt_from_target) ticks. It loads the correct drawable via
+ * setImageDrawable() for each status type, then applies a tint via setImageTintList().
  *
- * WhatsApp uses a single drawable for both delivered and read double-ticks, and applies
- * a blue color tint (via setImageTintList) to indicate read status. Since we block all
- * tinting, we instead swap the underlying drawable in TintProofDrawable between the
- * delivered and read variants.
+ * The TintProofDrawable wrapper in WppXposed prevents tinting at the Drawable level.
+ * This class adds ImageView-level hooks to block tinting at the View level too
+ * (setImageTintList, setColorFilter), ensuring custom tick PNGs display as-is.
  *
  * Available styles: ab, alien, allo, bbm, bbm2, bpg, circheck, feet, gabface,
  *   gabiflo, gifcon, google, hd, heart, ios, joker, messenger, minions, pacman, twitter
@@ -51,15 +48,10 @@ public class OwnMessageStatus extends Feature {
     }
 
     /**
-     * Get the TintProofDrawable from an ImageView, if present.
-     * Returns null if the ImageView doesn't hold a TintProofDrawable.
+     * Check if an ImageView holds a TintProofDrawable.
      */
-    private static WppXposed.TintProofDrawable getTintProofDrawable(ImageView imageView) {
-        Drawable d = imageView.getDrawable();
-        if (d instanceof WppXposed.TintProofDrawable) {
-            return (WppXposed.TintProofDrawable) d;
-        }
-        return null;
+    private static boolean hasTintProofDrawable(ImageView imageView) {
+        return imageView.getDrawable() instanceof WppXposed.TintProofDrawable;
     }
 
     @Override
@@ -71,40 +63,16 @@ public class OwnMessageStatus extends Feature {
 
         XposedBridge.log("[Tick Styles] Feature active: style '" + tickStyle + "' — hooking ImageView tint methods");
 
-        // Hook ImageView.setImageTintList to:
-        // 1. Swap between delivered/read drawables when WhatsApp applies a tint
-        // 2. Block the actual tint from being applied
-        //
-        // WhatsApp calls setImageTintList(dateView.getTextColors()) on the tick ImageView.
-        // For read messages, the text color is blue; for delivered, it's grey.
-        // Instead of tinting, we swap to our separate read/delivered PNG.
+        // Hook ImageView.setImageTintList to block tinting on custom tick drawables.
+        // WhatsApp calls this after setImageDrawable to apply color tinting.
+        // Since we already have separate PNGs for delivered vs read, we just block the tint.
         XposedHelpers.findAndHookMethod(ImageView.class, "setImageTintList", ColorStateList.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 ImageView iv = (ImageView) param.thisObject;
-                WppXposed.TintProofDrawable tpd = getTintProofDrawable(iv);
-                if (tpd == null) return;
-
-                ColorStateList tint = (ColorStateList) param.args[0];
-
-                if (tpd.hasReadVariant()) {
-                    if (tint != null) {
-                        // WhatsApp is applying a tint — this happens for both delivered and read.
-                        // We need to determine if this is a "read" tint (blue) or "delivered" tint (grey).
-                        int tintColor = tint.getDefaultColor();
-                        if (isBlueishColor(tintColor)) {
-                            tpd.switchToRead();
-                        } else {
-                            tpd.switchToDelivered();
-                        }
-                    } else {
-                        // Tint cleared — revert to delivered state
-                        tpd.switchToDelivered();
-                    }
+                if (hasTintProofDrawable(iv)) {
+                    param.args[0] = null;
                 }
-
-                // Block the actual tint in all cases
-                param.args[0] = null;
             }
         });
 
@@ -113,8 +81,8 @@ public class OwnMessageStatus extends Feature {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 ImageView iv = (ImageView) param.thisObject;
-                if (getTintProofDrawable(iv) != null) {
-                    param.setResult(null); // block the call entirely
+                if (hasTintProofDrawable(iv)) {
+                    param.setResult(null);
                 }
             }
         });
@@ -124,14 +92,13 @@ public class OwnMessageStatus extends Feature {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 ImageView iv = (ImageView) param.thisObject;
-                if (getTintProofDrawable(iv) != null) {
-                    param.setResult(null); // block the call entirely
+                if (hasTintProofDrawable(iv)) {
+                    param.setResult(null);
                 }
             }
         });
 
-        // Also hook setImageDrawable to clear any pre-existing tint when a TintProofDrawable is set,
-        // and reset the delivered/read state when a new drawable is assigned (view recycling).
+        // Hook setImageDrawable to clear any pre-existing tint when a TintProofDrawable is set.
         XposedHelpers.findAndHookMethod(ImageView.class, "setImageDrawable", Drawable.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
@@ -142,22 +109,6 @@ public class OwnMessageStatus extends Feature {
                 }
             }
         });
-    }
-
-    /**
-     * Determine if a color is "blue-ish" — used to detect WhatsApp's read receipt blue tint.
-     * WhatsApp's read receipt blue is typically in the range of #53bdeb or similar.
-     * We check if the blue channel is dominant over red and green.
-     */
-    private static boolean isBlueishColor(int color) {
-        int r = (color >> 16) & 0xFF;
-        int g = (color >> 8) & 0xFF;
-        int b = color & 0xFF;
-
-        // Blue channel must be significantly higher than red, and at least as high as green.
-        // This catches WhatsApp's read blue (#53bdeb: r=83, g=189, b=235) and similar blues/cyans
-        // while excluding greys (where r ≈ g ≈ b) and other non-blue colors.
-        return b > r + 30 && b >= g;
     }
 
     @NonNull
