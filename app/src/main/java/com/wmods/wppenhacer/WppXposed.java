@@ -30,8 +30,12 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackageResources, IXposedHookZygoteInit {
 
     private static XSharedPreferences pref;
-    private String MODULE_PATH;
+    private static String MODULE_PATH;
     public static XC_InitPackageResources.InitPackageResourcesParam ResParam;
+
+    public static String getModulePath() {
+        return MODULE_PATH;
+    }
 
     @NonNull
     public static XSharedPreferences getPref() {

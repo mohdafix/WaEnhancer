@@ -296,4 +296,152 @@
         <item>neutral1</item>
         <item>neutral2</item>
     </string-array>
+
+    <string-array name="bubble_style_entries">
+        <item>Stock (Default)</item>
+        <item>Facebook Messenger</item>
+        <item>Old Hangouts</item>
+        <item>3D</item>
+        <item>Rounded</item>
+        <item>Materialized</item>
+        <item>MD</item>
+        <item>Crayon Alt</item>
+        <item>WA+ Paper</item>
+        <item>Transparent</item>
+        <item>Twitter</item>
+        <item>WhatsApp LB</item>
+        <item>BBM</item>
+        <item>iOS</item>
+        <item>Hike</item>
+        <item>Go SMS</item>
+        <item>Bubble Drop</item>
+        <item>Dual</item>
+        <item>Plus Messenger ED</item>
+        <item>Chat On</item>
+        <item>Telegram</item>
+        <item>In</item>
+        <item>Bryed</item>
+        <item>Fold</item>
+        <item>Fold v2</item>
+        <item>Ilkhang</item>
+        <item>Popzup</item>
+        <item>DoodleHang</item>
+        <item>Aranbor</item>
+        <item>Win</item>
+        <item>Mood</item>
+        <item>Cr Messenger</item>
+        <item>RC Burbuja 2</item>
+        <item>RC Burbuja 5</item>
+        <item>3D V2</item>
+        <item>Kitty</item>
+        <item>Amor</item>
+        <item>RC SAMS BORD</item>
+        <item>RC iOS 11</item>
+        <item>RC Google Assistant</item>
+        <item>Gabi Outline</item>
+        <item>Gabi Square</item>
+        <item>Gabi Dot</item>
+        <item>RC Line</item>
+        <item>Gabi Dot 2</item>
+        <item>Roundle</item>
+        <item>Gaby Ron</item>
+        <item>CV iOS</item>
+        <item>RC Pal</item>
+        <item>RC iOS Line</item>
+        <item>RC IM Line</item>
+        <item>RC Go SMS</item>
+        <item>RC Tran Line</item>
+        <item>RC iMess</item>
+        <item>Gaby Mess</item>
+        <item>RC Fancy</item>
+        <item>Eclipse</item>
+        <item>RC iOS 11 v2</item>
+    </string-array>
+    <string-array name="bubble_style_values">
+        <item>stock</item>
+        <item>fbm</item>
+        <item>hangouts</item>
+        <item>d3</item>
+        <item>rounded</item>
+        <item>materialized</item>
+        <item>md</item>
+        <item>altcr</item>
+        <item>wapaper</item>
+        <item>trans</item>
+        <item>twitter</item>
+        <item>walb</item>
+        <item>bbm</item>
+        <item>apple</item>
+        <item>hike</item>
+        <item>gosms</item>
+        <item>bdrop</item>
+        <item>dual</item>
+        <item>ed</item>
+        <item>chaton</item>
+        <item>telegram</item>
+        <item>in</item>
+        <item>bryed</item>
+        <item>fold</item>
+        <item>foldv2</item>
+        <item>ilkhang</item>
+        <item>popzup</item>
+        <item>doodlehang</item>
+        <item>aranbor</item>
+        <item>win</item>
+        <item>mood</item>
+        <item>crmessenger</item>
+        <item>rcburbuja2</item>
+        <item>rcburbuja5</item>
+        <item>s3d2</item>
+        <item>kitty</item>
+        <item>amor</item>
+        <item>bubble</item>
+        <item>ios11</item>
+        <item>bolha</item>
+        <item>gabioutline</item>
+        <item>gabisqua</item>
+        <item>gabidot</item>
+        <item>rcline</item>
+        <item>gabidot2</item>
+        <item>roundle</item>
+        <item>gabyron</item>
+        <item>cvios</item>
+        <item>rcpal</item>
+        <item>rciosline</item>
+        <item>rcimline</item>
+        <item>rcgosms</item>
+        <item>rctranline</item>
+        <item>rcimess</item>
+        <item>gabymess</item>
+        <item>rcfancy</item>
+        <item>eclip</item>
+        <item>rcios11</item>
+    </string-array>
+
+    <string-array name="tick_style_entries">
+        <item>Default</item>
+        <item>Alien</item>
+        <item>Allo</item>
+        <item>BBM</item>
+        <item>Google</item>
+        <item>iOS</item>
+        <item>Joker</item>
+        <item>Messenger</item>
+        <item>Minions</item>
+        <item>Pacman</item>
+        <item>Twitter</item>
+    </string-array>
+    <string-array name="tick_style_values">
+        <item>default</item>
+        <item>alien</item>
+        <item>allo</item>
+        <item>bbm</item>
+        <item>google</item>
+        <item>ios</item>
+        <item>joker</item>
+        <item>messenger</item>
+        <item>minions</item>
+        <item>pacman</item>
+        <item>twitter</item>
+    </string-array>
 </resources>

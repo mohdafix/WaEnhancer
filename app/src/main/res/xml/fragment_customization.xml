@@ -208,6 +208,14 @@
             app:key="bubble_right"
             app:summary="@string/default_color"
             app:title="@string/bubble_right" />
+
+        <ListPreference
+            android:defaultValue="stock"
+            android:entries="@array/bubble_style_entries"
+            android:entryValues="@array/bubble_style_values"
+            app:key="bubble_style"
+            app:summary="%s"
+            app:title="@string/bubble_style" />
     </PreferenceCategory>
 
     <PreferenceCategory

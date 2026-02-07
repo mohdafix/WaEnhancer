@@ -87,6 +87,7 @@ public class BubbleColors extends Feature {
         XposedBridge.hookMethod(dateWrapper, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                if (BubbleThemes.isBubbleThemeActive) return;
                 var drawable = (Drawable) param.getResult();
                 if (drawable == null)return;
                 var position = (int) param.args[0];
@@ -104,6 +105,7 @@ public class BubbleColors extends Feature {
         XposedBridge.hookMethod(babblon, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                if (BubbleThemes.isBubbleThemeActive) return;
                 var drawable = (Drawable) param.getResult();
                 if (drawable == null)return;
                 var position = (int) param.args[1];
@@ -123,6 +125,7 @@ public class BubbleColors extends Feature {
         XposedBridge.hookMethod(bubbleDrawableMethod, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                if (BubbleThemes.isBubbleThemeActive) return;
                 var position = (int) param.args[0];
                 var draw = (Drawable) param.getResult();
                 var right = position == 3;

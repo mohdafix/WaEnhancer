@@ -591,4 +591,8 @@
     <string name="monet_custom_color_sum">Use a custom seed color instead of wallpaper colors</string>
     <string name="monet_seed_color">Seed Color</string>
     <string name="monet_seed_color_sum">Select the base color for your custom Monet theme</string>
+    <string name="tick_style">Tick Style</string>
+    <string name="tick_style_sum">Change the style of read receipts (ticks)</string>
+    <string name="bubble_style">Bubble Style</string>
+    <string name="bubble_style_sum">Change the style of conversation bubbles</string>
 </resources>

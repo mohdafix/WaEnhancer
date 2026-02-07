@@ -27,6 +27,7 @@ import com.wmods.wppenhacer.xposed.core.components.WaContactWpp;
 import com.wmods.wppenhacer.xposed.core.devkit.Unobfuscator;
 import com.wmods.wppenhacer.xposed.core.devkit.UnobfuscatorCache;
 import com.wmods.wppenhacer.xposed.features.customization.BubbleColors;
+import com.wmods.wppenhacer.xposed.features.customization.BubbleThemes;
 import com.wmods.wppenhacer.xposed.features.customization.ContactBlockedVerify;
 import com.wmods.wppenhacer.xposed.features.customization.CustomThemeV2;
 import com.wmods.wppenhacer.xposed.features.customization.CustomTime;
@@ -315,6 +316,7 @@ public class FeatureLoader {
                 CustomView.class,
                 SeenTick.class,
                 BubbleColors.class,
+                BubbleThemes.class,
                 CallPrivacy.class,
                 ActivityController.class,
                 CustomThemeV2.class,

@@ -28,6 +28,98 @@ public class ResId {
         public static int audio_speed_seekbar_progress;
         public static int audio_speed_seekbar_thumb;
         public static int ic_audio_speed;
+
+        // Tick Styles
+        public static int alien_message_got_read_receipt_from_target;
+        public static int alien_message_got_read_receipt_from_target_onmedia;
+        public static int alien_message_got_receipt_from_server;
+        public static int alien_message_got_receipt_from_server_onmedia;
+        public static int alien_message_got_receipt_from_target;
+        public static int alien_message_got_receipt_from_target_onmedia;
+        public static int alien_message_unsent;
+        public static int alien_message_unsent_onmedia;
+
+        public static int allo_message_got_read_receipt_from_target;
+        public static int allo_message_got_read_receipt_from_target_onmedia;
+        public static int allo_message_got_receipt_from_server;
+        public static int allo_message_got_receipt_from_server_onmedia;
+        public static int allo_message_got_receipt_from_target;
+        public static int allo_message_got_receipt_from_target_onmedia;
+        public static int allo_message_unsent;
+        public static int allo_message_unsent_onmedia;
+
+        public static int bbm_message_got_read_receipt_from_target;
+        public static int bbm_message_got_read_receipt_from_target_onmedia;
+        public static int bbm_message_got_receipt_from_server;
+        public static int bbm_message_got_receipt_from_server_onmedia;
+        public static int bbm_message_got_receipt_from_target;
+        public static int bbm_message_got_receipt_from_target_onmedia;
+        public static int bbm_message_unsent;
+        public static int bbm_message_unsent_onmedia;
+
+        public static int google_message_got_read_receipt_from_target;
+        public static int google_message_got_read_receipt_from_target_onmedia;
+        public static int google_message_got_receipt_from_server;
+        public static int google_message_got_receipt_from_server_onmedia;
+        public static int google_message_got_receipt_from_target;
+        public static int google_message_got_receipt_from_target_onmedia;
+        public static int google_message_unsent;
+        public static int google_message_unsent_onmedia;
+
+        public static int ios_message_got_read_receipt_from_target;
+        public static int ios_message_got_read_receipt_from_target_onmedia;
+        public static int ios_message_got_receipt_from_server;
+        public static int ios_message_got_receipt_from_server_onmedia;
+        public static int ios_message_got_receipt_from_target;
+        public static int ios_message_got_receipt_from_target_onmedia;
+        public static int ios_message_unsent;
+        public static int ios_message_unsent_onmedia;
+
+        public static int joker_message_got_read_receipt_from_target;
+        public static int joker_message_got_read_receipt_from_target_onmedia;
+        public static int joker_message_got_receipt_from_server;
+        public static int joker_message_got_receipt_from_server_onmedia;
+        public static int joker_message_got_receipt_from_target;
+        public static int joker_message_got_receipt_from_target_onmedia;
+        public static int joker_message_unsent;
+        public static int joker_message_unsent_onmedia;
+
+        public static int messenger_message_got_read_receipt_from_target;
+        public static int messenger_message_got_read_receipt_from_target_onmedia;
+        public static int messenger_message_got_receipt_from_server;
+        public static int messenger_message_got_receipt_from_server_onmedia;
+        public static int messenger_message_got_receipt_from_target;
+        public static int messenger_message_got_receipt_from_target_onmedia;
+        public static int messenger_message_unsent;
+        public static int messenger_message_unsent_onmedia;
+
+        public static int minions_message_got_read_receipt_from_target;
+        public static int minions_message_got_read_receipt_from_target_onmedia;
+        public static int minions_message_got_receipt_from_server;
+        public static int minions_message_got_receipt_from_server_onmedia;
+        public static int minions_message_got_receipt_from_target;
+        public static int minions_message_got_receipt_from_target_onmedia;
+        public static int minions_message_unsent;
+        public static int minions_message_unsent_onmedia;
+
+        public static int pacman_message_got_read_receipt_from_target;
+        public static int pacman_message_got_read_receipt_from_target_onmedia;
+        public static int pacman_message_got_receipt_from_server;
+        public static int pacman_message_got_receipt_from_server_onmedia;
+        public static int pacman_message_got_receipt_from_target;
+        public static int pacman_message_got_receipt_from_target_onmedia;
+        public static int pacman_message_unsent;
+        public static int pacman_message_unsent_onmedia;
+
+        public static int twitter_message_got_read_receipt_from_target;
+        public static int twitter_message_got_read_receipt_from_target_onmedia;
+        public static int twitter_message_got_receipt_from_server;
+        public static int twitter_message_got_receipt_from_server_onmedia;
+        public static int twitter_message_got_receipt_from_target;
+        public static int twitter_message_got_receipt_from_target_onmedia;
+        public static int twitter_message_unsent;
+        public static int twitter_message_unsent_onmedia;
+
     }
 
     public static class string {
@@ -146,6 +238,11 @@ public class ResId {
         public static int voice_note_speed;
         public static int audio_speed_control;
         public static int audio_speed_control_sum;
+
+        public static int tick_style;
+        public static int tick_style_sum;
+        public static int bubble_style;
+        public static int bubble_style_sum;
     }
 
     public static class array {
