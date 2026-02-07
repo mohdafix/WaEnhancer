@@ -2,6 +2,7 @@ package com.wmods.wppenhacer.xposed.features.customization;
 
 import android.annotation.SuppressLint;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.LruCache;
@@ -13,11 +14,13 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
+import com.wmods.wppenhacer.WppXposed;
 import com.wmods.wppenhacer.xposed.core.Feature;
 import com.wmods.wppenhacer.xposed.core.WppCore;
 import com.wmods.wppenhacer.xposed.core.components.FMessageWpp;
 import com.wmods.wppenhacer.xposed.core.db.MessageHistory;
 import com.wmods.wppenhacer.xposed.features.listeners.ConversationItemListener;
+import com.wmods.wppenhacer.xposed.utils.ResId;
 import com.wmods.wppenhacer.xposed.utils.Utils;
 
 import java.util.HashMap;
@@ -33,6 +36,12 @@ import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedBridge;
 
 public class HideSeenView extends Feature {
+
+    // Tick style indicator configuration
+    private static final int TICK_INDICATOR_ID = 0xf7ff2002;
+    private static String tickStyle = null;
+    private static int tickDeliveredResId = 0;  // {style}_message_got_receipt_from_target
+    private static int tickReadResId = 0;       // {style}_message_got_read_receipt_from_target
 
     // Cache configuration
     private static final int JID_CACHE_SIZE = 30;
@@ -73,6 +82,9 @@ public class HideSeenView extends Feature {
     public void doHook() throws Throwable {
         if (!prefs.getBoolean("hide_seen_view", false)) return;
 
+        // Resolve tick style and cache drawable resource IDs for seen/not-seen indicator
+        initTickStyle();
+
         // Hook into MessageHistory.updateViewedMessage to invalidate cache when DB changes
         try {
             var updateMethod = MessageHistory.class.getDeclaredMethod(
@@ -111,6 +123,65 @@ public class HideSeenView extends Feature {
                 updateBubbleView(fMessage, viewGroup);
             }
         });
+    }
+
+    // ================= TICK STYLE INIT =================
+
+    /**
+     * Read the tick_style preference and resolve the two ResId.drawable fields
+     * needed for the seen/not-seen indicator:
+     *   - Not seen: {style}_message_got_receipt_from_target  (delivered = gray double tick)
+     *   - Seen:     {style}_message_got_read_receipt_from_target  (read = blue double tick)
+     *
+     * These ResId.drawable fields hold WhatsApp-context resource IDs populated in
+     * handleInitPackageResources via resparam.res.addResource().
+     */
+    private void initTickStyle() {
+        try {
+            String style = prefs.getString("tick_style", "default");
+            if (style == null || style.equals("default")) {
+                tickStyle = null;
+                tickDeliveredResId = 0;
+                tickReadResId = 0;
+                return;
+            }
+
+            // Resolve delivered tick: {style}_message_got_receipt_from_target
+            String deliveredField = style + "_message_got_receipt_from_target";
+            String readField = style + "_message_got_read_receipt_from_target";
+
+            int deliveredId = 0;
+            int readId = 0;
+
+            try {
+                deliveredId = ResId.drawable.class.getField(deliveredField).getInt(null);
+            } catch (NoSuchFieldException e) {
+                logDebug("No ResId field for: " + deliveredField);
+            }
+
+            try {
+                readId = ResId.drawable.class.getField(readField).getInt(null);
+            } catch (NoSuchFieldException e) {
+                logDebug("No ResId field for: " + readField);
+            }
+
+            if (deliveredId != 0 && readId != 0) {
+                tickStyle = style;
+                tickDeliveredResId = deliveredId;
+                tickReadResId = readId;
+                logDebug("Tick indicator using style '" + style
+                        + "' delivered=" + deliveredId + " read=" + readId);
+            } else {
+                // Fall back to emoji if we can't resolve both drawables
+                tickStyle = null;
+                tickDeliveredResId = 0;
+                tickReadResId = 0;
+                logDebug("Tick style '" + style + "' missing drawable fields, falling back to emoji");
+            }
+        } catch (Exception e) {
+            logDebug("Failed to init tick style: " + e.getMessage());
+            tickStyle = null;
+        }
     }
 
     // ================= CACHE MANAGEMENT =================
@@ -246,23 +317,75 @@ public class HideSeenView extends Feature {
         // Update message status indicator
         ViewGroup dateWrapper = viewGroup.findViewById(Utils.getID("date_wrapper", "id"));
         if (dateWrapper != null) {
-            TextView status = dateWrapper.findViewById(0xf7ff2001);
-            if (status == null) {
-                status = new TextView(viewGroup.getContext());
-                status.setId(0xf7ff2001);
-                status.setTextSize(8);
-                dateWrapper.addView(status);
-            }
-
             MessageHistory.MessageType messageType = MessageHistory.MessageType.MESSAGE_TYPE;
             Boolean cachedStatus = getCachedStatus(jid, messageId, messageType);
 
-            if (cachedStatus == null) {
-                ensureCacheLoaded(jid, messageType);
-                status.setVisibility(View.GONE);
+            if (tickStyle != null && tickDeliveredResId != 0 && tickReadResId != 0) {
+                // --- Tick style mode: use ImageView with custom tick drawables ---
+
+                // Hide the emoji TextView if it exists
+                TextView emojiStatus = dateWrapper.findViewById(0xf7ff2001);
+                if (emojiStatus != null) {
+                    emojiStatus.setVisibility(View.GONE);
+                }
+
+                // Find or create the tick ImageView
+                ImageView tickIndicator = dateWrapper.findViewById(TICK_INDICATOR_ID);
+                if (tickIndicator == null) {
+                    tickIndicator = new ImageView(viewGroup.getContext());
+                    tickIndicator.setId(TICK_INDICATOR_ID);
+                    tickIndicator.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                    // Size: match the date text height approximately
+                    int size = Utils.dipToPixels(14);
+                    ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(size, size);
+                    lp.setMarginEnd(Utils.dipToPixels(2));
+                    tickIndicator.setLayoutParams(lp);
+                    dateWrapper.addView(tickIndicator);
+                }
+
+                if (cachedStatus == null) {
+                    ensureCacheLoaded(jid, messageType);
+                    tickIndicator.setVisibility(View.GONE);
+                } else {
+                    tickIndicator.setVisibility(View.VISIBLE);
+                    int resId = cachedStatus ? tickReadResId : tickDeliveredResId;
+                    try {
+                        Drawable tickDrawable = viewGroup.getContext().getResources().getDrawable(resId);
+                        tickIndicator.setImageDrawable(
+                                new WppXposed.TintProofDrawable(tickDrawable));
+                    } catch (Exception e) {
+                        // Fallback: show emoji if drawable loading fails
+                        tickIndicator.setVisibility(View.GONE);
+                        if (emojiStatus != null) {
+                            emojiStatus.setVisibility(View.VISIBLE);
+                            emojiStatus.setText(cachedStatus ? "\uD83D\uDFE2" : "\uD83D\uDD34");
+                        }
+                    }
+                }
             } else {
-                status.setVisibility(View.VISIBLE);
-                status.setText(cachedStatus ? "\uD83D\uDFE2" : "\uD83D\uDD34");
+                // --- Emoji mode: original behavior ---
+
+                // Hide the tick ImageView if it exists
+                ImageView tickIndicator = dateWrapper.findViewById(TICK_INDICATOR_ID);
+                if (tickIndicator != null) {
+                    tickIndicator.setVisibility(View.GONE);
+                }
+
+                TextView status = dateWrapper.findViewById(0xf7ff2001);
+                if (status == null) {
+                    status = new TextView(viewGroup.getContext());
+                    status.setId(0xf7ff2001);
+                    status.setTextSize(8);
+                    dateWrapper.addView(status);
+                }
+
+                if (cachedStatus == null) {
+                    ensureCacheLoaded(jid, messageType);
+                    status.setVisibility(View.GONE);
+                } else {
+                    status.setVisibility(View.VISIBLE);
+                    status.setText(cachedStatus ? "\uD83D\uDFE2" : "\uD83D\uDD34");
+                }
             }
         }
     }

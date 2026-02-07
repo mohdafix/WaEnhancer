@@ -198,7 +198,7 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
     public static class TintProofDrawable extends Drawable {
         private final Drawable wrapped;
 
-        TintProofDrawable(Drawable wrapped) {
+        public TintProofDrawable(Drawable wrapped) {
             this.wrapped = wrapped;
             setBounds(wrapped.getBounds());
         }
