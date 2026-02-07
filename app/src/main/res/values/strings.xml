@@ -595,4 +595,7 @@
     <string name="tick_style_sum">Change the style of read receipts (ticks)</string>
     <string name="bubble_style">Bubble Style</string>
     <string name="bubble_style_sum">Change the style of conversation bubbles</string>
+    <string name="title_status">Status</string>
+    <string name="five_min_status">5-Minute Status</string>
+    <string name="five_min_status_sum">Allows posting status videos up to 5 minutes instead of 30 seconds. Note: Only users with modded WhatsApp can see the full status. Others will see only the first 30 seconds.</string>
 </resources>

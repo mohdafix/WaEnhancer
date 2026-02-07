@@ -204,6 +204,17 @@
 
     <PreferenceCategory
         app:iconSpaceReserved="false"
+        app:title="@string/title_status">
+
+        <rikka.material.preference.MaterialSwitchPreference
+            app:key="status_video_duration"
+            app:summary="@string/five_min_status_sum"
+            app:title="@string/five_min_status" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:iconSpaceReserved="false"
         app:title="@string/other">
 
         <rikka.material.preference.MaterialSwitchPreference

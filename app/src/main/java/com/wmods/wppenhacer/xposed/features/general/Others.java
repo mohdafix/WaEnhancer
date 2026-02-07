@@ -106,6 +106,12 @@ public class Others extends Feature {
         var disableExpiration = prefs.getBoolean("disable_expiration", false);
         var disableAd = prefs.getBoolean("disable_ads", false);
 
+        // 5-minute status: override prop 6728 to allow 300s video trim for status
+        var fiveMinStatus = prefs.getBoolean("status_video_duration", false);
+        if (fiveMinStatus) {
+            propsInteger.put(6728, 300);
+        }
+
         propsInteger.put(3877, oldStatus ? igstatus ? 2 : 0 : 2);
 
         propsBoolean.put(18250, false);
