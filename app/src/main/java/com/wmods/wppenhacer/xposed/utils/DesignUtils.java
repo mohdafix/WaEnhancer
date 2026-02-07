@@ -141,16 +141,19 @@ public class DesignUtils {
 
 
     public static int getUnSeenColor() {
-        if (mPrefs.getBoolean("monet_theme", false)) {
+        // Priority 1: Manual Color
+        if (mPrefs.getBoolean("changecolor", false)) {
+            int manualColor = mPrefs.getInt("primary_color", 0);
+            if (manualColor != 0) return manualColor;
+        }
+
+        // Priority 2: Monet (only if manual color is not set)
+        if (mPrefs.getBoolean("monet_theme", false) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             int monetColor = MonetColorEngine.getSystemAccentColor(Utils.getApplication());
             if (monetColor != -1) return monetColor;
         }
 
-        var primaryColor = mPrefs.getInt("primary_color", 0);
-        if (primaryColor == 0 || !mPrefs.getBoolean("changecolor", false)) {
-            return 0xFF25d366;
-        }
-        return primaryColor;
+        return 0xFF25d366; // Fallback
     }
 
     public static int getPrimarySurfaceColor() {

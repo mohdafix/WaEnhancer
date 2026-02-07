@@ -285,11 +285,18 @@ public class CustomThemeV2 extends Feature {
             IColors.loadAmoled();
         }
 
-        var primaryColorInt = prefs.getInt("primary_color", 0);
-        var textColorInt = prefs.getInt("text_color", 0);
-        var backgroundColorInt = prefs.getInt("background_color", 0);
+        var primaryColorInt = 0;
+        var textColorInt = 0;
+        var backgroundColorInt = 0;
 
-        if (prefs.getBoolean("monet_theme", false) && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        if (prefs.getBoolean("changecolor", false)) {
+            primaryColorInt = prefs.getInt("primary_color", 0);
+            textColorInt = prefs.getInt("text_color", 0);
+            backgroundColorInt = prefs.getInt("background_color", 0);
+        }
+
+        // Only use Monet if Manual "Change Color" isn't active for that specific color
+        if (primaryColorInt == 0 && prefs.getBoolean("monet_theme", false) && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             int systemAccent = com.wmods.wppenhacer.xposed.utils.MonetColorEngine.getSystemAccentColor(com.wmods.wppenhacer.xposed.utils.Utils.getApplication());
             if (systemAccent != -1) primaryColorInt = systemAccent;
         }
@@ -298,13 +305,9 @@ public class CustomThemeV2 extends Feature {
         var textColor = DesignUtils.checkSystemColor(properties.getProperty("text_color", "0"));
         var backgroundColor = DesignUtils.checkSystemColor(properties.getProperty("background_color", "0"));
 
-        if (prefs.getBoolean("changecolor", false) || prefs.getBoolean("monet_theme", false)) {
-            primaryColor = primaryColorInt == 0 ? "0" : IColors.toString(primaryColorInt);
-            if (prefs.getBoolean("changecolor", false)) {
-                textColor = textColorInt == 0 ? "0" : IColors.toString(textColorInt);
-                backgroundColor = backgroundColorInt == 0 ? "0" : IColors.toString(backgroundColorInt);
-            }
-        }
+        if (primaryColorInt != 0) primaryColor = IColors.toString(primaryColorInt);
+        if (textColorInt != 0) textColor = IColors.toString(textColorInt);
+        if (backgroundColorInt != 0) backgroundColor = IColors.toString(backgroundColorInt);
 
         if (!DesignUtils.isNightMode()) {
             textColors.clear();

@@ -156,11 +156,6 @@ public class AudioSpeedControl extends Feature {
                     Drawable icon = DesignUtils.getDrawable(ResId.drawable.ic_audio_speed);
                     if (icon != null) {
                         int iconColor = DesignUtils.getUnSeenColor();
-                        boolean monetTheme = prefs.getBoolean("monet_theme", false);
-                        if (monetTheme && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                             int systemAccent = MonetColorEngine.getSystemAccentColor(context);
-                             if (systemAccent != -1) iconColor = systemAccent;
-                        }
                         imageView.setImageDrawable(DesignUtils.coloredDrawable(icon, iconColor));
                     }
                     linearLayout.addView(imageView);
@@ -180,20 +175,9 @@ public class AudioSpeedControl extends Feature {
                     Drawable thumb = DesignUtils.getDrawable(ResId.drawable.audio_speed_seekbar_thumb);
                     Drawable progressDrawable = DesignUtils.getDrawable(ResId.drawable.audio_speed_seekbar_progress);
 
-                    int waGreen = 0xFF25D366;
-                    int waDarkGreen = 0xFF128C7E;
-                    
-                    int thumbColor = waGreen;
-                    int progressColor = waGreen;
-                    
-                    boolean monetTheme = prefs.getBoolean("monet_theme", false);
-                    if (monetTheme && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                         int systemAccent = MonetColorEngine.getSystemAccentColor(context);
-                         if (systemAccent != -1) {
-                             thumbColor = systemAccent;
-                             progressColor = systemAccent;
-                         }
-                    }
+                    int accentColor = DesignUtils.getUnSeenColor();
+                    int thumbColor = accentColor;
+                    int progressColor = accentColor;
 
                     if (thumb != null) seekBar.setThumb(DesignUtils.coloredDrawable(thumb, thumbColor));
                     if (progressDrawable != null) seekBar.setProgressDrawable(DesignUtils.coloredDrawable(progressDrawable, progressColor));
