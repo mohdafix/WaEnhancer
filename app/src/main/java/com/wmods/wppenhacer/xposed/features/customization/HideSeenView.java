@@ -336,7 +336,7 @@ public class HideSeenView extends Feature {
                     tickIndicator.setId(TICK_INDICATOR_ID);
                     tickIndicator.setScaleType(ImageView.ScaleType.FIT_CENTER);
                     // Size: match the date text height approximately
-                    int size = Utils.dipToPixels(14);
+                    int size = Utils.dipToPixels(17);
                     ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(size, size);
                     lp.setMarginEnd(Utils.dipToPixels(2));
                     tickIndicator.setLayoutParams(lp);

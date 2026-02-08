@@ -36,10 +36,15 @@ public class MediaQuality extends Feature {
         // Max video size
         Others.propsInteger.put(3185, maxSize);
         Others.propsInteger.put(3656, maxSize);
-        Others.propsInteger.put(4155, maxSize);
-        Others.propsInteger.put(3659, maxSize);
         Others.propsInteger.put(4685, maxSize);
         Others.propsInteger.put(596, maxSize);
+
+        // Fix HD toggle visibility for version 2.26.5.xx+
+        Others.propsBoolean.put(17792, false);
+        Others.propsBoolean.put(3195, false);
+        Others.propsBoolean.put(4155, false);
+        Others.propsBoolean.put(3659, false);
+        Others.propsBoolean.put(6378, false);
 
         // Enable Media Quality selection for Stories
         var hookMediaQualitySelection = Unobfuscator.loadMediaQualitySelectionMethod(classLoader);
