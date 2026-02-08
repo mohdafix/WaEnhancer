@@ -121,26 +121,38 @@
                     android:hint="@string/auto_reply_target_type" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Specific JIDs Input (Hidden by default) -->
-            <com.google.android.material.textfield.TextInputLayout
+            <!-- Specific JIDs Picker (Hidden by default) -->
+            <LinearLayout
                 android:id="@+id/layout_specific_jids"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:visibility="gone"
-                app:boxCornerRadiusTopStart="16dp"
-                app:boxCornerRadiusTopEnd="16dp"
-                app:boxCornerRadiusBottomStart="16dp"
-                app:boxCornerRadiusBottomEnd="16dp"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+                android:layout_marginTop="16dp"
+                android:orientation="vertical"
+                android:visibility="gone">
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/input_specific_jids"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/auto_reply_specific_jids"
+                    android:textSize="14sp"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:layout_marginBottom="8dp"/>
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chip_group_specific_jids"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/auto_reply_specific_jids"
-                    android:inputType="text" />
-            </com.google.android.material.textfield.TextInputLayout>
+                    app:chipSpacing="8dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/button_pick_contacts"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Select Contacts"
+                    android:layout_marginTop="8dp"
+                    app:icon="@android:drawable/ic_menu_add" />
+            </LinearLayout>
 
             <!-- Delay -->
             <TextView

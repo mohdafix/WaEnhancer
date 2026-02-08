@@ -12,6 +12,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.timepicker.MaterialTimePicker;
@@ -19,7 +21,9 @@ import com.google.android.material.timepicker.TimeFormat;
 import com.wmods.wppenhacer.R;
 import com.wmods.wppenhacer.xposed.core.db.AutoReplyDatabase;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Locale;
 
 public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
@@ -30,7 +34,7 @@ public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
     private TextInputEditText inputPattern;
     private TextInputEditText inputReply;
     private TextInputEditText inputDelay;
-    private TextInputEditText inputSpecificJids;
+    // private TextInputEditText inputSpecificJids; // Removed
     private TextInputEditText inputStartTime;
     private TextInputEditText inputEndTime;
     private AutoCompleteTextView dropdownMatchType;
@@ -38,9 +42,12 @@ public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
     private com.google.android.material.switchmaterial.SwitchMaterial switchEnabled;
     private com.google.android.material.button.MaterialButton btnSave;
     private View layoutSpecificJids;
+    private ChipGroup chipGroupSpecificJids;
+    private com.google.android.material.button.MaterialButton btnPickContacts;
 
     private AutoReplyDatabase database;
     private AutoReplyDatabase.AutoReplyRule editingRule;
+    private List<String> selectedSpecificJids = new ArrayList<>();
 
     public interface OnRuleSavedListener {
         void onRuleSaved();
@@ -75,7 +82,8 @@ public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.sheet_auto_reply_rule, container, false);
     }
 
@@ -98,7 +106,7 @@ public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
         inputPattern = view.findViewById(R.id.input_pattern);
         inputReply = view.findViewById(R.id.input_reply);
         inputDelay = view.findViewById(R.id.input_delay);
-        inputSpecificJids = view.findViewById(R.id.input_specific_jids);
+        // inputSpecificJids = view.findViewById(R.id.input_specific_jids);
         inputStartTime = view.findViewById(R.id.input_start_time);
         inputEndTime = view.findViewById(R.id.input_end_time);
         dropdownMatchType = view.findViewById(R.id.dropdown_match_type);
@@ -106,26 +114,28 @@ public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
         switchEnabled = view.findViewById(R.id.switch_enabled);
         btnSave = view.findViewById(R.id.button_save);
         layoutSpecificJids = view.findViewById(R.id.layout_specific_jids);
+        chipGroupSpecificJids = view.findViewById(R.id.chip_group_specific_jids);
+        btnPickContacts = view.findViewById(R.id.button_pick_contacts);
     }
 
     private void setupDropdowns() {
-        String[] matchTypes = new String[]{
+        String[] matchTypes = new String[] {
                 getString(R.string.auto_reply_match_all),
                 getString(R.string.auto_reply_match_contains),
                 getString(R.string.auto_reply_match_exact),
                 getString(R.string.auto_reply_match_regex)
         };
-        ArrayAdapter<String> adapterMatch = new ArrayAdapter<>(requireContext(), 
+        ArrayAdapter<String> adapterMatch = new ArrayAdapter<>(requireContext(),
                 android.R.layout.simple_dropdown_item_1line, matchTypes);
         dropdownMatchType.setAdapter(adapterMatch);
 
-        String[] targetTypes = new String[]{
+        String[] targetTypes = new String[] {
                 getString(R.string.auto_reply_target_all),
                 getString(R.string.auto_reply_target_contacts),
                 getString(R.string.auto_reply_target_groups),
                 getString(R.string.auto_reply_target_specific)
         };
-        ArrayAdapter<String> adapterTarget = new ArrayAdapter<>(requireContext(), 
+        ArrayAdapter<String> adapterTarget = new ArrayAdapter<>(requireContext(),
                 android.R.layout.simple_dropdown_item_1line, targetTypes);
         dropdownTargetType.setAdapter(adapterTarget);
 
@@ -160,6 +170,32 @@ public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
         inputEndTime.setOnClickListener(v -> showTimePicker(false));
 
         btnSave.setOnClickListener(v -> saveRule());
+
+        btnPickContacts.setOnClickListener(v -> pickContacts());
+    }
+
+    private void pickContacts() {
+        ContactPickerSheet sheet = new ContactPickerSheet();
+        sheet.setOnContactsSelectedListener(contacts -> {
+            for (com.wmods.wppenhacer.preference.ContactData contact : contacts) {
+                if (!selectedSpecificJids.contains(contact.getJid())) {
+                    addRecipientChip(contact.getDisplayName(), contact.getJid());
+                    selectedSpecificJids.add(contact.getJid());
+                }
+            }
+        });
+        sheet.show(getChildFragmentManager(), "ContactPickerSheet");
+    }
+
+    private void addRecipientChip(String name, String jid) {
+        Chip chip = new Chip(requireContext());
+        chip.setText(name.isEmpty() ? jid : name);
+        chip.setCloseIconVisible(true);
+        chip.setOnCloseIconClickListener(v -> {
+            chipGroupSpecificJids.removeView(chip);
+            selectedSpecificJids.remove(jid);
+        });
+        chipGroupSpecificJids.addView(chip);
     }
 
     private void showTimePicker(boolean isStartTime) {
@@ -184,7 +220,8 @@ public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
     }
 
     private void populateFields() {
-        if (editingRule == null) return;
+        if (editingRule == null)
+            return;
 
         // Pattern
         if (editingRule.pattern != null) {
@@ -208,8 +245,16 @@ public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
                 editingRule.targetType == AutoReplyDatabase.TargetType.SPECIFIC ? View.VISIBLE : View.GONE);
 
         // Specific JIDs
-        if (editingRule.specificJids != null) {
-            inputSpecificJids.setText(editingRule.specificJids);
+        if (editingRule.specificJids != null && !editingRule.specificJids.isEmpty()) {
+            String[] jids = editingRule.specificJids.split(",");
+            for (String jid : jids) {
+                jid = jid.trim();
+                if (!jid.isEmpty()) {
+                    selectedSpecificJids.add(jid);
+                    // We don't have names here easily, so use JID as name or a placeholder
+                    addRecipientChip(jid, jid);
+                }
+            }
         }
 
         // Delay
@@ -285,32 +330,32 @@ public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
 
     private void saveRule() {
         AutoReplyDatabase.MatchType matchType = parseMatchType(dropdownMatchType.getText().toString());
-        
+
         String pattern = inputPattern.getText() != null ? inputPattern.getText().toString().trim() : "";
         String reply = inputReply.getText() != null ? inputReply.getText().toString().trim() : "";
-        
+
         // Validation
         if (matchType != AutoReplyDatabase.MatchType.ALL && TextUtils.isEmpty(pattern)) {
             inputPattern.setError("Pattern is required");
             return;
         }
-        
+
         if (TextUtils.isEmpty(reply)) {
             inputReply.setError("Reply message is required");
             return;
         }
-        
+
         AutoReplyDatabase.TargetType targetType = parseTargetType(dropdownTargetType.getText().toString());
-        
+
         String specificJids = null;
         if (targetType == AutoReplyDatabase.TargetType.SPECIFIC) {
-            specificJids = inputSpecificJids.getText() != null ? inputSpecificJids.getText().toString().trim() : "";
+            specificJids = android.text.TextUtils.join(",", selectedSpecificJids);
             if (TextUtils.isEmpty(specificJids)) {
-                inputSpecificJids.setError("Specific JIDs are required");
+                Toast.makeText(requireContext(), "Please select at least one contact", Toast.LENGTH_SHORT).show();
                 return;
             }
         }
-        
+
         int delaySeconds = 0;
         String delayStr = inputDelay.getText() != null ? inputDelay.getText().toString().trim() : "";
         if (!TextUtils.isEmpty(delayStr)) {
@@ -321,15 +366,15 @@ public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
                 return;
             }
         }
-        
+
         String startTime = inputStartTime.getText() != null ? inputStartTime.getText().toString().trim() : null;
         String endTime = inputEndTime.getText() != null ? inputEndTime.getText().toString().trim() : null;
-        
+
         // Create or update rule
         if (editingRule == null) {
             editingRule = new AutoReplyDatabase.AutoReplyRule();
         }
-        
+
         editingRule.pattern = pattern;
         editingRule.replyMessage = reply;
         editingRule.matchType = matchType;
@@ -339,15 +384,15 @@ public class AutoReplyRuleSheet extends BottomSheetDialogFragment {
         editingRule.startTime = startTime;
         editingRule.endTime = endTime;
         editingRule.enabled = switchEnabled.isChecked();
-        
+
         if (editingRule.id > 0) {
             database.updateRule(editingRule);
         } else {
             database.insertRule(editingRule);
         }
-        
+
         Toast.makeText(requireContext(), R.string.auto_reply_rule_saved, Toast.LENGTH_SHORT).show();
-        
+
         if (listener != null) {
             listener.onRuleSaved();
         }

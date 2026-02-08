@@ -31,7 +31,8 @@ import de.robv.android.xposed.XposedBridge;
 /**
  * Auto Reply Feature
  * 
- * Listens for incoming messages and automatically sends replies based on configured rules.
+ * Listens for incoming messages and automatically sends replies based on
+ * configured rules.
  * 
  * Features:
  * - Pattern matching (all, contains, exact, regex)
@@ -44,10 +45,10 @@ public class AutoReply extends Feature {
 
     private static final String TAG = "AutoReply";
     private static final long COOLDOWN_MS = 60_000; // 60 second cooldown per JID per rule
-    
+
     // Track recent replies to prevent spam: key = "jid:ruleId", value = timestamp
     private final ConcurrentHashMap<String, Long> recentReplies = new ConcurrentHashMap<>();
-    
+
     private final Handler handler = new Handler(Looper.getMainLooper());
     private AutoReplyDatabase database;
 
@@ -62,55 +63,219 @@ public class AutoReply extends Feature {
         }
 
         database = AutoReplyDatabase.getInstance();
-        
+
         hookIncomingMessages();
     }
 
     private void hookIncomingMessages() throws Exception {
-        // Hook the method that processes incoming messages
-        // This is the chatInfo/incrementUnseenImportantMessageCount method
-        // which is called when new messages arrive
-        Method incomingMessageMethod = Unobfuscator.loadIncomingMessageMethod(classLoader);
-        
-        if (incomingMessageMethod == null) {
-            log("Could not find incoming message method for auto-reply");
-            return;
+        // Try multiple hook points to ensure we catch incoming messages
+        boolean hooked = false;
+
+        // Log that we're starting to hook
+        log("AutoReply: Attempting to hook incoming messages...");
+
+        // PRIMARY: Hook the MessageHandler which processes all incoming messages
+        try {
+            var messageHandlerMethod = Unobfuscator.loadDndModeMethod(classLoader);
+            if (messageHandlerMethod != null) {
+                log("AutoReply: Found MessageHandler method: "
+                        + Unobfuscator.getMethodDescriptor(messageHandlerMethod));
+
+                // Log parameter types
+                Class<?>[] paramTypes = messageHandlerMethod.getParameterTypes();
+                for (int i = 0; i < paramTypes.length; i++) {
+                    log("AutoReply: MessageHandler param[" + i + "]: " + paramTypes[i].getName());
+                }
+
+                XposedBridge.hookMethod(messageHandlerMethod, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        log("AutoReply: MessageHandler/start called with "
+                                + (param.args != null ? param.args.length : 0) + " args");
+                        if (param.args == null || param.args.length == 0)
+                            return;
+
+                        // Log all arguments
+                        for (int i = 0; i < param.args.length; i++) {
+                            Object arg = param.args[i];
+                            if (arg != null) {
+                                log("AutoReply: MessageHandler arg[" + i + "] = " + arg.getClass().getName());
+                                // If this looks like FMessage type, log it
+                                if (FMessageWpp.TYPE != null && FMessageWpp.TYPE.isInstance(arg)) {
+                                    log("AutoReply: MessageHandler arg[" + i + "] IS an FMessage!");
+                                }
+                            }
+                        }
+
+                        try {
+                            Object fMessageObj = findFMessageInArgs(param.args);
+                            if (fMessageObj != null) {
+                                log("AutoReply: Found FMessage in MessageHandler");
+                                processIncomingMessage(fMessageObj);
+                            } else {
+                                logDebug("AutoReply: No FMessage found in MessageHandler args");
+                            }
+                        } catch (Exception e) {
+                            log("AutoReply: Error in MessageHandler hook: " + e.getMessage());
+                        }
+                    }
+                });
+                log("AutoReply: Hooked MessageHandler method successfully");
+                hooked = true;
+            }
+        } catch (Exception e) {
+            log("AutoReply: Failed to hook MessageHandler: " + e.getMessage());
         }
 
-        logDebug("Hooking incoming message method for auto-reply: " + Unobfuscator.getMethodDescriptor(incomingMessageMethod));
+        // Second try: Hook the receipt method (used by Tasker)
+        try {
+            var receiptMethod = Unobfuscator.loadReceiptMethod(classLoader);
+            if (receiptMethod != null) {
+                log("AutoReply: Found loadReceiptMethod: " + Unobfuscator.getMethodDescriptor(receiptMethod));
 
-        XposedBridge.hookMethod(incomingMessageMethod, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                if (param.args == null || param.args.length == 0) return;
+                XposedBridge.hookMethod(receiptMethod, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        // Skip if this is a "sender" receipt (outgoing)
+                        if (param.args != null && param.args.length > 4 && "sender".equals(param.args[4])) {
+                            return;
+                        }
 
-                try {
-                    // Find the FMessage object in the parameters
-                    Object fMessageObj = findFMessageInArgs(param.args);
-                    if (fMessageObj != null) {
-                        processIncomingMessage(fMessageObj);
+                        logDebug("AutoReply: loadReceiptMethod called");
+
+                        if (param.args == null || param.args.length < 4)
+                            return;
+                        if (param.args[1] == null || param.args[3] == null)
+                            return;
+
+                        try {
+                            // Get FMessage from the Key object (arg[3])
+                            var fMessage = new FMessageWpp.Key(param.args[3]).getFMessage();
+                            if (fMessage != null && fMessage.isValid()) {
+                                logDebug("AutoReply: Found FMessage via Key in receipt method");
+                                processIncomingMessage(fMessage.getObject());
+                            }
+                        } catch (Exception e) {
+                            logDebug("AutoReply: Error extracting FMessage from receipt: " + e.getMessage());
+                            // Also try to find FMessage in other args
+                            Object fMessageObj = findFMessageInArgs(param.args);
+                            if (fMessageObj != null) {
+                                logDebug("AutoReply: Found FMessage in receipt args directly");
+                                processIncomingMessage(fMessageObj);
+                            }
+                        }
                     }
-                } catch (Exception e) {
-                    logDebug("Error processing message for auto-reply: " + e.getMessage());
-                }
+                });
+                log("AutoReply: Hooked loadReceiptMethod successfully");
+                hooked = true;
             }
-        });
+        } catch (Exception e) {
+            log("AutoReply: Failed to hook loadReceiptMethod: " + e.getMessage());
+        }
+
+        // Third try: Original incoming message method (fallback)
+        try {
+            Method incomingMessageMethod = Unobfuscator.loadIncomingMessageMethod(classLoader);
+            if (incomingMessageMethod != null) {
+                log("AutoReply: Found incoming message method: "
+                        + Unobfuscator.getMethodDescriptor(incomingMessageMethod));
+
+                XposedBridge.hookMethod(incomingMessageMethod, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        log("AutoReply: incomingMessageMethod BEFORE called with " +
+                                (param.args != null ? param.args.length : 0) + " args");
+                        if (param.args == null || param.args.length == 0)
+                            return;
+
+                        // Log all arguments with their types
+                        for (int i = 0; i < param.args.length; i++) {
+                            Object arg = param.args[i];
+                            if (arg != null) {
+                                log("AutoReply: incomingMessage arg[" + i + "] = " + arg.getClass().getName());
+                                if (FMessageWpp.TYPE != null && FMessageWpp.TYPE.isInstance(arg)) {
+                                    log("AutoReply: arg[" + i + "] IS an FMessage!");
+                                }
+                            }
+                        }
+
+                        try {
+                            Object fMessageObj = findFMessageInArgs(param.args);
+                            if (fMessageObj != null) {
+                                log("AutoReply: Found FMessage in incomingMessage");
+                                processIncomingMessage(fMessageObj);
+                            } else {
+                                log("AutoReply: No FMessage found in incomingMessage args");
+                            }
+                        } catch (Exception e) {
+                            log("AutoReply: Error processing message in incomingMessage: " + e.getMessage());
+                        }
+                    }
+                });
+                log("AutoReply: Hooked incomingMessageMethod successfully");
+                hooked = true;
+            }
+        } catch (Exception e) {
+            log("AutoReply: Failed to hook incomingMessageMethod: " + e.getMessage());
+        }
+
+        // FOURTH: Hook the database insert method (most reliable for all incoming
+        // messages)
+        try {
+            var messageInsertMethod = Unobfuscator.loadMessageInsertMethod(classLoader);
+            if (messageInsertMethod != null) {
+                log("AutoReply: Found MessageInsert method: " + Unobfuscator.getMethodDescriptor(messageInsertMethod));
+
+                XposedBridge.hookMethod(messageInsertMethod, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        log("AutoReply: MessageInsert method called");
+                        if (param.args == null || param.args.length == 0)
+                            return;
+
+                        try {
+                            // First arg should be FMessage
+                            Object fMessageObj = param.args[0];
+                            if (fMessageObj != null && FMessageWpp.TYPE != null
+                                    && FMessageWpp.TYPE.isInstance(fMessageObj)) {
+                                log("AutoReply: Found FMessage in MessageInsert");
+                                processIncomingMessage(fMessageObj);
+                            }
+                        } catch (Exception e) {
+                            log("AutoReply: Error in MessageInsert hook: " + e.getMessage());
+                        }
+                    }
+                });
+                log("AutoReply: Hooked MessageInsert method successfully");
+                hooked = true;
+            }
+        } catch (Exception e) {
+            log("AutoReply: Failed to hook MessageInsert: " + e.getMessage());
+        }
+
+        if (!hooked) {
+            log("AutoReply: ERROR - Could not hook any incoming message method!");
+        } else {
+            log("AutoReply: Hook installation complete");
+        }
     }
 
     /**
      * Find FMessage object in method arguments
      */
     private Object findFMessageInArgs(Object[] args) {
-        if (args == null) return null;
-        
+        if (args == null)
+            return null;
+
         for (Object arg : args) {
-            if (arg == null) continue;
-            
+            if (arg == null)
+                continue;
+
             // Check if the argument is directly an FMessage
             if (FMessageWpp.TYPE != null && FMessageWpp.TYPE.isInstance(arg)) {
                 return arg;
             }
-            
+
             // Check if it's a collection containing FMessages
             if (arg instanceof java.util.Collection) {
                 java.util.Collection<?> collection = (java.util.Collection<?>) arg;
@@ -120,7 +285,7 @@ public class AutoReply extends Feature {
                     }
                 }
             }
-            
+
             // Try to find FMessage field within the object
             try {
                 if (arg.getClass().getName().startsWith("X.") || arg.getClass().getName().startsWith("com.whatsapp")) {
@@ -135,49 +300,83 @@ public class AutoReply extends Feature {
                         }
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
         return null;
     }
 
     private void processIncomingMessage(Object messageObj) {
+        logDebug("AutoReply: processIncomingMessage called");
+
         FMessageWpp fMessage = new FMessageWpp(messageObj);
-        if (!fMessage.isValid()) return;
+        if (!fMessage.isValid()) {
+            logDebug("AutoReply: FMessage is not valid");
+            return;
+        }
 
         FMessageWpp.Key key = fMessage.getKey();
-        if (key == null || key.remoteJid == null) return;
+        if (key == null || key.remoteJid == null) {
+            logDebug("AutoReply: Key or remoteJid is null");
+            return;
+        }
 
         // Only process incoming messages (not from me)
-        if (key.isFromMe) return;
+        if (key.isFromMe) {
+            logDebug("AutoReply: Skipping message from me");
+            return;
+        }
 
         // Skip status messages
-        if (key.remoteJid.isStatus()) return;
-        
+        if (key.remoteJid.isStatus()) {
+            logDebug("AutoReply: Skipping status message");
+            return;
+        }
+
         // Skip newsletter/broadcast
-        if (key.remoteJid.isNewsletter() || key.remoteJid.isBroadcast()) return;
+        if (key.remoteJid.isNewsletter() || key.remoteJid.isBroadcast()) {
+            logDebug("AutoReply: Skipping newsletter/broadcast");
+            return;
+        }
 
         String messageText = fMessage.getMessageStr();
-        if (TextUtils.isEmpty(messageText)) return;
+        if (TextUtils.isEmpty(messageText)) {
+            logDebug("AutoReply: Message text is empty");
+            return;
+        }
 
         String senderJid = key.remoteJid.getPhoneRawString();
-        if (TextUtils.isEmpty(senderJid)) return;
+        if (TextUtils.isEmpty(senderJid)) {
+            logDebug("AutoReply: Sender JID is empty");
+            return;
+        }
 
-        // Get all enabled rules
-        List<AutoReplyDatabase.AutoReplyRule> rules = database.getEnabledRules();
-        if (rules == null || rules.isEmpty()) return;
+        log("AutoReply: Processing message from " + senderJid + ": "
+                + messageText.substring(0, Math.min(50, messageText.length())));
+
+        // Get all enabled rules from SharedPreferences (cross-app access)
+        List<AutoReplyDatabase.AutoReplyRule> rules = AutoReplyDatabase.getEnabledRulesFromPrefs();
+        if (rules == null || rules.isEmpty()) {
+            log("AutoReply: No enabled rules found in prefs");
+            return;
+        }
+
+        log("AutoReply: Found " + rules.size() + " enabled rules from prefs");
 
         boolean isGroup = key.remoteJid.isGroup();
 
         for (AutoReplyDatabase.AutoReplyRule rule : rules) {
+            logDebug("AutoReply: Checking rule ID " + rule.id + " pattern: " + rule.pattern);
             if (shouldApplyRule(rule, senderJid, messageText, isGroup)) {
+                log("AutoReply: Rule matched! Sending auto-reply");
                 sendAutoReply(rule, fMessage, senderJid);
                 break; // Only apply first matching rule
             }
         }
     }
 
-    private boolean shouldApplyRule(AutoReplyDatabase.AutoReplyRule rule, String senderJid, 
-                                     String messageText, boolean isGroup) {
+    private boolean shouldApplyRule(AutoReplyDatabase.AutoReplyRule rule, String senderJid,
+            String messageText, boolean isGroup) {
         // 1. Check target type
         if (!isTargetAllowed(rule, senderJid, isGroup)) {
             return false;
@@ -209,13 +408,14 @@ public class AutoReply extends Feature {
             case GROUPS:
                 return isGroup;
             case SPECIFIC:
-                if (TextUtils.isEmpty(rule.specificJids)) return false;
+                if (TextUtils.isEmpty(rule.specificJids))
+                    return false;
                 Set<String> allowedJids = parseJidSet(rule.specificJids);
                 // Check if sender JID or stripped phone number is in the allowed set
                 String phoneNumber = WppCore.stripJID(senderJid);
-                return allowedJids.contains(senderJid) || 
-                       allowedJids.contains(phoneNumber) ||
-                       allowedJids.stream().anyMatch(j -> senderJid.contains(j) || j.contains(phoneNumber));
+                return allowedJids.contains(senderJid) ||
+                        allowedJids.contains(phoneNumber) ||
+                        allowedJids.stream().anyMatch(j -> senderJid.contains(j) || j.contains(phoneNumber));
             default:
                 return true;
         }
@@ -223,8 +423,9 @@ public class AutoReply extends Feature {
 
     private Set<String> parseJidSet(String jidsString) {
         Set<String> jids = new HashSet<>();
-        if (TextUtils.isEmpty(jidsString)) return jids;
-        
+        if (TextUtils.isEmpty(jidsString))
+            return jids;
+
         String[] parts = jidsString.split(",");
         for (String part : parts) {
             String trimmed = part.trim();
@@ -244,8 +445,9 @@ public class AutoReply extends Feature {
             SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
             Date startTime = sdf.parse(rule.startTime);
             Date endTime = sdf.parse(rule.endTime);
-            
-            if (startTime == null || endTime == null) return true;
+
+            if (startTime == null || endTime == null)
+                return true;
 
             Calendar now = Calendar.getInstance();
             Calendar start = Calendar.getInstance();
@@ -277,7 +479,7 @@ public class AutoReply extends Feature {
 
     private boolean matchesPattern(AutoReplyDatabase.AutoReplyRule rule, String messageText) {
         String pattern = rule.pattern;
-        
+
         switch (rule.matchType) {
             case ALL:
                 // Match all messages
@@ -301,13 +503,13 @@ public class AutoReply extends Feature {
 
     private void sendAutoReply(AutoReplyDatabase.AutoReplyRule rule, FMessageWpp fMessage, String senderJid) {
         String replyMessage = processReplyTemplate(rule.replyMessage, fMessage, senderJid);
-        
+
         int delayMs = rule.delaySeconds * 1000;
-        
+
         // Update cooldown
         String cooldownKey = senderJid + ":" + rule.id;
         recentReplies.put(cooldownKey, System.currentTimeMillis());
-        
+
         Runnable sendTask = () -> {
             try {
                 // Use the existing WppCore.sendMessage method
@@ -330,10 +532,11 @@ public class AutoReply extends Feature {
      * Process reply template with variables like {name}, {time}, etc.
      */
     private String processReplyTemplate(String template, FMessageWpp fMessage, String senderJid) {
-        if (TextUtils.isEmpty(template)) return template;
+        if (TextUtils.isEmpty(template))
+            return template;
 
         String result = template;
-        
+
         // {name} - sender's contact name
         try {
             FMessageWpp.UserJid userJid = fMessage.getKey().remoteJid;

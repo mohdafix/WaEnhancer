@@ -321,6 +321,42 @@ public class Unobfuscator {
     }
 
     /**
+     * Gets the method that is called when a message is inserted into the database.
+     * This hooks into the CoreMessageStore/insertMessage method which receives
+     * FMessage.
+     * This method takes a single FMessage parameter and is called for all incoming
+     * messages.
+     */
+    public synchronized static Method loadMessageInsertMethod(ClassLoader classLoader) throws Exception {
+        return UnobfuscatorCache.getInstance().getMethod(classLoader, () -> {
+            var fMessageClass = loadFMessageClass(classLoader);
+
+            // Find the method that uses "CoreMessageStore/insertMessage"
+            var methodList = dexkit.findMethod(FindMethod.create()
+                    .matcher(MethodMatcher.create()
+                            .addUsingString("CoreMessageStore/insertMessage")
+                            .paramCount(1)));
+
+            for (var method : methodList) {
+                var params = method.getParamTypes();
+                if (params != null && params.size() == 1) {
+                    var paramClass = params.get(0).getInstance(classLoader);
+                    if (fMessageClass.isAssignableFrom(paramClass)) {
+                        return method.getMethodInstance(classLoader);
+                    }
+                }
+            }
+
+            // Fallback: return first match if we couldn't find the exact method
+            if (!methodList.isEmpty()) {
+                return methodList.get(0).getMethodInstance(classLoader);
+            }
+
+            throw new Exception("MessageInsert method not found");
+        });
+    }
+
+    /**
      * Finds the OpusRecorder class used for recording voice notes.
      * This class handles opus encoding of voice recordings.
      * 

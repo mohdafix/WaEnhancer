@@ -36,26 +36,40 @@ public class MenuStatusListener extends Feature {
         logDebug("MenuStatus method: " + menuStatusMethod.getName());
         var menuManagerClass = Unobfuscator.loadMenuManagerClass(classLoader);
 
-        Class<?> StatusPlaybackBaseFragmentClass = classLoader.loadClass("com.whatsapp.status.playback.fragment.StatusPlaybackBaseFragment");
-        Class<?> StatusPlaybackContactFragmentClass = classLoader.loadClass("com.whatsapp.status.playback.fragment.StatusPlaybackContactFragment");
-        var listStatusField = ReflectionUtils.getFieldsByExtendType(StatusPlaybackContactFragmentClass, List.class).get(0);
+        // Use the declaring class of the found method instead of hardcoded strings
+        Class<?> contactFragmentClass = menuStatusMethod.getDeclaringClass();
+        Class<?> baseFragmentClass = contactFragmentClass.getSuperclass();
+
+        if (baseFragmentClass == null || baseFragmentClass.getName().startsWith("androidx.")) {
+            // Fallback if hierarchy is shallow or unexpected
+            baseFragmentClass = contactFragmentClass;
+        }
+
+        final Class<?> StatusPlaybackContactFragmentClass = contactFragmentClass;
+        final Class<?> StatusPlaybackBaseFragmentClass = baseFragmentClass;
+        var listStatusField = ReflectionUtils.getFieldsByExtendType(StatusPlaybackContactFragmentClass, List.class)
+                .get(0);
 
         XposedBridge.hookMethod(menuStatusMethod, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                var fieldObjects = Arrays.stream(param.method.getDeclaringClass().getDeclaredFields()).map(field -> ReflectionUtils.getObjectField(field, param.thisObject)).filter(Objects::nonNull).collect(Collectors.toList());
+                var fieldObjects = Arrays.stream(param.method.getDeclaringClass().getDeclaredFields())
+                        .map(field -> ReflectionUtils.getObjectField(field, param.thisObject)).filter(Objects::nonNull)
+                        .collect(Collectors.toList());
 
                 Object fragmentInstance;
                 if (param.thisObject != null && StatusPlaybackContactFragmentClass.isInstance(param.thisObject)) {
                     fragmentInstance = param.thisObject;
                 } else {
-                    fragmentInstance = fieldObjects.stream().filter(StatusPlaybackBaseFragmentClass::isInstance).findFirst().orElse(null);
+                    fragmentInstance = fieldObjects.stream().filter(StatusPlaybackBaseFragmentClass::isInstance)
+                            .findFirst().orElse(null);
                 }
                 Menu menu;
                 if (param.args.length > 0 && param.args[0] instanceof Menu) {
                     menu = (Menu) param.args[0];
                 } else {
-                    var menuManager = fieldObjects.stream().filter(menuManagerClass::isInstance).findFirst().orElse(null);
+                    var menuManager = fieldObjects.stream().filter(menuManagerClass::isInstance).findFirst()
+                            .orElse(null);
                     var menuField = ReflectionUtils.getFieldByExtendType(menuManagerClass, Menu.class);
                     menu = (Menu) ReflectionUtils.getObjectField(menuField, menuManager);
                 }
@@ -63,7 +77,8 @@ public class MenuStatusListener extends Feature {
                 var index = (int) XposedHelpers.getObjectField(fragmentInstance, "A00");
                 var listStatus = (List) listStatusField.get(fragmentInstance);
                 var object = listStatus.get(index);
-                if (object == null) return;
+                if (object == null)
+                    return;
                 if (!FMessageWpp.TYPE.isInstance(object)) {
                     var fMessageField = ReflectionUtils.getFieldByExtendType(object.getClass(), FMessageWpp.TYPE);
                     object = ReflectionUtils.getObjectField(fMessageField, object);
@@ -73,7 +88,8 @@ public class MenuStatusListener extends Feature {
 
                 for (onMenuItemStatusListener menuStatus : menuStatuses) {
                     var menuItem = menuStatus.addMenu(menu, fMessage);
-                    if (menuItem == null) continue;
+                    if (menuItem == null)
+                        continue;
                     menuItem.setOnMenuItemClickListener(item -> {
                         menuStatus.onClick(item, fragmentInstance, fMessage);
                         return true;
