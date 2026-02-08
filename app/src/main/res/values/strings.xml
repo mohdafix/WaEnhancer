@@ -638,4 +638,7 @@
     <string name="voice_changer_enabled_sum">Apply voice effects to voice notes before sending</string>
     <string name="voice_changer_effect">Voice Effect</string>
     <string name="voice_changer_effect_sum">Select the voice effect to apply</string>
+    <string name="voice_changer_title">Voice Changer</string>
+    <string name="voice_changer_select_effect">Select Voice Effect</string>
+    <string name="voice_changer_effect_changed">Voice effect: %s</string>
 </resources>

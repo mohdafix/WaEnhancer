@@ -22,6 +22,17 @@ import java.nio.ShortBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import android.app.Activity;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.widget.Toast;
+
+import com.wmods.wppenhacer.xposed.core.WppCore;
+import com.wmods.wppenhacer.xposed.core.components.AlertDialogWpp;
+import com.wmods.wppenhacer.xposed.utils.DesignUtils;
+import com.wmods.wppenhacer.xposed.utils.ResId;
+import com.wmods.wppenhacer.xposed.utils.Utils;
+
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedBridge;
@@ -55,6 +66,18 @@ public class VoiceChanger extends Feature {
     public static final int EFFECT_SLOW_MOTION = 7;
     public static final int EFFECT_UNDERWATER = 8;
     public static final int EFFECT_FUN = 9;
+
+    // Effect names for UI display (matching arrays.xml voice_effect_entries)
+    public static final String[] EFFECT_NAMES = {
+            "Disabled", "Baby", "Teenager", "Deep", "Robot",
+            "Drunk", "Fast", "Slow Motion", "Underwater", "Fun"
+    };
+
+    // Menu item ID for conversation menu
+    private static final int MENU_ITEM_ID = 0x57A22;
+
+    // Current effect (stored for dynamic updates)
+    private static int currentEffect = EFFECT_DISABLED;
 
     // Current recording file path (captured from constructor)
     private static String currentRecordingPath = null;
@@ -113,12 +136,137 @@ public class VoiceChanger extends Feature {
             return;
         }
 
-        // Load the selected effect from preferences
-        int effectType = Integer.parseInt(prefs.getString("voice_changer_effect", "0"));
-        nativeSetEffect(effectType);
-        log("Voice Changer initialized with effect: " + effectType);
+        // Load the selected effect from preferences (or from runtime storage)
+        String storedEffect = WppCore.getPrivString("voice_changer_current_effect", null);
+        if (storedEffect != null) {
+            currentEffect = Integer.parseInt(storedEffect);
+        } else {
+            currentEffect = Integer.parseInt(prefs.getString("voice_changer_effect", "0"));
+        }
+        nativeSetEffect(currentEffect);
+        log("Voice Changer initialized with effect: " + currentEffect + " (" + getEffectName(currentEffect) + ")");
 
         hookOpusRecorder();
+        hookConversationMenu();
+    }
+
+    /**
+     * Get the effect name for display
+     */
+    public static String getEffectName(int effectType) {
+        if (effectType >= 0 && effectType < EFFECT_NAMES.length) {
+            return EFFECT_NAMES[effectType];
+        }
+        return "Unknown";
+    }
+
+    /**
+     * Set the voice effect dynamically (can be called from UI)
+     */
+    public static void setEffect(int effectType) {
+        if (effectType >= 0 && effectType < EFFECT_NAMES.length) {
+            currentEffect = effectType;
+            if (nativeLoaded) {
+                nativeSetEffect(effectType);
+            }
+            // Store in runtime preferences so it persists during session
+            WppCore.setPrivString("voice_changer_current_effect", String.valueOf(effectType));
+            XposedBridge.log("WaEnhancer: Voice Changer effect set to: " + getEffectName(effectType));
+        }
+    }
+
+    /**
+     * Get the current effect type
+     */
+    public static int getCurrentEffect() {
+        return currentEffect;
+    }
+
+    /**
+     * Hook the conversation menu to add voice changer quick access
+     */
+    private void hookConversationMenu() throws Exception {
+        var onCreateMenuConversationMethod = Unobfuscator.loadBlueOnReplayCreateMenuConversationMethod(classLoader);
+        if (onCreateMenuConversationMethod == null) {
+            log("Could not find conversation menu method, skipping UI integration");
+            return;
+        }
+
+        XposedBridge.hookMethod(onCreateMenuConversationMethod, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                var menu = (Menu) param.args[0];
+                var activity = WppCore.getCurrentConversation();
+                if (activity == null)
+                    return;
+                addVoiceChangerMenuItem(menu, activity);
+            }
+        });
+        log("Voice Changer conversation menu hook installed");
+    }
+
+    /**
+     * Add voice changer menu item to conversation menu
+     */
+    private void addVoiceChangerMenuItem(Menu menu, Activity activity) {
+        if (menu.findItem(MENU_ITEM_ID) != null)
+            return;
+
+        String title = "Voice: " + getEffectName(currentEffect);
+        MenuItem item = menu.add(0, MENU_ITEM_ID, 0, title);
+
+        // Try to use a microphone icon
+        try {
+            var iconDraw = DesignUtils.getDrawableByName("ic_microphone");
+            if (iconDraw == null) {
+                iconDraw = activity.getDrawable(android.R.drawable.ic_btn_speak_now);
+            }
+            if (iconDraw != null) {
+                iconDraw.setTint(DesignUtils.getPrimaryTextColor());
+                item.setIcon(iconDraw);
+            }
+        } catch (Throwable ignored) {
+        }
+
+        // Show in action bar if space available
+        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+
+        item.setOnMenuItemClickListener(mi -> {
+            showVoiceChangerDialog(activity, item);
+            return true;
+        });
+    }
+
+    /**
+     * Show dialog to select voice effect
+     */
+    private void showVoiceChangerDialog(Activity activity, MenuItem menuItem) {
+        try {
+            AlertDialogWpp dialog = new AlertDialogWpp(activity);
+            dialog.setTitle("Voice Changer");
+
+            // Create list of effect options with current selection indicator
+            String[] displayNames = new String[EFFECT_NAMES.length];
+            for (int i = 0; i < EFFECT_NAMES.length; i++) {
+                displayNames[i] = (i == currentEffect ? "✓ " : "   ") + EFFECT_NAMES[i];
+            }
+
+            dialog.setItems(displayNames, (d, which) -> {
+                setEffect(which);
+                Utils.showToast("Voice effect: " + getEffectName(which), Toast.LENGTH_SHORT);
+
+                // Update menu item title
+                if (menuItem != null) {
+                    menuItem.setTitle("Voice: " + getEffectName(which));
+                }
+            });
+
+            dialog.setNegativeButton("Cancel", null);
+            dialog.show();
+        } catch (Throwable e) {
+            log("Error showing voice changer dialog: " + e.getMessage());
+            XposedBridge.log(e);
+        }
     }
 
     /**
