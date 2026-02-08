@@ -74,6 +74,9 @@ public class MenuStatusListener extends Feature {
                     menu = (Menu) ReflectionUtils.getObjectField(menuField, menuManager);
                 }
 
+                if (fragmentInstance == null)
+                    return;
+
                 var index = (int) XposedHelpers.getObjectField(fragmentInstance, "A00");
                 var listStatus = (List) listStatusField.get(fragmentInstance);
                 var object = listStatus.get(index);
