@@ -58,9 +58,7 @@ public class FMessageWpp {
     private Key key;
     private static final LruCache<Class<?>, Field> baseMessageFieldCache = new LruCache<>(100);
     private static final Set<String> VALID_DOMAINS = new HashSet<>(Arrays.asList(
-            "s.whatsapp.net", "newsletter", "lid", "g.us", "broadcast", "status"
-    ));
-
+            "s.whatsapp.net", "newsletter", "lid", "g.us", "broadcast", "status"));
 
     public FMessageWpp(Object rawMsg) {
         // Aggressive unwrapping in constructor
@@ -92,7 +90,8 @@ public class FMessageWpp {
         try {
             // 1. Load the standard FMessage class
             Class<?> mainType = Unobfuscator.loadFMessageClass(classLoader);
-            if (mainType == null) return;
+            if (mainType == null)
+                return;
 
             TYPE = mainType;
             SUPPORTED_TYPES.add(mainType);
@@ -103,12 +102,14 @@ public class FMessageWpp {
                 altType = XposedHelpers.findClassIfExists("X.8kV", classLoader);
                 if (altType != null && !altType.equals(mainType)) {
                     SUPPORTED_TYPES.add(altType);
-                    XposedBridge.log("FMessageWpp: Added support for " + altType.getName());
+                    // XposedBridge.log("FMessageWpp: Added support for " + altType.getName());
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
 
             // 3. Load methods/fields using the main TYPE
-            Class<?> userJidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.UserJid");
+            Class<?> userJidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith,
+                    "jid.UserJid");
             for (Method m : TYPE.getDeclaredMethods()) {
                 if (m.getParameterTypes().length == 0 && m.getReturnType().equals(userJidClass)) {
                     userJidMethod = m;
@@ -118,13 +119,15 @@ public class FMessageWpp {
             }
 
             keyMessage = Unobfuscator.loadMessageKeyField(classLoader);
-            if (keyMessage != null) Key.TYPE = keyMessage.getType();
+            if (keyMessage != null)
+                Key.TYPE = keyMessage.getType();
 
             messageMethod = Unobfuscator.loadNewMessageMethod(classLoader);
             messageWithMediaMethod = Unobfuscator.loadNewMessageWithMediaMethod(classLoader);
             getFieldIdMessage = Unobfuscator.loadSetEditMessageField(classLoader);
 
-            Class<?> deviceJidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.DeviceJid");
+            Class<?> deviceJidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith,
+                    "jid.DeviceJid");
             for (Field f : TYPE.getDeclaredFields()) {
                 if (f.getType().equals(deviceJidClass)) {
                     deviceJidField = f;
@@ -160,20 +163,24 @@ public class FMessageWpp {
      * CORE FIX: Recursive search for the valid message object.
      */
     private static Object findBaseMessage(Object rawMsg) {
-        if (rawMsg == null) return null;
-        if (isFMessage(rawMsg)) return rawMsg;
+        if (rawMsg == null)
+            return null;
+        if (isFMessage(rawMsg))
+            return rawMsg;
 
         Class<?> clazz = rawMsg.getClass();
         Field cachedField = baseMessageFieldCache.get(clazz);
         if (cachedField != null) {
             try {
                 return cachedField.get(rawMsg);
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
         try {
             for (Field field : clazz.getDeclaredFields()) {
-                if (field.getType().isPrimitive() || field.getType().equals(String.class)) continue;
+                if (field.getType().isPrimitive() || field.getType().equals(String.class))
+                    continue;
                 if (isFMessageClass(field.getType())) {
                     field.setAccessible(true);
                     Object potential = field.get(rawMsg);
@@ -183,24 +190,28 @@ public class FMessageWpp {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         return null;
     }
 
-
     public static boolean isFMessage(Object obj) {
-        if (obj == null) return false;
+        if (obj == null)
+            return false;
         for (Class<?> type : SUPPORTED_TYPES) {
-            if (type != null && type.isInstance(obj)) return true;
+            if (type != null && type.isInstance(obj))
+                return true;
         }
         return false;
     }
 
     public static boolean isFMessageClass(Class<?> clazz) {
-        if (clazz == null) return false;
+        if (clazz == null)
+            return false;
         for (Class<?> type : SUPPORTED_TYPES) {
-            if (type != null && type.isAssignableFrom(clazz)) return true;
+            if (type != null && type.isAssignableFrom(clazz))
+                return true;
         }
         return false;
     }
@@ -223,7 +234,8 @@ public class FMessageWpp {
             if (userJidMethod != null) {
                 return userJidMethod.invoke(rawMsg);
             }
-        } catch (Throwable t) { }
+        } catch (Throwable t) {
+        }
         return null;
     }
 
@@ -232,22 +244,29 @@ public class FMessageWpp {
     }
 
     public UserJid getUserJid() {
-        if (userJid == null) return null;
+        if (userJid == null)
+            return null;
         return new UserJid(userJid);
     }
 
     public Object getDeviceJid() {
-        if (deviceJidField == null) return null;
+        if (deviceJidField == null)
+            return null;
         try {
             return deviceJidField.get(fmessage);
-        } catch (Exception ignored) { return null; }
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     public long getRowId() {
-        if (getFieldIdMessage == null) return 0;
+        if (getFieldIdMessage == null)
+            return 0;
         try {
             return getFieldIdMessage.getLong(fmessage);
-        } catch (Exception ignored) { return 0; }
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 
     public Key getKey() {
@@ -255,15 +274,18 @@ public class FMessageWpp {
             try {
                 keyMessage = XposedHelpers.findField(fmessage.getClass(), "key");
                 keyMessage.setAccessible(true);
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
         if (keyMessage == null) {
-            if (fmessage != null) return new Key(null, this);
+            if (fmessage != null)
+                return new Key(null, this);
             return null;
         }
 
-        if (this.key != null) return this.key;
+        if (this.key != null)
+            return this.key;
 
         try {
             Object rawKey = keyMessage.get(fmessage);
@@ -279,21 +301,26 @@ public class FMessageWpp {
     }
 
     public Key getOriginalKey() {
-        if (getOriginalMessageKey == null) return null;
+        if (getOriginalMessageKey == null)
+            return null;
         try {
             Object rawKey = getOriginalMessageKey.invoke(fmessage);
             if (rawKey != null) {
                 return new Key(rawKey, this);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return null;
     }
 
     public boolean isBroadcast() {
-        if (broadcastField == null) return false;
+        if (broadcastField == null)
+            return false;
         try {
             return broadcastField.getBoolean(fmessage);
-        } catch (Exception ignored) { return false; }
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     public Object getObject() {
@@ -301,31 +328,39 @@ public class FMessageWpp {
     }
 
     public String getMessageStr() {
-        if (messageMethod == null && messageWithMediaMethod == null) return null;
+        if (messageMethod == null && messageWithMediaMethod == null)
+            return null;
         try {
             if (messageMethod != null) {
                 var message = (String) messageMethod.invoke(fmessage);
-                if (message != null) return message;
+                if (message != null)
+                    return message;
             }
             if (messageWithMediaMethod != null) {
                 return (String) messageWithMediaMethod.invoke(fmessage);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return null;
     }
 
     public boolean isMediaFile() {
-        if (abstractMediaMessageClass == null) return false;
+        if (abstractMediaMessageClass == null)
+            return false;
         try {
             return abstractMediaMessageClass.isInstance(fmessage);
-        } catch (Exception ignored) { return false; }
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     public File getMediaFile() {
-        if (!isMediaFile()) return null;
+        if (!isMediaFile())
+            return null;
         try {
             for (var field : abstractMediaMessageClass.getDeclaredFields()) {
-                if (field.getType().isPrimitive()) continue;
+                if (field.getType().isPrimitive())
+                    continue;
 
                 Field fileField = null;
                 for (Field f : field.getType().getDeclaredFields()) {
@@ -338,30 +373,39 @@ public class FMessageWpp {
                 if (fileField != null) {
                     field.setAccessible(true);
                     var mediaObject = field.get(fmessage);
-                    if (mediaObject == null) continue;
+                    if (mediaObject == null)
+                        continue;
 
                     fileField.setAccessible(true);
                     var mediaFile = (File) fileField.get(mediaObject);
-                    if (mediaFile != null) return mediaFile;
+                    if (mediaFile != null)
+                        return mediaFile;
 
                     var filePath = MessageStore.getInstance().getMediaFromID(getRowId());
-                    if (filePath == null) return null;
+                    if (filePath == null)
+                        return null;
                     return new File(filePath);
                 }
             }
-        } catch (Exception e) { XposedBridge.log(e); }
+        } catch (Exception e) {
+            XposedBridge.log(e);
+        }
         return null;
     }
 
     public int getMediaType() {
-        if (mediaTypeField == null) return -1;
+        if (mediaTypeField == null)
+            return -1;
         try {
             return mediaTypeField.getInt(fmessage);
-        } catch (Exception ignored) { return -1; }
+        } catch (Exception ignored) {
+            return -1;
+        }
     }
 
     public int getStatus() {
-        if (fmessage == null) return -1;
+        if (fmessage == null)
+            return -1;
         try {
             // Usually 'status' or a similar int field.
             // Heuristic: Status is an int, and common obfuscated names often repeat.
@@ -369,11 +413,13 @@ public class FMessageWpp {
             Field f = XposedHelpers.findField(fmessage.getClass(), "status");
             return f.getInt(fmessage);
         } catch (Throwable t) {
-            // Try common obfuscated names if needed, but 'status' is very common in FMessage
+            // Try common obfuscated names if needed, but 'status' is very common in
+            // FMessage
             try {
                 // Search all int fields for one that matches status values? Too slow.
                 // Just use reflection to find "status" field even if it's protected/private
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
         return -1;
     }
@@ -405,12 +451,13 @@ public class FMessageWpp {
             this.messageID = "";
             this.isFromMe = false;
 
-            if (key == null) return;
+            if (key == null)
+                return;
 
             try {
                 // 1. Find MessageID (String)
                 boolean foundId = false;
-                
+
                 // Prioritize Unobfuscator field
                 if (keyMessageIdField != null) {
                     try {
@@ -419,7 +466,8 @@ public class FMessageWpp {
                             this.messageID = val;
                             foundId = true;
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                    }
                 }
 
                 if (!foundId) {
@@ -433,7 +481,8 @@ public class FMessageWpp {
                                     foundId = true;
                                     break;
                                 }
-                            } catch (Exception ignored) {}
+                            } catch (Exception ignored) {
+                            }
                         }
                     }
                 }
@@ -447,7 +496,8 @@ public class FMessageWpp {
                             this.isFromMe = f.getBoolean(key);
                             foundFromMe = true;
                             break;
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) {
+                        }
                     }
                 }
 
@@ -463,44 +513,54 @@ public class FMessageWpp {
                                 foundJid = true;
                                 break;
                             }
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) {
+                        }
                     }
                 }
-                     // Last resort hardcoded
-                     try {
-                        Object val = XposedHelpers.getObjectField(key, "A01");
-                        if (val instanceof String) this.messageID = (String) val;
-                    } catch (Exception ignored) {}
+                // Last resort hardcoded
+                try {
+                    Object val = XposedHelpers.getObjectField(key, "A01");
+                    if (val instanceof String)
+                        this.messageID = (String) val;
+                } catch (Exception ignored) {
+                }
 
                 if (!foundFromMe && keyFromMeField != null) {
                     try {
                         this.isFromMe = keyFromMeField.getBoolean(key);
                     } catch (Exception e) {
-                         try {
+                        try {
                             this.isFromMe = XposedHelpers.getBooleanField(key, "A02");
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) {
+                        }
                     }
                 } else if (!foundFromMe) {
                     try {
                         this.isFromMe = XposedHelpers.getBooleanField(key, "A02");
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                    }
                 }
 
                 if (!foundJid && keyRemoteJidField != null) {
                     try {
                         Object val = keyRemoteJidField.get(key);
-                        if (val != null) this.remoteJid = new UserJid(val);
+                        if (val != null)
+                            this.remoteJid = new UserJid(val);
                     } catch (Exception e) {
                         try {
                             Object val = XposedHelpers.getObjectField(key, "A00");
-                            if (val != null) this.remoteJid = new UserJid(val);
-                        } catch (Exception ignored) {}
+                            if (val != null)
+                                this.remoteJid = new UserJid(val);
+                        } catch (Exception ignored) {
+                        }
                     }
                 } else if (!foundJid) {
-                     try {
+                    try {
                         Object val = XposedHelpers.getObjectField(key, "A00");
-                        if (val != null) this.remoteJid = new UserJid(val);
-                    } catch (Exception ignored) {}
+                        if (val != null)
+                            this.remoteJid = new UserJid(val);
+                    } catch (Exception ignored) {
+                    }
                 }
 
             } catch (Exception e) {
@@ -515,13 +575,15 @@ public class FMessageWpp {
 
             if (TYPE != null) {
                 try {
-                    var key = XposedHelpers.newInstance(TYPE, remoteJid.userJid != null ? remoteJid.userJid : remoteJid.phoneJid, messageID, false);
+                    var key = XposedHelpers.newInstance(TYPE,
+                            remoteJid.userJid != null ? remoteJid.userJid : remoteJid.phoneJid, messageID, false);
                     var fmessage = WppCore.getFMessageFromKey(key);
                     if (fmessage != null) {
                         this.thisObject = key;
                         this.fmessage = new FMessageWpp(fmessage);
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         }
 
@@ -548,14 +610,14 @@ public class FMessageWpp {
         private String cachedUserRaw;
         private String cachedPhoneNumber;
 
-
         public static final Class<?> TYPE_JID = com.wmods.wppenhacer.xposed.core.components.FMessageWpp.UserJid.class;
 
         public UserJid() {
         }
 
         public UserJid(@Nullable String rawjid) {
-            if (isInvalidJid(rawjid)) return;
+            if (isInvalidJid(rawjid))
+                return;
             if (checkValidLID(rawjid)) {
                 this.userJid = WppCore.createUserJid(rawjid);
                 this.phoneJid = WppCore.getPhoneJidFromUserJid(this.userJid);
@@ -566,7 +628,8 @@ public class FMessageWpp {
         }
 
         public UserJid(@Nullable Object lidOrJid) {
-            if (lidOrJid == null) return;
+            if (lidOrJid == null)
+                return;
 
             String raw = null;
             try {
@@ -579,7 +642,8 @@ public class FMessageWpp {
                 // XposedBridge.log("UserJid ctor error: " + ignored.getMessage());
             }
 
-            if (raw == null || isInvalidJid(raw)) return;
+            if (raw == null || isInvalidJid(raw))
+                return;
 
             if (checkValidLID(raw)) {
                 this.userJid = lidOrJid;
@@ -597,8 +661,10 @@ public class FMessageWpp {
 
         @Nullable
         public String getPhoneRawString() {
-            if (cachedPhoneRaw != null) return cachedPhoneRaw;
-            if (this.phoneJid == null) return null;
+            if (cachedPhoneRaw != null)
+                return cachedPhoneRaw;
+            if (this.phoneJid == null)
+                return null;
             try {
                 String raw;
                 if (jidGetRawStringMethod != null) {
@@ -606,7 +672,8 @@ public class FMessageWpp {
                 } else {
                     raw = (String) XposedHelpers.callMethod(this.phoneJid, "getRawString");
                 }
-                if (raw == null) return null;
+                if (raw == null)
+                    return null;
                 cachedPhoneRaw = raw.replaceFirst("\\.[\\d:]+@", "@");
                 return cachedPhoneRaw;
             } catch (Exception e) {
@@ -614,11 +681,12 @@ public class FMessageWpp {
             }
         }
 
-
         @Nullable
         public String getUserRawString() {
-            if (cachedUserRaw != null) return cachedUserRaw;
-            if (this.userJid == null) return null;
+            if (cachedUserRaw != null)
+                return cachedUserRaw;
+            if (this.userJid == null)
+                return null;
             try {
                 String raw;
                 if (jidGetRawStringMethod != null) {
@@ -626,7 +694,8 @@ public class FMessageWpp {
                 } else {
                     raw = (String) XposedHelpers.callMethod(this.userJid, "getRawString");
                 }
-                if (raw == null) return null;
+                if (raw == null)
+                    return null;
                 cachedUserRaw = raw.replaceFirst("\\.[\\d:]+@", "@");
                 return cachedUserRaw;
             } catch (Exception e) {
@@ -634,13 +703,14 @@ public class FMessageWpp {
             }
         }
 
-
         @Nullable
         public String getPhoneNumber() {
-            if (cachedPhoneNumber != null) return cachedPhoneNumber;
+            if (cachedPhoneNumber != null)
+                return cachedPhoneNumber;
             String str = getPhoneRawString();
             try {
-                if (str == null) return null;
+                if (str == null)
+                    return null;
                 String result;
                 if (str.contains(".") && str.contains("@") && str.indexOf(".") < str.indexOf("@")) {
                     result = str.substring(0, str.indexOf("."));
@@ -657,9 +727,9 @@ public class FMessageWpp {
             }
         }
 
-
         private boolean isInvalidJid(String rawjid) {
-            if (rawjid == null) return true;
+            if (rawjid == null)
+                return true;
             int atIndex = rawjid.indexOf('@');
             if (atIndex == -1 || atIndex == rawjid.length() - 1) {
                 return true;
@@ -687,20 +757,24 @@ public class FMessageWpp {
 
         public boolean isNewsletter() {
             String raw = getPhoneRawString();
-            if (raw == null) return false;
+            if (raw == null)
+                return false;
             return raw.endsWith("@newsletter");
         }
 
         public boolean isBroadcast() {
             String raw = getPhoneRawString();
-            if (raw == null) return false;
+            if (raw == null)
+                return false;
             return raw.endsWith("@broadcast");
         }
 
         public boolean isGroup() {
-            if (this.phoneJid == null) return false;
+            if (this.phoneJid == null)
+                return false;
             String str = getPhoneRawString();
-            if (str == null) return false;
+            if (str == null)
+                return false;
             return str.endsWith("@g.us");
         }
 

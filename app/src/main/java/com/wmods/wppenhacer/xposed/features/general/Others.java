@@ -164,15 +164,15 @@ public class Others extends Feature {
         propsBoolean.put(12495, animationEmojis);
         propsBoolean.put(11066, animationEmojis);
 
-        propsBoolean.put(7589, true);  // Media select quality
+        propsBoolean.put(7589, true); // Media select quality
         propsBoolean.put(6972, false); // Media select quality
-        propsBoolean.put(5625, true);  // Enable option to autodelete channels media
+        propsBoolean.put(5625, true); // Enable option to autodelete channels media
 
-        propsBoolean.put(8643, true);  // Enable TextStatusComposerActivityV2
-//        propsBoolean.put(3403, true);  // Enable Sticker Suggestion
-        propsBoolean.put(8607, true);  // Enable Dialer keyboard
-        propsBoolean.put(9578, true);  // Enable Privacy Checkup
-        propsInteger.put(8135, 2);  // Call Filters
+        propsBoolean.put(8643, true); // Enable TextStatusComposerActivityV2
+        // propsBoolean.put(3403, true); // Enable Sticker Suggestion
+        propsBoolean.put(8607, true); // Enable Dialer keyboard
+        propsBoolean.put(9578, true); // Enable Privacy Checkup
+        propsInteger.put(8135, 2); // Call Filters
 
         // Enable Translate Message
         propsBoolean.put(9141, true);
@@ -232,7 +232,6 @@ public class Others extends Feature {
         propsInteger.put(8522, status_style);
         propsInteger.put(8521, status_style);
 
-
         hookProps();
         hookSearchbar(filterChats);
 
@@ -246,7 +245,6 @@ public class Others extends Feature {
                 XposedBridge.hookAllMethods(cls, "onSensorChanged", XC_MethodReplacement.DO_NOTHING);
             }
         }
-
 
         if (filter_items != null && prefs.getBoolean("custom_filters", true)) {
             filterItems(filter_items);
@@ -271,7 +269,6 @@ public class Others extends Feature {
         animationList();
 
         stampCopiedMessage();
-
 
         alwaysOnline();
 
@@ -310,7 +307,8 @@ public class Others extends Feature {
             boolean doubleTapEnabled = prefs.getBoolean("doubletap2like", false);
             boolean tapToMenuEnabled = prefs.getBoolean("tap_to_menu", false);
 
-            if (!doubleTapEnabled && !tapToMenuEnabled) return;
+            if (!doubleTapEnabled && !tapToMenuEnabled)
+                return;
 
             var emoji = prefs.getString("doubletap2like_emoji", "👍");
 
@@ -323,60 +321,63 @@ public class Others extends Feature {
                 }
             });
 
-            ConversationItemListener.conversationListeners.add(new ConversationItemListener.OnConversationItemListener() {
-                private float lastX, lastY;
-                private long lastClickTime = 0;
-                private int clickCount = 0;
+            ConversationItemListener.conversationListeners
+                    .add(new ConversationItemListener.OnConversationItemListener() {
+                        private float lastX, lastY;
+                        private long lastClickTime = 0;
+                        private int clickCount = 0;
 
-                @Override
-                @SuppressLint("ClickableViewAccessibility")
-                public void onItemBind(FMessageWpp fMessage, ViewGroup viewGroup) {
-                    viewGroup.setOnTouchListener((v, event) -> {
-                        if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
-                            lastX = event.getX();
-                            lastY = event.getY();
-                        }
-                        return false;
-                    });
+                        @Override
+                        @SuppressLint("ClickableViewAccessibility")
+                        public void onItemBind(FMessageWpp fMessage, ViewGroup viewGroup) {
+                            viewGroup.setOnTouchListener((v, event) -> {
+                                if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                                    lastX = event.getX();
+                                    lastY = event.getY();
+                                }
+                                return false;
+                            });
 
-                    viewGroup.setOnClickListener(v -> {
-                        long now = System.currentTimeMillis();
-                        if (now - lastClickTime < 500) {
-                            clickCount++;
-                        } else {
-                            clickCount = 1;
-                        }
-                        lastClickTime = now;
+                            viewGroup.setOnClickListener(v -> {
+                                long now = System.currentTimeMillis();
+                                if (now - lastClickTime < 500) {
+                                    clickCount++;
+                                } else {
+                                    clickCount = 1;
+                                }
+                                lastClickTime = now;
 
-                        boolean fromMe = fMessage.getKey().isFromMe;
-                        int width = v.getWidth();
-                        // Heuristic: Tapping the side opposite to the bubble is "outside"
-                        // Right-aligned (Me) -> Outside is Left
-                        // Left-aligned (Others) -> Outside is Right
-                        boolean isTappedOutside = (fromMe && lastX < width / 3f) || (!fromMe && lastX > width * 2 / 3f);
+                                boolean fromMe = fMessage.getKey().isFromMe;
+                                int width = v.getWidth();
+                                // Heuristic: Tapping the side opposite to the bubble is "outside"
+                                // Right-aligned (Me) -> Outside is Left
+                                // Left-aligned (Others) -> Outside is Right
+                                boolean isTappedOutside = (fromMe && lastX < width / 3f)
+                                        || (!fromMe && lastX > width * 2 / 3f);
 
-                        if (isTappedOutside && tapToMenuEnabled) {
-                            v.performLongClick();
-                            clickCount = 0; // reset
-                        } else if (doubleTapEnabled && clickCount >= 2) {
-                            var reactionView = (ViewGroup) v.findViewById(Utils.getID("reactions_bubble_layout", "id"));
-                            if (reactionView != null && reactionView.getVisibility() == View.VISIBLE) {
-                                for (int i = 0; i < reactionView.getChildCount(); i++) {
-                                    if (reactionView.getChildAt(i) instanceof TextView textView) {
-                                        if (textView.getText().toString().contains(emoji)) {
-                                            WppCore.sendReaction("", fMessage.getObject());
-                                            clickCount = 0;
-                                            return;
+                                if (isTappedOutside && tapToMenuEnabled) {
+                                    v.performLongClick();
+                                    clickCount = 0; // reset
+                                } else if (doubleTapEnabled && clickCount >= 2) {
+                                    var reactionView = (ViewGroup) v
+                                            .findViewById(Utils.getID("reactions_bubble_layout", "id"));
+                                    if (reactionView != null && reactionView.getVisibility() == View.VISIBLE) {
+                                        for (int i = 0; i < reactionView.getChildCount(); i++) {
+                                            if (reactionView.getChildAt(i) instanceof TextView textView) {
+                                                if (textView.getText().toString().contains(emoji)) {
+                                                    WppCore.sendReaction("", fMessage.getObject());
+                                                    clickCount = 0;
+                                                    return;
+                                                }
+                                            }
                                         }
                                     }
+                                    WppCore.sendReaction(emoji, fMessage.getObject());
+                                    clickCount = 0;
                                 }
-                            }
-                            WppCore.sendReaction(emoji, fMessage.getObject());
-                            clickCount = 0;
+                            });
                         }
                     });
-                }
-            });
         } catch (Exception e) {
             logDebug(e);
         }
@@ -416,7 +417,8 @@ public class Others extends Feature {
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     Enum<?> enumParam = (Enum<?>) param.args[0];
                     if (enumParam.name().equals("WAMO")) {
-                        Class<? extends Enum> returnType = (Class<? extends Enum>) ((Method) param.method).getReturnType();
+                        Class<? extends Enum> returnType = (Class<? extends Enum>) ((Method) param.method)
+                                .getReturnType();
                         Enum<?> pauseEnum = Enum.valueOf(returnType, "PAUSED");
                         param.setResult(pauseEnum);
                     }
@@ -429,8 +431,9 @@ public class Others extends Feature {
 
     private void disablePhotoProfileStatus() throws Exception {
         var refreshStatusClass = Unobfuscator.loadRefreshStatusClass(classLoader);
-        var photoProfileClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, ".WDSProfilePhoto");
-        
+        var photoProfileClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith,
+                ".WDSProfilePhoto");
+
         if (photoProfileClass != null) {
             XposedBridge.hookAllMethods(photoProfileClass, "setStatusIndicatorEnabled", new XC_MethodHook() {
                 @Override
@@ -447,15 +450,21 @@ public class Others extends Feature {
             return;
         }
 
-        var convClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, ".ConversationsFragment");
+        var convClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith,
+                ".ConversationsFragment");
         var jidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.Jid");
-        
-        if (convClass == null || jidClass == null) return;
 
-        var method = ReflectionUtils.findMethodUsingFilter(convClass, m -> m.getParameterCount() > 0 && !Modifier.isStatic(m.getModifiers()) && m.getParameterTypes()[0] == View.class && ReflectionUtils.findIndexOfType(m.getParameterTypes(), jidClass) != -1);
+        if (convClass == null || jidClass == null)
+            return;
+
+        var method = ReflectionUtils.findMethodUsingFilter(convClass,
+                m -> m.getParameterCount() > 0 && !Modifier.isStatic(m.getModifiers())
+                        && m.getParameterTypes()[0] == View.class
+                        && ReflectionUtils.findIndexOfType(m.getParameterTypes(), jidClass) != -1);
         var field = ReflectionUtils.getFieldByExtendType(convClass, refreshStatusClass);
-        
-        if (method == null || field == null) return;
+
+        if (method == null || field == null)
+            return;
 
         logDebug("disablePhotoProfileStatus", Unobfuscator.getMethodDescriptor(method));
         logDebug("disablePhotoProfileStatus Field", Unobfuscator.getFieldDescriptor(field));
@@ -473,7 +482,6 @@ public class Others extends Feature {
                 field.set(param.thisObject, this.backup);
             }
         });
-
 
         XposedBridge.hookAllMethods(photoProfileClass, "setStatusIndicatorEnabled", new XC_MethodHook() {
             @Override
@@ -496,9 +504,9 @@ public class Others extends Feature {
         });
     }
 
-
     private void callInfo() throws Exception {
-        if (!prefs.getBoolean("call_info", false)) return;
+        if (!prefs.getBoolean("call_info", false))
+            return;
 
         try {
             Context context = Utils.getApplication();
@@ -512,7 +520,8 @@ public class Others extends Feature {
                             String text = intent.getStringExtra("text");
                             if (text != null) {
                                 Utils.setToClipboard(text);
-                                Utils.showToast(context.getString(ResId.string.copied_to_clipboard), Toast.LENGTH_SHORT);
+                                Utils.showToast(context.getString(ResId.string.copied_to_clipboard),
+                                        Toast.LENGTH_SHORT);
                                 // Optional: Close notification drawer
                                 Intent closeIntent = new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
                                 context.sendBroadcast(closeIntent);
@@ -522,10 +531,11 @@ public class Others extends Feature {
                 }, new IntentFilter("com.wmods.wppenhacer.copy_call_info"), flags);
             }
         } catch (Throwable e) {
-             XposedBridge.log(e);
+            XposedBridge.log(e);
         }
 
-        var clsCallEventCallback = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "VoiceServiceEventCallback");
+        var clsCallEventCallback = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith,
+                "VoiceServiceEventCallback");
         Class<?> clsWamCall = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "WamCall");
 
         XposedBridge.hookAllMethods(clsCallEventCallback, "fieldstatsReady", new XC_MethodHook() {
@@ -534,9 +544,11 @@ public class Others extends Feature {
                 if (clsWamCall.isInstance(param.args[0])) {
 
                     Object callinfo = XposedHelpers.callMethod(param.thisObject, "getCallInfo");
-                    if (callinfo == null) return;
+                    if (callinfo == null)
+                        return;
                     var userJid = new FMessageWpp.UserJid(XposedHelpers.callMethod(callinfo, "getPeerJid"));
-                    if (userJid.isNull()) return;
+                    if (userJid.isNull())
+                        return;
                     CompletableFuture.runAsync(() -> {
                         try {
                             showCallInformation(param.args[0], userJid);
@@ -550,7 +562,8 @@ public class Others extends Feature {
     }
 
     private void showCallInformation(Object wamCall, FMessageWpp.UserJid userJid) throws Exception {
-        if (userJid.isGroup()) return;
+        if (userJid.isGroup())
+            return;
         var sb = new StringBuilder();
         var contact = WppCore.getContactName(userJid);
         var number = userJid.getPhoneNumber();
@@ -572,11 +585,12 @@ public class Others extends Feature {
                     }
                 }
             }
-        } catch (Exception e) {}
-        
+        } catch (Exception e) {
+        }
+
         if (ip == null) {
             // Fallback: try known name just in case mapping exists
-             ip = (String) XposedHelpers.getObjectField(wamCall, "callPeerIpStr");
+            ip = (String) XposedHelpers.getObjectField(wamCall, "callPeerIpStr");
         }
 
         if (ip != null) {
@@ -585,7 +599,7 @@ public class Others extends Feature {
 
             var client = new OkHttpClient.Builder().build();
             // Revert to ip-api.com as requested
-            var url = "http://ip-api.com/json/" + ip; 
+            var url = "http://ip-api.com/json/" + ip;
             var request = new okhttp3.Request.Builder().url(url).build();
             try {
                 var response = client.newCall(request).execute();
@@ -602,98 +616,115 @@ public class Others extends Feature {
                         String isp = json.optString("isp");
                         String org = json.optString("org");
                         String asn = json.optString("as");
-                        
+
                         double latVal = json.optDouble("lat");
                         double lonVal = json.optDouble("lon");
                         String lat = String.valueOf(latVal);
                         String lon = String.valueOf(lonVal);
 
                         if (!TextUtils.isEmpty(country))
-                            sb.append(String.format(Utils.getApplication().getString(ResId.string.country_s), country)).append("\n");
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.country_s), country))
+                                    .append("\n");
                         if (!TextUtils.isEmpty(countryCode))
-                            sb.append(String.format(Utils.getApplication().getString(ResId.string.country_code_s), countryCode)).append("\n");
-                        
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.country_code_s),
+                                    countryCode)).append("\n");
+
                         // "Region Name" explicit display
                         if (!TextUtils.isEmpty(regionName))
                             sb.append("Region Name: ").append(regionName).append("\n");
 
                         if (!TextUtils.isEmpty(region))
-                            sb.append(String.format(Utils.getApplication().getString(ResId.string.region_s), region)).append("\n");
-                        
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.region_s), region))
+                                    .append("\n");
+
                         if (!TextUtils.isEmpty(city))
-                            sb.append(String.format(Utils.getApplication().getString(ResId.string.city_s), city)).append("\n");
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.city_s), city))
+                                    .append("\n");
                         if (!TextUtils.isEmpty(zip))
-                            sb.append(String.format(Utils.getApplication().getString(ResId.string.zip_s), zip)).append("\n");
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.zip_s), zip))
+                                    .append("\n");
                         if (!TextUtils.isEmpty(timezone))
-                            sb.append(String.format(Utils.getApplication().getString(ResId.string.timezone_s), timezone)).append("\n");
+                            sb.append(
+                                    String.format(Utils.getApplication().getString(ResId.string.timezone_s), timezone))
+                                    .append("\n");
                         if (!TextUtils.isEmpty(isp))
-                            sb.append(String.format(Utils.getApplication().getString(ResId.string.isp_s), isp)).append("\n");
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.isp_s), isp))
+                                    .append("\n");
                         if (!TextUtils.isEmpty(org))
-                            sb.append(String.format(Utils.getApplication().getString(ResId.string.org_s), org)).append("\n");
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.org_s), org))
+                                    .append("\n");
                         if (!TextUtils.isEmpty(asn))
-                            sb.append(String.format(Utils.getApplication().getString(ResId.string.as_s), asn)).append("\n");
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.as_s), asn))
+                                    .append("\n");
                         if (!TextUtils.isEmpty(lat) && !TextUtils.isEmpty(lon))
-                            sb.append(String.format(Utils.getApplication().getString(ResId.string.lat_lon_s), lat, lon)).append("\n");
+                            sb.append(String.format(Utils.getApplication().getString(ResId.string.lat_lon_s), lat, lon))
+                                    .append("\n");
                     }
                 }
             } catch (Exception e) {
                 logDebug("IP Lookup failed: " + e.getMessage());
             }
         }
-        
+
         // --- Add New Metrics ---
         try {
             Long rtt = (Long) XposedHelpers.getObjectField(wamCall, "callAvgRtt");
             if (rtt != null) {
                 sb.append("Avg RTT: ").append(rtt).append(" ms\n");
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+        }
 
         try {
-             // Try to infer transport from fields if Integer/Enum is hard to map
-             // Mapping callTransport or checking boolean callP2pDisabled/callUsedVpn
-             Integer transport = (Integer) XposedHelpers.getObjectField(wamCall, "callTransport");
-             if (transport != null) {
-                 // Usually 1=P2P, 2=Relay (This is a guess based on standard UDP vs Relay)
-                 // Let's refine based on callRelayServer
-                 sb.append("Transport Code: ").append(transport).append("\n");
-             }
-             String relayServer = (String) XposedHelpers.getObjectField(wamCall, "callRelayServer");
-             if (relayServer != null && !relayServer.isEmpty()) {
-                 sb.append("Relay Server: ").append(relayServer).append("\n");
-                 sb.append("Transport: Relay\n");
-             } else {
-                 sb.append("Transport: P2P (Likely)\n");
-             }
-        } catch (Exception e) {}
+            // Try to infer transport from fields if Integer/Enum is hard to map
+            // Mapping callTransport or checking boolean callP2pDisabled/callUsedVpn
+            Integer transport = (Integer) XposedHelpers.getObjectField(wamCall, "callTransport");
+            if (transport != null) {
+                // Usually 1=P2P, 2=Relay (This is a guess based on standard UDP vs Relay)
+                // Let's refine based on callRelayServer
+                sb.append("Transport Code: ").append(transport).append("\n");
+            }
+            String relayServer = (String) XposedHelpers.getObjectField(wamCall, "callRelayServer");
+            if (relayServer != null && !relayServer.isEmpty()) {
+                sb.append("Relay Server: ").append(relayServer).append("\n");
+                sb.append("Transport: Relay\n");
+            } else {
+                sb.append("Transport: P2P (Likely)\n");
+            }
+        } catch (Exception e) {
+        }
 
         var platform = (String) XposedHelpers.getObjectField(wamCall, "callPeerPlatform");
         if (platform != null)
             sb.append(String.format(Utils.getApplication().getString(ResId.string.platform_s), platform)).append("\n");
         var wppVersion = (String) XposedHelpers.getObjectField(wamCall, "callPeerAppVersion");
         if (wppVersion != null)
-            sb.append(String.format(Utils.getApplication().getString(ResId.string.wpp_version_s), wppVersion)).append("\n");
-        
+            sb.append(String.format(Utils.getApplication().getString(ResId.string.wpp_version_s), wppVersion))
+                    .append("\n");
+
         Intent copyIntent = new Intent("com.wmods.wppenhacer.copy_call_info");
         copyIntent.putExtra("text", sb.toString());
         // Use FLAG_IMMUTABLE | FLAG_UPDATE_CURRENT for PendingIntent safety
-        PendingIntent pi = PendingIntent.getBroadcast(Utils.getApplication(), (int) System.currentTimeMillis(), copyIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        
-        NotificationCompat.Action action = new NotificationCompat.Action.Builder(0, Utils.getApplication().getString(ResId.string.copy_to_clipboard), pi).build();
-        
-        Utils.showNotification(Utils.getApplication().getString(ResId.string.call_information), sb.toString(), null, null, new java.util.Random().nextInt(), null, null, new NotificationCompat.Action[]{action});
+        PendingIntent pi = PendingIntent.getBroadcast(Utils.getApplication(), (int) System.currentTimeMillis(),
+                copyIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationCompat.Action action = new NotificationCompat.Action.Builder(0,
+                Utils.getApplication().getString(ResId.string.copy_to_clipboard), pi).build();
+
+        Utils.showNotification(Utils.getApplication().getString(ResId.string.call_information), sb.toString(), null,
+                null, new java.util.Random().nextInt(), null, null, new NotificationCompat.Action[] { action });
     }
 
     private void alwaysOnline() throws Exception {
-        if (!prefs.getBoolean("always_online", false)) return;
+        if (!prefs.getBoolean("always_online", false))
+            return;
         var stateChange = Unobfuscator.loadStateChangeMethod(classLoader);
         XposedBridge.hookMethod(stateChange, XC_MethodReplacement.DO_NOTHING);
     }
 
-
-
     private void stampCopiedMessage() throws Exception {
-        if (!prefs.getBoolean("stamp_copied_message", false)) return;
+        if (!prefs.getBoolean("stamp_copied_message", false))
+            return;
 
         var copiedMessage = Unobfuscator.loadCopiedMessageMethod(classLoader);
 
@@ -725,7 +756,8 @@ public class Others extends Feature {
             @SuppressLint("ResourceType")
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                 var viewHolder = field1.get(param.thisObject);
-                var viewField = ReflectionUtils.findFieldUsingFilter(absViewHolderClass, field -> field.getType() == View.class);
+                var viewField = ReflectionUtils.findFieldUsingFilter(absViewHolderClass,
+                        field -> field.getType() == View.class);
                 var view = (View) viewField.get(viewHolder);
                 if (!Objects.equals(animation, "default")) {
                     view.startAnimation(AnimationUtil.getAnimation(animation));
@@ -746,10 +778,12 @@ public class Others extends Feature {
                     if (changeType == WppCore.ActivityChangeState.ChangeType.RESUMED) {
                         try {
                             activity.getWindow().getDecorView().setBackgroundColor(0);
-                            Activity conversationActivity = ActivityStateRegistry.getActivityBySimpleName("Conversation");
+                            Activity conversationActivity = ActivityStateRegistry
+                                    .getActivityBySimpleName("Conversation");
                             if (conversationActivity != null) {
                                 Window window = conversationActivity.getWindow();
-                                window.getDecorView().setRenderEffect(RenderEffect.createBlurEffect(20f, 20f, Shader.TileMode.CLAMP));
+                                window.getDecorView().setRenderEffect(
+                                        RenderEffect.createBlurEffect(20f, 20f, Shader.TileMode.CLAMP));
                             }
                         } catch (Exception e) {
                             logDebug(e);
@@ -772,7 +806,8 @@ public class Others extends Feature {
                         Activity conversationActivity = ActivityStateRegistry.getActivityBySimpleName("Conversation");
                         if (conversationActivity != null) {
                             View decorView = conversationActivity.getWindow().getDecorView();
-                            Bitmap bitmap = Bitmap.createBitmap(decorView.getWidth(), decorView.getHeight(), Bitmap.Config.ARGB_8888);
+                            Bitmap bitmap = Bitmap.createBitmap(decorView.getWidth(), decorView.getHeight(),
+                                    Bitmap.Config.ARGB_8888);
                             decorView.draw(new Canvas(bitmap));
                             this.blurred = Utils.blurBitmap(activity, bitmap, 25f);
                         }
@@ -782,7 +817,8 @@ public class Others extends Feature {
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                         Activity activity = (Activity) param.thisObject;
                         if (blurred != null) {
-                            activity.getWindow().setBackgroundDrawable(new BitmapDrawable(activity.getResources(), blurred));
+                            activity.getWindow()
+                                    .setBackgroundDrawable(new BitmapDrawable(activity.getResources(), blurred));
                         }
                     }
                 });
@@ -791,9 +827,6 @@ public class Others extends Feature {
             }
         }
     }
-
-
-
 
     private void sendAudioType(int audio_type) throws Exception {
         var sendAudioTypeMethod = Unobfuscator.loadSendAudioTypeMethod(classLoader);
@@ -808,7 +841,8 @@ public class Others extends Feature {
                 }
                 var mediaType = results.get(0);
                 var audioType = results.get(1);
-                if (mediaType.second != 2 && mediaType.second != 9) return;
+                if (mediaType.second != 2 && mediaType.second != 9)
+                    return;
                 param.args[audioType.first] = audio_type - 1; // 1 = voice notes || 0 = audio voice
             }
         });
@@ -838,8 +872,11 @@ public class Others extends Feature {
                 }
             }
         });
-        var voicenoteClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "VoiceNoteProfileAvatarView");
-        var method = ReflectionUtils.findAllMethodsUsingFilter(voicenoteClass, method1 -> method1.getParameterCount() == 4 && method1.getParameterTypes()[0] == int.class && method1.getReturnType().equals(void.class));
+        var voicenoteClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith,
+                "VoiceNoteProfileAvatarView");
+        var method = ReflectionUtils.findAllMethodsUsingFilter(voicenoteClass,
+                method1 -> method1.getParameterCount() == 4 && method1.getParameterTypes()[0] == int.class
+                        && method1.getReturnType().equals(void.class));
         XposedBridge.hookMethod(method[method.length - 1], new XC_MethodHook() {
             @SuppressLint("SetTextI18n")
             @Override
@@ -856,9 +893,9 @@ public class Others extends Feature {
         });
     }
 
-
     private void autoNextStatus() throws Exception {
-        Class<?> StatusPlaybackContactFragmentClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "StatusPlaybackContactFragment");
+        Class<?> StatusPlaybackContactFragmentClass = Unobfuscator.findFirstClassUsingName(classLoader,
+                StringMatchType.EndsWith, "StatusPlaybackContactFragment");
         var runNextStatusMethod = Unobfuscator.loadNextStatusRunMethod(classLoader);
         XposedBridge.hookMethod(runNextStatusMethod, new XC_MethodHook() {
             @Override
@@ -873,14 +910,14 @@ public class Others extends Feature {
         XposedBridge.hookMethod(onPlayBackFinished, XC_MethodReplacement.DO_NOTHING);
     }
 
-
     private void disable_defEmojis() throws Exception {
         var defEmojiClass = Unobfuscator.loadDefEmojiClass(classLoader);
         XposedBridge.hookMethod(defEmojiClass, XC_MethodReplacement.returnConstant(null));
     }
 
     private void filterItems(String filterItems) {
-        List<String> activeFilters = com.wmods.wppenhacer.preference.custom.FilterItemsPreference.getActiveFilters(filterItems);
+        List<String> activeFilters = com.wmods.wppenhacer.preference.custom.FilterItemsPreference
+                .getActiveFilters(filterItems);
         var idsFilter = new ArrayList<Integer>();
         for (String item : activeFilters) {
             var id = Utils.getID(item, "id");
@@ -906,21 +943,24 @@ public class Others extends Feature {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 var message = (Message) param.args[0];
-                if (message.arg1 != 5) return;
+                if (message.arg1 != 5)
+                    return;
                 BaseBundle baseBundle = (BaseBundle) message.obj;
                 var jid = baseBundle.getString("jid");
-                if (TextUtils.isEmpty(jid)) return;
+                if (TextUtils.isEmpty(jid))
+                    return;
                 var userjid = new FMessageWpp.UserJid(jid);
-                if (userjid.isGroup()) return;
+                if (userjid.isGroup())
+                    return;
                 var name = WppCore.getContactName(userjid);
                 name = TextUtils.isEmpty(name) ? userjid.getPhoneNumber() : name;
                 if (showOnline)
-                    Utils.showToast(String.format(Utils.getApplication().getString(ResId.string.toast_online), name), Toast.LENGTH_SHORT);
+                    Utils.showToast(String.format(Utils.getApplication().getString(ResId.string.toast_online), name),
+                            Toast.LENGTH_SHORT);
                 Tasker.sendTaskerEvent(name, WppCore.stripJID(jid), "contact_online");
             }
         });
     }
-
 
     private void hookProps() throws Exception {
         var methodPropsBoolean = Unobfuscator.loadPropsBooleanMethod(classLoader);
@@ -936,7 +976,8 @@ public class Others extends Feature {
                 if (propValue != null) {
                     // Fix Bug in Settings Data Usage
                     if (i == 4023) {
-                        if (ReflectionUtils.isCalledFromClass(dataUsageActivityClass)) return;
+                        if (ReflectionUtils.isCalledFromClass(dataUsageActivityClass))
+                            return;
                     }
                     param.setResult(propValue);
                 }
@@ -951,7 +992,8 @@ public class Others extends Feature {
                 var list = ReflectionUtils.findInstancesOfType(param.args, Integer.class);
                 int i = (int) list.get(0).second;
                 var propValue = propsInteger.get(i);
-                if (propValue == null) return;
+                if (propValue == null)
+                    return;
                 param.setResult(propValue);
             }
         });
@@ -959,14 +1001,15 @@ public class Others extends Feature {
 
     private void hookSearchbar(String filterChats) throws Exception {
         Method searchbar = Unobfuscator.loadViewAddSearchBarMethod(classLoader);
-        log("ADD HEADER VIEW: " + DexSignUtil.getMethodDescriptor(searchbar));
+        logDebug("ADD HEADER VIEW: " + DexSignUtil.getMethodDescriptor(searchbar));
         var searchBarID = Utils.getID("my_search_bar", "id");
 
         XposedBridge.hookMethod(searchbar, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 var view = (View) param.args[0];
-                if ((view.getId() == searchBarID || view.findViewById(searchBarID) != null) && !Objects.equals(filterChats, "2")) {
+                if ((view.getId() == searchBarID || view.findViewById(searchBarID) != null)
+                        && !Objects.equals(filterChats, "2")) {
                     param.setResult(null);
                 }
             }
@@ -979,7 +1022,6 @@ public class Others extends Feature {
             }
         } catch (Exception ignored) {
         }
-
 
         try {
             Method addSeachBar = Unobfuscator.loadAddOptionSearchBarMethod(classLoader);
@@ -1014,16 +1056,17 @@ public class Others extends Feature {
         } catch (Throwable ignored) {
         }
 
-        XposedHelpers.findAndHookMethod(WppCore.getHomeActivityClass(classLoader), "onPrepareOptionsMenu", Menu.class, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                var menu = (Menu) param.args[0];
-                var item = menu.findItem(Utils.getID("menuitem_search", "id"));
-                if (item != null) {
-                    item.setVisible(Objects.equals(filterChats, "1"));
-                }
-            }
-        });
+        XposedHelpers.findAndHookMethod(WppCore.getHomeActivityClass(classLoader), "onPrepareOptionsMenu", Menu.class,
+                new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        var menu = (Menu) param.args[0];
+                        var item = menu.findItem(Utils.getID("menuitem_search", "id"));
+                        if (item != null) {
+                            item.setVisible(Objects.equals(filterChats, "1"));
+                        }
+                    }
+                });
     }
 
     @NonNull

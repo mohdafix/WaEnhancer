@@ -54,16 +54,19 @@ public class UnobfuscatorCache {
             sPrefsCacheHooks = mApplication.getSharedPreferences("UnobfuscatorCache", Context.MODE_PRIVATE);
             sPrefsCacheStrings = mApplication.getSharedPreferences("UnobfuscatorCacheStrings", Context.MODE_PRIVATE);
             long version = sPrefsCacheHooks.getLong("version", 0);
-            long currentVersion = mApplication.getPackageManager().getPackageInfo(mApplication.getPackageName(), 0).getLongVersionCode();
+            long currentVersion = mApplication.getPackageManager().getPackageInfo(mApplication.getPackageName(), 0)
+                    .getLongVersionCode();
             long savedUpdateTime = sPrefsCacheHooks.getLong("updateTime", 0);
             String savedVersionName = sPrefsCacheHooks.getString("wae_version_name", "");
             String versionName = BuildConfig.VERSION_NAME;
             long lastUpdateTime = savedUpdateTime;
             try {
-                lastUpdateTime = mApplication.getPackageManager().getPackageInfo(BuildConfig.APPLICATION_ID, 0).lastUpdateTime;
+                lastUpdateTime = mApplication.getPackageManager().getPackageInfo(BuildConfig.APPLICATION_ID,
+                        0).lastUpdateTime;
             } catch (Exception ignored) {
             }
-            if (version != currentVersion || savedUpdateTime != lastUpdateTime || !versionName.equals(savedVersionName)) {
+            if (version != currentVersion || savedUpdateTime != lastUpdateTime
+                    || !versionName.equals(savedVersionName)) {
                 Utils.showToast(application.getString(ResId.string.starting_cache), Toast.LENGTH_LONG);
                 sPrefsCacheHooks.edit().clear().apply();
                 sPrefsCacheHooks.edit().putLong("version", currentVersion).apply();
@@ -107,14 +110,16 @@ public class UnobfuscatorCache {
             var pool = table.getStringPool();
             var pkg = table.getPackage(app.getPackageName());
             var typeChunks = pkg.getTypeChunks("string");
-            var chunk = typeChunks.stream().filter(typeChunk -> typeChunk.getConfiguration().isDefault()).findFirst().orElse(null);
+            var chunk = typeChunks.stream().filter(typeChunk -> typeChunk.getConfiguration().isDefault()).findFirst()
+                    .orElse(null);
             var entries = chunk.getEntries();
             int baseValue = 0x7f12;
             for (var entry : entries.entrySet()) {
                 try {
                     int keyHexValue = entry.getKey();
                     int result = baseValue << 16 | keyHexValue;
-                    String resourceString = pool.getString(entry.getValue().value().data()).toLowerCase().replaceAll("\\s", "");
+                    String resourceString = pool.getString(entry.getValue().value().data()).toLowerCase()
+                            .replaceAll("\\s", "");
                     reverseResourceMap.put(resourceString, String.valueOf(result));
                 } catch (Exception ignored) {
                 }
@@ -203,7 +208,8 @@ public class UnobfuscatorCache {
         if (value == null) {
             try {
                 Field result = functionCall.call();
-                if (result == null) throw new NoSuchFieldException("Field is null");
+                if (result == null)
+                    throw new NoSuchFieldException("Field is null");
                 saveField(key, result);
                 return result;
             } catch (Exception e) {
@@ -221,7 +227,8 @@ public class UnobfuscatorCache {
         if (value == null) {
             try {
                 Field[] result = functionCall.call();
-                if (result == null) throw new NoSuchFieldException("Fields is null");
+                if (result == null)
+                    throw new NoSuchFieldException("Fields is null");
                 saveFields(methodName, result);
                 return result;
             } catch (Exception e) {
@@ -241,25 +248,50 @@ public class UnobfuscatorCache {
     // -----------------------------------------------------------------------------------------
     // UPDATED METHOD: CORRUPTION FIX
     // -----------------------------------------------------------------------------------------
+    private final Map<String, Boolean> rescanFlags = new HashMap<>();
+
     public Method getMethod(ClassLoader loader, FunctionCall<Method> functionCall) throws Exception {
         var methodName = getKeyName();
-        String value = sPrefsCacheHooks.getString(methodName, null);
+        String value;
+        synchronized (sPrefsCacheHooks) {
+            value = sPrefsCacheHooks.getString(methodName, null);
+        }
 
         // 1. Check if value exists and is valid
         if (value != null) {
             boolean isCorrupted = false;
-
             // Detect the specific "Intent" bug or malformed strings
-            if (value.contains("Intent") && !value.contains(":")) isCorrupted = true;
-            if (value.startsWith("L")) isCorrupted = true; // DexKit format sometimes leaks
-            if (value.contains(";")) isCorrupted = true; // Signature format
+            if (value.contains("Intent") && !value.contains(":"))
+                isCorrupted = true;
+            if (value.startsWith("L"))
+                isCorrupted = true; // DexKit format sometimes leaks
+            if (value.contains(";"))
+                isCorrupted = true; // Signature format
 
             if (isCorrupted) {
-                XposedBridge.log("UnobfuscatorCache: Detected corruption in " + methodName + ". Rescanning...");
-                Method result = functionCall.call();
-                if (result == null) throw new NoSuchMethodException("Method is null");
-                saveMethod(methodName, result);
-                return result;
+                boolean alreadyRescanning;
+                synchronized (rescanFlags) {
+                    alreadyRescanning = rescanFlags.getOrDefault(methodName, false);
+                    if (!alreadyRescanning) {
+                        rescanFlags.put(methodName, true);
+                    }
+                }
+
+                if (!alreadyRescanning) {
+                    XposedBridge.log("UnobfuscatorCache: Detected corruption in " + methodName + ". Rescanning...");
+                }
+
+                try {
+                    Method result = functionCall.call();
+                    if (result == null)
+                        throw new NoSuchMethodException("Method is null");
+                    saveMethod(methodName, result);
+                    return result;
+                } finally {
+                    synchronized (rescanFlags) {
+                        rescanFlags.remove(methodName);
+                    }
+                }
             }
         }
 
@@ -267,7 +299,8 @@ public class UnobfuscatorCache {
         if (value == null) {
             try {
                 Method result = functionCall.call();
-                if (result == null) throw new NoSuchMethodException("Method is null");
+                if (result == null)
+                    throw new NoSuchMethodException("Method is null");
                 saveMethod(methodName, result);
                 return result;
             } catch (Exception e) {
@@ -281,7 +314,8 @@ public class UnobfuscatorCache {
         } catch (Exception e) {
             XposedBridge.log("UnobfuscatorCache: Failed to parse cached method " + methodName + ". Rescanning...");
             Method result = functionCall.call();
-            if (result == null) throw new NoSuchMethodException("Method is null");
+            if (result == null)
+                throw new NoSuchMethodException("Method is null");
             saveMethod(methodName, result);
             return result;
         }
@@ -293,7 +327,8 @@ public class UnobfuscatorCache {
         if (value == null) {
             try {
                 Method[] result = functionCall.call();
-                if (result == null) throw new NoSuchMethodException("Methods is null");
+                if (result == null)
+                    throw new NoSuchMethodException("Methods is null");
                 saveMethods(methodName, result);
                 return result;
             } catch (Exception e) {
@@ -311,15 +346,18 @@ public class UnobfuscatorCache {
 
     @NonNull
     private Method getMethodFromString(ClassLoader loader, String value) throws Exception {
-        if (value == null) throw new Exception("Cache value is null");
+        if (value == null)
+            throw new Exception("Cache value is null");
 
         String[] classAndName = value.split(":");
-        if (classAndName.length < 2) throw new Exception("Invalid format");
+        if (classAndName.length < 2)
+            throw new Exception("Invalid format");
 
         Class<?> cls = XposedHelpers.findClass(classAndName[0], loader);
         if (classAndName.length == 3) {
             String[] params = classAndName[2].split(",");
-            Class<?>[] paramTypes = Arrays.stream(params).map(param -> ReflectionUtils.findClass(param, loader)).toArray(Class<?>[]::new);
+            Class<?>[] paramTypes = Arrays.stream(params).map(param -> ReflectionUtils.findClass(param, loader))
+                    .toArray(Class<?>[]::new);
             return XposedHelpers.findMethodExact(cls, classAndName[1], paramTypes);
         }
         return XposedHelpers.findMethodExact(cls, classAndName[1]);
@@ -334,7 +372,8 @@ public class UnobfuscatorCache {
         if (value == null) {
             try {
                 Class<?> result = functionCall.call();
-                if (result == null) throw new ClassNotFoundException("Class is null");
+                if (result == null)
+                    throw new ClassNotFoundException("Class is null");
                 saveClass(key, result);
                 return result;
             } catch (Exception e) {
@@ -350,7 +389,8 @@ public class UnobfuscatorCache {
         if (value == null) {
             try {
                 Class<?>[] result = functionCall.call();
-                if (result == null) throw new ClassNotFoundException("Classes is null");
+                if (result == null)
+                    throw new ClassNotFoundException("Classes is null");
                 saveClasses(methodName, result);
                 return result;
             } catch (Exception e) {
@@ -365,13 +405,15 @@ public class UnobfuscatorCache {
         return classes.toArray(new Class<?>[0]);
     }
 
-    public HashMap<String, Field> getMapField(ClassLoader loader, FunctionCall<HashMap<String, Field>> functionCall) throws Exception {
+    public HashMap<String, Field> getMapField(ClassLoader loader, FunctionCall<HashMap<String, Field>> functionCall)
+            throws Exception {
         var key = getKeyName();
         String value = sPrefsCacheHooks.getString(key, null);
         if (value == null) {
             try {
                 var result = functionCall.call();
-                if (result == null) throw new Exception("HashMap is null");
+                if (result == null)
+                    throw new Exception("HashMap is null");
                 saveHashMap(key, result);
                 return result;
             } catch (Exception e) {
@@ -398,7 +440,8 @@ public class UnobfuscatorCache {
     private HashMap<String, Field> loadHashMap(ClassLoader loader, String key) {
         HashMap<String, Field> map = new HashMap<>();
         String jsonString = sPrefsCacheHooks.getString(key, null);
-        if (jsonString == null) return map;
+        if (jsonString == null)
+            return map;
 
         try {
             JSONObject jsonObject = new JSONObject(jsonString);
@@ -445,7 +488,8 @@ public class UnobfuscatorCache {
     public void saveMethod(String key, Method method) {
         String value = method.getDeclaringClass().getName() + ":" + method.getName();
         if (method.getParameterTypes().length > 0) {
-            value += ":" + Arrays.stream(method.getParameterTypes()).map(Class::getName).collect(Collectors.joining(","));
+            value += ":"
+                    + Arrays.stream(method.getParameterTypes()).map(Class::getName).collect(Collectors.joining(","));
         }
         sPrefsCacheHooks.edit().putString(key, value).apply();
     }
@@ -456,7 +500,8 @@ public class UnobfuscatorCache {
         for (Method method : methods) {
             String value = method.getDeclaringClass().getName() + ":" + method.getName();
             if (method.getParameterTypes().length > 0) {
-                value += ":" + Arrays.stream(method.getParameterTypes()).map(Class::getName).collect(Collectors.joining(","));
+                value += ":" + Arrays.stream(method.getParameterTypes()).map(Class::getName)
+                        .collect(Collectors.joining(","));
             }
             values.add(value);
         }
@@ -479,7 +524,9 @@ public class UnobfuscatorCache {
 
     private String getKeyName() {
         AtomicReference<String> keyName = new AtomicReference<>("");
-        Arrays.stream(Thread.currentThread().getStackTrace()).filter(stackTraceElement -> stackTraceElement.getClassName().equals(Unobfuscator.class.getName())).findFirst().ifPresent(stackTraceElement -> keyName.set(stackTraceElement.getMethodName()));
+        Arrays.stream(Thread.currentThread().getStackTrace())
+                .filter(stackTraceElement -> stackTraceElement.getClassName().equals(Unobfuscator.class.getName()))
+                .findFirst().ifPresent(stackTraceElement -> keyName.set(stackTraceElement.getMethodName()));
         return keyName.get();
     }
 
@@ -488,7 +535,8 @@ public class UnobfuscatorCache {
         String value = sPrefsCacheHooks.getString(methodName, null);
         if (value == null) {
             var result = (Constructor) functionCall.call();
-            if (result == null) throw new Exception("Class is null");
+            if (result == null)
+                throw new Exception("Class is null");
             saveConstructor(methodName, result);
             return result;
         }
@@ -496,7 +544,8 @@ public class UnobfuscatorCache {
         Class<?> cls = XposedHelpers.findClass(classAndName[0], loader);
         if (classAndName.length == 2) {
             String[] params = classAndName[1].split(",");
-            Class<?>[] paramTypes = Arrays.stream(params).map(param -> ReflectionUtils.findClass(param, loader)).toArray(Class<?>[]::new);
+            Class<?>[] paramTypes = Arrays.stream(params).map(param -> ReflectionUtils.findClass(param, loader))
+                    .toArray(Class<?>[]::new);
             return XposedHelpers.findConstructorExact(cls, paramTypes);
         }
         return XposedHelpers.findConstructorExact(cls);
@@ -506,7 +555,8 @@ public class UnobfuscatorCache {
     private void saveConstructor(String key, Constructor constructor) {
         String value = constructor.getDeclaringClass().getName();
         if (constructor.getParameterTypes().length > 0) {
-            value += ":" + Arrays.stream(constructor.getParameterTypes()).map(Class::getName).collect(Collectors.joining(","));
+            value += ":" + Arrays.stream(constructor.getParameterTypes()).map(Class::getName)
+                    .collect(Collectors.joining(","));
         }
         sPrefsCacheHooks.edit().putString(key, value).apply();
     }

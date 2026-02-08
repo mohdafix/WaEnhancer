@@ -40,8 +40,8 @@ public class HideSeenView extends Feature {
     // Tick style indicator configuration
     private static final int TICK_INDICATOR_ID = 0xf7ff2002;
     private static String tickStyle = null;
-    private static int tickDeliveredResId = 0;  // {style}_message_got_receipt_from_target
-    private static int tickReadResId = 0;       // {style}_message_got_read_receipt_from_target
+    private static int tickDeliveredResId = 0; // {style}_message_got_receipt_from_target
+    private static int tickReadResId = 0; // {style}_message_got_read_receipt_from_target
 
     // Cache configuration
     private static final int JID_CACHE_SIZE = 30;
@@ -80,21 +80,23 @@ public class HideSeenView extends Feature {
 
     @Override
     public void doHook() throws Throwable {
-        if (!prefs.getBoolean("hide_seen_view", false)) return;
+        if (!prefs.getBoolean("hide_seen_view", false))
+            return;
 
-        // Resolve tick style and cache drawable resource IDs for seen/not-seen indicator
+        // Resolve tick style and cache drawable resource IDs for seen/not-seen
+        // indicator
         initTickStyle();
 
-        // Hook into MessageHistory.updateViewedMessage to invalidate cache when DB changes
+        // Hook into MessageHistory.updateViewedMessage to invalidate cache when DB
+        // changes
         try {
             var updateMethod = MessageHistory.class.getDeclaredMethod(
-                "updateViewedMessage", 
-                String.class, 
-                String.class, 
-                MessageHistory.MessageType.class, 
-                boolean.class
-            );
-            
+                    "updateViewedMessage",
+                    String.class,
+                    String.class,
+                    MessageHistory.MessageType.class,
+                    boolean.class);
+
             XposedBridge.hookMethod(updateMethod, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
@@ -102,7 +104,7 @@ public class HideSeenView extends Feature {
                     String messageId = (String) param.args[1];
                     MessageHistory.MessageType type = (MessageHistory.MessageType) param.args[2];
                     boolean viewed = (boolean) param.args[3];
-                    
+
                     // Update cache and refresh UI
                     handleHideSeenChanged(jid, messageId, type, viewed);
                 }
@@ -115,10 +117,12 @@ public class HideSeenView extends Feature {
         ConversationItemListener.conversationListeners.add(new ConversationItemListener.OnConversationItemListener() {
             @Override
             public void onItemBind(FMessageWpp fMessage, ViewGroup viewGroup) {
-                if (fMessage == null || !fMessage.isValid()) return;
-                
+                if (fMessage == null || !fMessage.isValid())
+                    return;
+
                 FMessageWpp.Key key = fMessage.getKey();
-                if (key == null || key.isFromMe) return;
+                if (key == null || key.isFromMe)
+                    return;
 
                 updateBubbleView(fMessage, viewGroup);
             }
@@ -130,8 +134,10 @@ public class HideSeenView extends Feature {
     /**
      * Read the tick_style preference and resolve the two ResId.drawable fields
      * needed for the seen/not-seen indicator:
-     *   - Not seen: {style}_message_got_receipt_from_target  (delivered = gray double tick)
-     *   - Seen:     {style}_message_got_read_receipt_from_target  (read = blue double tick)
+     * - Not seen: {style}_message_got_receipt_from_target (delivered = gray double
+     * tick)
+     * - Seen: {style}_message_got_read_receipt_from_target (read = blue double
+     * tick)
      *
      * These ResId.drawable fields hold WhatsApp-context resource IDs populated in
      * handleInitPackageResources via resparam.res.addResource().
@@ -187,10 +193,12 @@ public class HideSeenView extends Feature {
     // ================= CACHE MANAGEMENT =================
 
     private static void ensureCacheLoaded(String jid, MessageHistory.MessageType type) {
-        ConcurrentHashMap<String, Boolean> loadingMap = 
-            (type == MessageHistory.MessageType.MESSAGE_TYPE) ? loadingMessageType : loadingViewOnceType;
-        ConcurrentHashMap<String, Boolean> loadedMap = 
-            (type == MessageHistory.MessageType.MESSAGE_TYPE) ? loadedMessageType : loadedViewOnceType;
+        ConcurrentHashMap<String, Boolean> loadingMap = (type == MessageHistory.MessageType.MESSAGE_TYPE)
+                ? loadingMessageType
+                : loadingViewOnceType;
+        ConcurrentHashMap<String, Boolean> loadedMap = (type == MessageHistory.MessageType.MESSAGE_TYPE)
+                ? loadedMessageType
+                : loadedViewOnceType;
 
         // Only load if not already loaded or loading
         if (!loadedMap.containsKey(jid) && loadingMap.putIfAbsent(jid, Boolean.TRUE) == null) {
@@ -225,8 +233,8 @@ public class HideSeenView extends Feature {
         Map<String, Boolean> map = new HashMap<>();
 
         // Load hidden messages
-        List<MessageHistory.MessageSeenItem> hiddenMessages = 
-            MessageHistory.getInstance().getHideSeenMessages(jid, type, true);
+        List<MessageHistory.MessageSeenItem> hiddenMessages = MessageHistory.getInstance().getHideSeenMessages(jid,
+                type, true);
         if (hiddenMessages != null) {
             for (MessageHistory.MessageSeenItem item : hiddenMessages) {
                 map.put(item.message, Boolean.TRUE);
@@ -234,8 +242,8 @@ public class HideSeenView extends Feature {
         }
 
         // Load viewed messages
-        List<MessageHistory.MessageSeenItem> viewedMessages = 
-            MessageHistory.getInstance().getHideSeenMessages(jid, type, false);
+        List<MessageHistory.MessageSeenItem> viewedMessages = MessageHistory.getInstance().getHideSeenMessages(jid,
+                type, false);
         if (viewedMessages != null) {
             for (MessageHistory.MessageSeenItem item : viewedMessages) {
                 map.put(item.message, Boolean.FALSE);
@@ -248,15 +256,17 @@ public class HideSeenView extends Feature {
     private static Boolean getCachedStatus(String jid, String messageId, MessageHistory.MessageType type) {
         synchronized (CACHE_LOCK) {
             JidSeenCache cache = jidCache.get(jid);
-            if (cache == null) return null;
+            if (cache == null)
+                return null;
 
-            Map<String, Boolean> statusMap = 
-                (type == MessageHistory.MessageType.MESSAGE_TYPE) ? cache.messageStatus : cache.viewOnceStatus;
+            Map<String, Boolean> statusMap = (type == MessageHistory.MessageType.MESSAGE_TYPE) ? cache.messageStatus
+                    : cache.viewOnceStatus;
             return statusMap.get(messageId);
         }
     }
 
-    private static void handleHideSeenChanged(String jid, String messageId, MessageHistory.MessageType type, boolean viewed) {
+    private static void handleHideSeenChanged(String jid, String messageId, MessageHistory.MessageType type,
+            boolean viewed) {
         synchronized (CACHE_LOCK) {
             JidSeenCache cache = jidCache.get(jid);
             if (cache == null) {
@@ -296,7 +306,8 @@ public class HideSeenView extends Feature {
         var userJid = fMessage.getKey().remoteJid;
         var messageId = fMessage.getKey().messageID;
 
-        if (userJid.isNull()) return;
+        if (userJid.isNull())
+            return;
 
         String jid = userJid.getPhoneRawString();
 
@@ -351,8 +362,10 @@ public class HideSeenView extends Feature {
                     int resId = cachedStatus ? tickReadResId : tickDeliveredResId;
                     try {
                         Drawable tickDrawable = viewGroup.getContext().getResources().getDrawable(resId);
+                        String indicatorName = cachedStatus ? "message_got_read_receipt_from_target"
+                                : "message_got_receipt_from_target";
                         tickIndicator.setImageDrawable(
-                                new WppXposed.TintProofDrawable(tickDrawable));
+                                new WppXposed.TintProofDrawable(tickDrawable, indicatorName));
                     } catch (Exception e) {
                         // Fallback: show emoji if drawable loading fails
                         tickIndicator.setVisibility(View.GONE);

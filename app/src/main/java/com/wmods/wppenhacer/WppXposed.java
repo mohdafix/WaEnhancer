@@ -66,8 +66,11 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
         var classLoader = lpparam.classLoader;
 
         if (packageName.equals(BuildConfig.APPLICATION_ID)) {
-            XposedHelpers.findAndHookMethod(MainActivity.class.getName(), lpparam.classLoader, "isXposedEnabled", XC_MethodReplacement.returnConstant(true));
-            XposedHelpers.findAndHookMethod(PreferenceManager.class.getName(), lpparam.classLoader, "getDefaultSharedPreferencesMode", XC_MethodReplacement.returnConstant(ContextWrapper.MODE_WORLD_READABLE));
+            XposedHelpers.findAndHookMethod(MainActivity.class.getName(), lpparam.classLoader, "isXposedEnabled",
+                    XC_MethodReplacement.returnConstant(true));
+            XposedHelpers.findAndHookMethod(PreferenceManager.class.getName(), lpparam.classLoader,
+                    "getDefaultSharedPreferencesMode",
+                    XC_MethodReplacement.returnConstant(ContextWrapper.MODE_WORLD_READABLE));
             return;
         }
 
@@ -77,10 +80,9 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
 
         ScopeHook.hook(lpparam);
 
-        //  AndroidPermissions.hook(lpparam); in tests
-        if ((packageName.equals(FeatureLoader.PACKAGE_WPP) && App.isOriginalPackage()) || packageName.equals(FeatureLoader.PACKAGE_BUSINESS)) {
-            XposedBridge.log("[•] This package: " + lpparam.packageName);
-
+        // AndroidPermissions.hook(lpparam); in tests
+        if ((packageName.equals(FeatureLoader.PACKAGE_WPP) && App.isOriginalPackage())
+                || packageName.equals(FeatureLoader.PACKAGE_BUSINESS)) {
             // Load features
             FeatureLoader.start(classLoader, getPref(), lpparam.appInfo.sourceDir, lpparam);
 
@@ -89,7 +91,8 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
     }
 
     @Override
-    public void handleInitPackageResources(XC_InitPackageResources.InitPackageResourcesParam resparam) throws Throwable {
+    public void handleInitPackageResources(XC_InitPackageResources.InitPackageResourcesParam resparam)
+            throws Throwable {
         var packageName = resparam.packageName;
 
         if (!packageName.equals(FeatureLoader.PACKAGE_WPP) && !packageName.equals(FeatureLoader.PACKAGE_BUSINESS))
@@ -118,7 +121,8 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
         // setImageDrawable, getDrawable, etc.).
         applyTickStyleReplacements(resparam, modRes);
 
-        // Notification Icon: replace WhatsApp's "notifybar" drawable at the resource level.
+        // Notification Icon: replace WhatsApp's "notifybar" drawable at the resource
+        // level.
         applyNotificationIconReplacement(resparam);
     }
 
@@ -133,7 +137,11 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
             "message_got_receipt_from_target",
             "message_got_receipt_from_target_onmedia",
             "message_got_read_receipt_from_target",
-            "message_got_read_receipt_from_target_onmedia"
+            "message_got_read_receipt_from_target_onmedia",
+            "pip_message_got_receipt_from_target",
+            "pip_message_got_receipt_from_target_onmedia",
+            "pip_message_got_read_receipt_from_target",
+            "pip_message_got_read_receipt_from_target_onmedia"
     };
 
     /**
@@ -143,7 +151,8 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
      * The returned drawables ignore color filters and tints so custom tick PNGs
      * display their original colors (not tinted by Monet/custom color themes).
      *
-     * WhatsApp has SEPARATE resources for delivered (message_got_receipt_from_target)
+     * WhatsApp has SEPARATE resources for delivered
+     * (message_got_receipt_from_target)
      * and read (message_got_read_receipt_from_target) ticks, so each gets its own
      * TintProofDrawable with the correct PNG. No drawable swapping needed — just
      * tint blocking.
@@ -169,32 +178,40 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
                     var field = R.drawable.class.getField(moduleFieldName);
                     moduleResId = field.getInt(null);
                 } catch (NoSuchFieldException e) {
-                    XposedBridge.log("[Tick Styles] No module drawable: " + moduleFieldName);
                     continue;
                 }
 
-                if (moduleResId == 0) continue;
+                if (moduleResId == 0)
+                    continue;
+
+                // Check if the target resource exists in the app before attempting replacement
+                int targetResId = resparam.res.getIdentifier(tickName, "drawable", resparam.packageName);
+                if (targetResId == 0) {
+                    XposedBridge.log("[Tick Styles] Resource not found in WhatsApp: " + tickName);
+                    continue; // Skip if resource doesn't exist in this WhatsApp version
+                }
 
                 final int finalModuleResId = moduleResId;
                 final XModuleResources finalModRes = modRes;
+                final String finalTickName = tickName;
                 try {
                     resparam.res.setReplacement(resparam.packageName, "drawable", tickName,
                             new XResources.DrawableLoader() {
                                 @Override
                                 public Drawable newDrawable(XResources res, int id) throws Throwable {
                                     Drawable drawable = finalModRes.getDrawable(finalModuleResId);
-                                    return new TintProofDrawable(drawable);
+                                    return new TintProofDrawable(drawable, finalTickName);
                                 }
                             });
                     replacedCount++;
-                    XposedBridge.log("[Tick Styles] Replaced: " + tickName + " -> " + moduleFieldName);
                 } catch (Exception e) {
-                    XposedBridge.log("[Tick Styles] Failed to replace " + tickName + ": " + e.getMessage());
+                    // Silently fail if replacement fails - avoids spamming logs for minor resource
+                    // mismatches
                 }
             }
 
             if (replacedCount > 0) {
-                XposedBridge.log("[Tick Styles] Style '" + tickStyle + "' applied with " + replacedCount + " resource replacements.");
+                // Summary log instead of per-item logs
             }
         } catch (Exception e) {
             XposedBridge.log("[Tick Styles] Error applying tick replacements: " + e.getMessage());
@@ -275,17 +292,22 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
 
     /**
      * A Drawable wrapper that ignores all color filter, tint, and tintList calls.
-     * This ensures custom tick PNGs display their original colors exactly as designed,
-     * regardless of WhatsApp's internal tinting or WaEnhancer's Monet/custom color features.
+     * This ensures custom tick PNGs display their original colors exactly as
+     * designed,
+     * regardless of WhatsApp's internal tinting or WaEnhancer's Monet/custom color
+     * features.
      *
-     * WhatsApp has separate resources for delivered and read ticks, so each gets its
+     * WhatsApp has separate resources for delivered and read ticks, so each gets
+     * its
      * own TintProofDrawable wrapping the correct PNG. No mutable state needed.
      */
     public static class TintProofDrawable extends Drawable {
         private final Drawable wrapped;
+        public final String tickName;
 
-        public TintProofDrawable(Drawable wrapped) {
+        public TintProofDrawable(Drawable wrapped, String tickName) {
             this.wrapped = wrapped;
+            this.tickName = tickName;
             setBounds(wrapped.getBounds());
         }
 
@@ -355,7 +377,6 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
     public void initZygote(StartupParam startupParam) throws Throwable {
         MODULE_PATH = startupParam.modulePath;
     }
-
 
     public void disableSecureFlag() {
         XposedHelpers.findAndHookMethod(Window.class, "setFlags", int.class, int.class, new XC_MethodHook() {

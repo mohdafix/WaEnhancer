@@ -45,10 +45,7 @@ public class GoogleTranslate extends Feature {
 
     @Override
     public void doHook() throws Throwable {
-        XposedBridge.log("GoogleTranslate: Initializing hooks...");
-
         if (!prefs.getBoolean("google_translate", false)) {
-            XposedBridge.log("GoogleTranslate: Feature is disabled in preferences.");
             return;
         }
 
@@ -56,16 +53,14 @@ public class GoogleTranslate extends Feature {
         try {
             checkSupportLanguage = Unobfuscator.loadCheckSupportLanguage(classLoader);
         } catch (Exception e) {
-            XposedBridge.log("GoogleTranslate: Failed to load checkSupportLanguage: " + e.getMessage());
+            logDebug("Failed to load checkSupportLanguage: " + e.getMessage());
             return;
         }
 
         if (checkSupportLanguage == null) {
-            XposedBridge.log("GoogleTranslate: checkSupportLanguage method not found via Unobfuscator.");
+            logDebug("checkSupportLanguage method not found via Unobfuscator.");
             return;
         }
-
-        XposedBridge.log("GoogleTranslate: Found checkSupportLanguage in class: " + checkSupportLanguage.getDeclaringClass().getName());
 
         XposedBridge.hookMethod(checkSupportLanguage, new XC_MethodHook() {
             @Override
@@ -77,83 +72,138 @@ public class GoogleTranslate extends Feature {
         });
 
         Class<?> translatorClazz = checkSupportLanguage.getDeclaringClass();
-        
-        // Dynamically search for translation methods in this class
+
+        // Dynamically search for translation methods in this class and related
+        // translation components
         Method stringTranslate = null;
         Method listTranslate = null;
 
-        for (Method m : translatorClazz.getDeclaredMethods()) {
-            Class<?>[] params = m.getParameterTypes();
-            Class<?> returnType = m.getReturnType();
-            
-            // The result class for translation usually has a constructor (String, float, int) 
-            // or for list translation (String[], float, int).
-            boolean isResultClass = false;
-            try {
-                returnType.getConstructor(String.class, float.class, int.class);
-                isResultClass = true;
-            } catch (NoSuchMethodException ignored) {
-                try {
-                    returnType.getConstructor(String[].class, float.class, int.class);
-                    isResultClass = true;
-                } catch (NoSuchMethodException ignored2) {}
-            }
+        List<Class<?>> classesToSearch = new ArrayList<>();
+        classesToSearch.add(translatorClazz);
 
-            if (isResultClass) {
-                if (params.length == 1 && params[0] == String.class) {
-                    stringTranslate = m;
-                } else if (params.length == 1 && params[0] == List.class) {
-                    listTranslate = m;
+        Class<?> unityTranslator = XposedHelpers
+                .findClassIfExists("com.whatsapp.messagetranslation.UnityMessageTranslation", classLoader);
+        if (unityTranslator != null) {
+            classesToSearch.add(unityTranslator);
+        }
+
+        Class<?> mlProcessor = XposedHelpers.findClassIfExists("com.whatsapp.messagetranslation.TranslationMLProcessor",
+                classLoader);
+        if (mlProcessor != null) {
+            classesToSearch.add(mlProcessor);
+        }
+
+        for (Class<?> clazz : classesToSearch) {
+            for (Method m : clazz.getDeclaredMethods()) {
+                Class<?>[] params = m.getParameterTypes();
+                Class<?> returnType = m.getReturnType();
+                if (returnType == void.class || returnType == Object.class)
+                    continue;
+
+                boolean isResultClass = false;
+                try {
+                    // Check for constructors like (String/String[], float, int)
+                    for (var ctor : returnType.getDeclaredConstructors()) {
+                        Class<?>[] cParams = ctor.getParameterTypes();
+                        if (cParams.length >= 3 &&
+                                (cParams[0] == String.class || cParams[0] == String[].class) &&
+                                cParams[1] == float.class &&
+                                cParams[2] == int.class) {
+                            isResultClass = true;
+                            break;
+                        }
+                    }
+                } catch (Exception ignored) {
                 }
+
+                if (isResultClass) {
+                    if (params.length == 1 && params[0] == String.class) {
+                        stringTranslate = m;
+                    } else if (params.length == 1 && params[0] == List.class) {
+                        listTranslate = m;
+                    }
+                }
+
+                if (stringTranslate != null && listTranslate != null)
+                    break;
             }
+            if (stringTranslate != null && listTranslate != null)
+                break;
         }
 
         if (stringTranslate != null) {
-            XposedBridge.log("GoogleTranslate: Hooking string translation method: " + stringTranslate.getName());
-            XposedHelpers.findAndHookMethod(translatorClazz, stringTranslate.getName(), String.class, new XC_MethodReplacement() {
-                @Override
-                protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                    String texto = (String) param.args[0];
-                    XposedBridge.log("GoogleTranslate: Translating string: " + (texto.length() > 20 ? texto.substring(0, 20) + "..." : texto));
-                    
-                    String translation = getTranslation(texto);
-                    XposedBridge.log("GoogleTranslate: Translation result: " + (translation.length() > 20 ? translation.substring(0, 20) + "..." : translation));
-                    
-                    Class<?> returnType = ((Method) param.method).getReturnType();
-                    return returnType.getConstructor(String.class, float.class, int.class).newInstance(translation, 1.0f, 0);
-                }
-            });
+            final Class<?> targetClazz = stringTranslate.getDeclaringClass();
+            XposedHelpers.findAndHookMethod(targetClazz, stringTranslate.getName(), String.class,
+                    new XC_MethodReplacement() {
+                        @Override
+                        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                            String texto = (String) param.args[0];
+                            logDebug("Translating string: "
+                                    + (texto.length() > 20 ? texto.substring(0, 20) + "..." : texto));
+
+                            String translation = getTranslation(texto);
+                            Class<?> returnType = ((Method) param.method).getReturnType();
+
+                            // Call the identified constructor
+                            for (var ctor : returnType.getDeclaredConstructors()) {
+                                Class<?>[] cParams = ctor.getParameterTypes();
+                                if (cParams.length >= 3 && cParams[0] == String.class && cParams[1] == float.class
+                                        && cParams[2] == int.class) {
+                                    ctor.setAccessible(true);
+                                    if (cParams.length == 3)
+                                        return ctor.newInstance(translation, 1.0f, 0);
+                                    if (cParams.length == 5)
+                                        return ctor.newInstance(translation, 1.0f, 0, 0, null);
+                                }
+                            }
+                            return null;
+                        }
+                    });
         }
 
         if (listTranslate != null) {
-            XposedBridge.log("GoogleTranslate: Hooking list translation method: " + listTranslate.getName());
-            XposedHelpers.findAndHookMethod(translatorClazz, listTranslate.getName(), List.class, new XC_MethodReplacement() {
-                @Override
-                protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                    List<?> list = (List<?>) param.args[0];
-                    XposedBridge.log("GoogleTranslate: Translating list of size: " + list.size());
-                    
-                    ArrayList<String> translated = new ArrayList<>();
-                    for (Object obj : list) {
-                        if (obj instanceof String) {
-                            translated.add(getTranslation((String) obj));
-                        }
-                    }
+            final Class<?> targetClazz = listTranslate.getDeclaringClass();
+            XposedHelpers.findAndHookMethod(targetClazz, listTranslate.getName(), List.class,
+                    new XC_MethodReplacement() {
+                        @Override
+                        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                            List<?> list = (List<?>) param.args[0];
+                            ArrayList<String> translated = new ArrayList<>();
+                            for (Object obj : list) {
+                                if (obj instanceof String) {
+                                    translated.add(getTranslation((String) obj));
+                                }
+                            }
 
-                    Class<?> returnType = ((Method) param.method).getReturnType();
-                    return returnType.getConstructor(String[].class, float.class, int.class).newInstance(translated.toArray(new String[0]), 1.0f, 0);
-                }
-            });
+                            Class<?> returnType = ((Method) param.method).getReturnType();
+                            String[] translatedArray = translated.toArray(new String[0]);
+
+                            for (var ctor : returnType.getDeclaredConstructors()) {
+                                Class<?>[] cParams = ctor.getParameterTypes();
+                                if (cParams.length >= 3 && cParams[0] == String[].class && cParams[1] == float.class
+                                        && cParams[2] == int.class) {
+                                    ctor.setAccessible(true);
+                                    if (cParams.length == 3)
+                                        return ctor.newInstance(translatedArray, 1.0f, 0);
+                                    if (cParams.length == 5)
+                                        return ctor.newInstance(translatedArray, 1.0f, 0, 0, null);
+                                }
+                            }
+                            return null;
+                        }
+                    });
         }
 
         if (stringTranslate == null && listTranslate == null) {
-            XposedBridge.log("GoogleTranslate: ERROR - Could not find translation methods in " + translatorClazz.getName());
+            XposedBridge
+                    .log("GoogleTranslate: ERROR - Could not find translation methods in " + translatorClazz.getName());
         }
     }
 
     private String getTranslation(String text) {
-        if (TextUtils.isEmpty(text)) return text;
-        
+        if (TextUtils.isEmpty(text))
+            return text;
+
         prefs.reload();
         String provider = prefs.getString("translation_provider", "google");
         String targetLang = prefs.getString("target_translation_language", "");
@@ -172,7 +222,7 @@ public class GoogleTranslate extends Feature {
             } else {
                 future = translateGoogle(text, targetLang);
             }
-            
+
             // Set a timeout to prevent blocking the thread indefinitely
             return future.get(15, java.util.concurrent.TimeUnit.SECONDS);
         } catch (Exception e) {
@@ -189,8 +239,7 @@ public class GoogleTranslate extends Feature {
             url = String.format(
                     "https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl=auto&tl=%s&q=%s",
                     languageDest,
-                    URLEncoder.encode(text, "UTF-8")
-            );
+                    URLEncoder.encode(text, "UTF-8"));
         } catch (Exception e) {
             future.completeExceptionally(new RuntimeException("Error encoding URL: " + e.getMessage()));
             return future;
@@ -222,7 +271,8 @@ public class GoogleTranslate extends Feature {
 
                         future.complete(translation.toString());
                     } catch (Exception e) {
-                        future.completeExceptionally(new RuntimeException("Error processing response: " + e.getMessage()));
+                        future.completeExceptionally(
+                                new RuntimeException("Error processing response: " + e.getMessage()));
                     }
                 } else {
                     future.completeExceptionally(new RuntimeException("Response not successful: " + response.code()));
@@ -244,18 +294,19 @@ public class GoogleTranslate extends Feature {
         try {
             JSONObject root = new JSONObject();
             root.put("model", "llama-3.1-8b-instant");
-            
+
             JSONArray messages = new JSONArray();
             JSONObject systemMessage = new JSONObject();
             systemMessage.put("role", "system");
-            systemMessage.put("content", "You are a professional translator. Translate the following text to " + targetLang + ". Provide ONLY the translated text without any explanations or extra characters.");
+            systemMessage.put("content", "You are a professional translator. Translate the following text to "
+                    + targetLang + ". Provide ONLY the translated text without any explanations or extra characters.");
             messages.put(systemMessage);
-            
+
             JSONObject userMessage = new JSONObject();
             userMessage.put("role", "user");
             userMessage.put("content", text);
             messages.put(userMessage);
-            
+
             root.put("messages", messages);
             root.put("temperature", 0);
 
@@ -299,7 +350,7 @@ public class GoogleTranslate extends Feature {
         CompletableFuture<String> future = new CompletableFuture<>();
         String apiKey = prefs.getString("gemini_api_key", "").trim();
         String modelName = prefs.getString("gemini_model", "gemini-1.5-flash").trim();
-        
+
         if (TextUtils.isEmpty(apiKey)) {
             future.complete(text + " [Gemini API key not provided]");
             return future;
@@ -312,7 +363,8 @@ public class GoogleTranslate extends Feature {
             JSONArray partsArray = new JSONArray();
 
             JSONObject textPart = new JSONObject();
-            textPart.put("text", "Translate the following text to " + targetLang + ". Provide ONLY the translated text.\n\nText: " + text);
+            textPart.put("text", "Translate the following text to " + targetLang
+                    + ". Provide ONLY the translated text.\n\nText: " + text);
             partsArray.put(textPart);
 
             contentObj.put("parts", partsArray);
@@ -320,7 +372,8 @@ public class GoogleTranslate extends Feature {
             root.put("contents", contentsArray);
 
             Request request = new Request.Builder()
-                    .url("https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent?key=" + apiKey)
+                    .url("https://generativelanguage.googleapis.com/v1beta/models/" + modelName
+                            + ":generateContent?key=" + apiKey)
                     .post(RequestBody.create(root.toString(), MediaType.parse("application/json")))
                     .build();
 

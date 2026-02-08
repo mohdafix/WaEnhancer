@@ -42,10 +42,11 @@ public class HideSeen extends Feature {
     }
 
     protected static FMessageWpp.Key getKeyMessage(XC_MethodHook.MethodHookParam param, Object userJidObject,
-                                                   List<Pair<Integer, Class<? extends String>>> strings) {
+            List<Pair<Integer, Class<? extends String>>> strings) {
         Object keyObject = ReflectionUtils.getArg(param.args, FMessageWpp.Key.TYPE, 0);
         if (keyObject == null) {
-            if (strings.size() < 2) return null;
+            if (strings.size() < 2)
+                return null;
             String idMessage = (String) param.args[strings.get(0).first];
             FMessageWpp.UserJid userJid = new FMessageWpp.UserJid(userJidObject);
             return new FMessageWpp.Key(idMessage, userJid, false);
@@ -73,22 +74,27 @@ public class HideSeen extends Feature {
 
     private void hookSendReadReceiptJob() throws Exception {
         Method sendReadReceiptJobMethod = Unobfuscator.loadHideViewSendReadJob(classLoader);
-        Class<?> sendJobClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "SendReadReceiptJob");
-        log(Unobfuscator.getMethodDescriptor(sendReadReceiptJobMethod));
+        Class<?> sendJobClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith,
+                "SendReadReceiptJob");
+        logDebug(Unobfuscator.getMethodDescriptor(sendReadReceiptJobMethod));
 
         XposedBridge.hookMethod(sendReadReceiptJobMethod, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if (!sendJobClass.isInstance(param.thisObject)) return;
+                if (!sendJobClass.isInstance(param.thisObject))
+                    return;
 
                 Object sendReadReceiptJob = sendJobClass.cast(param.thisObject);
-                if (hasBlueOnReplyFlag(sendReadReceiptJob)) return;
+                if (hasBlueOnReplyFlag(sendReadReceiptJob))
+                    return;
 
                 String lid = (String) XposedHelpers.getObjectField(sendReadReceiptJob, "jid");
-                if (isInvalidJid(lid)) return;
+                if (isInvalidJid(lid))
+                    return;
 
                 FMessageWpp.UserJid userJid = new FMessageWpp.UserJid(lid);
-                if (userJid.isNull()) return;
+                if (userJid.isNull())
+                    return;
 
                 JSONObject privacy = CustomPrivacy.getJSON(userJid.getPhoneNumber());
                 boolean isHide = processReadReceiptByType(param, sendReadReceiptJob, userJid, privacy);
@@ -109,7 +115,7 @@ public class HideSeen extends Feature {
     }
 
     private boolean processReadReceiptByType(XC_MethodHook.MethodHookParam param, Object job,
-                                             FMessageWpp.UserJid userJid, JSONObject privacy) {
+            FMessageWpp.UserJid userJid, JSONObject privacy) {
         if (userJid.isGroup()) {
             return processGroupReadReceipt(param, privacy);
         }
@@ -171,22 +177,28 @@ public class HideSeen extends Feature {
         XposedBridge.hookMethod(receiptMethod, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                if (!isValidChatContext(outsideMethod, hideViewInChatMethod)) return;
+                if (!isValidChatContext(outsideMethod, hideViewInChatMethod))
+                    return;
 
-                Class<?> jidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith, "jid.Jid");
+                Class<?> jidClass = Unobfuscator.findFirstClassUsingName(classLoader, StringMatchType.EndsWith,
+                        "jid.Jid");
                 Object userJidObject = ReflectionUtils.getArg(param.args, jidClass, 0);
-                if (userJidObject == null) return;
+                if (userJidObject == null)
+                    return;
 
                 List<Pair<Integer, Class<? extends String>>> strings = ReflectionUtils.findClassesOfType(
                         ((Method) param.method).getParameterTypes(), String.class);
                 FMessageWpp.Key keyMessage = getKeyMessage(param, userJidObject, strings);
-                if (keyMessage == null) return;
+                if (keyMessage == null)
+                    return;
 
                 FMessageWpp fMessage = keyMessage.getFMessage();
-                if (isAlreadyHidden(keyMessage, fMessage)) return;
+                if (isAlreadyHidden(keyMessage, fMessage))
+                    return;
 
                 int msgTypeIdx = strings.get(strings.size() - 1).first;
-                if (!Objects.equals("read", param.args[msgTypeIdx])) return;
+                if (!Objects.equals("read", param.args[msgTypeIdx]))
+                    return;
 
                 processReceiptHiding(param, keyMessage, fMessage, msgTypeIdx);
             }
@@ -200,7 +212,8 @@ public class HideSeen extends Feature {
     }
 
     private boolean isAlreadyHidden(FMessageWpp.Key keyMessage, FMessageWpp fMessage) {
-        if (fMessage == null) return false;
+        if (fMessage == null)
+            return false;
         MessageHistory.MessageType type = fMessage.isViewOnce()
                 ? MessageHistory.MessageType.VIEW_ONCE_TYPE
                 : MessageHistory.MessageType.MESSAGE_TYPE;
@@ -209,7 +222,7 @@ public class HideSeen extends Feature {
     }
 
     private void processReceiptHiding(XC_MethodHook.MethodHookParam param, FMessageWpp.Key keyMessage,
-                                      FMessageWpp fMessage, int msgTypeIdx) {
+            FMessageWpp fMessage, int msgTypeIdx) {
         JSONObject privacy = CustomPrivacy.getJSON(keyMessage.remoteJid.getPhoneNumber());
         boolean shouldHide = shouldHideReceipt(keyMessage.remoteJid, privacy);
 
@@ -253,7 +266,8 @@ public class HideSeen extends Feature {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 Set<?> set = (Set<?>) param.args[0];
-                if (set == null || set.isEmpty()) return;
+                if (set == null || set.isEmpty())
+                    return;
 
                 FMessageWpp fMessage = new FMessageWpp(set.iterator().next());
                 processSenderPlayed(param, fMessage);
@@ -295,8 +309,10 @@ public class HideSeen extends Feature {
         if (fMessage.isViewOnce() && !hideOnceSeen && !ghostMode) {
             String phoneRaw = key.remoteJid.getPhoneRawString();
             String messageId = key.messageID;
-            MessageHistory.getInstance().updateViewedMessage(phoneRaw, messageId, MessageHistory.MessageType.VIEW_ONCE_TYPE, true);
-            MessageHistory.getInstance().updateViewedMessage(phoneRaw, messageId, MessageHistory.MessageType.MESSAGE_TYPE, true);
+            MessageHistory.getInstance().updateViewedMessage(phoneRaw, messageId,
+                    MessageHistory.MessageType.VIEW_ONCE_TYPE, true);
+            MessageHistory.getInstance().updateViewedMessage(phoneRaw, messageId,
+                    MessageHistory.MessageType.MESSAGE_TYPE, true);
         }
     }
 
