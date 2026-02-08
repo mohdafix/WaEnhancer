@@ -177,4 +177,21 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory
+        app:iconSpaceReserved="false"
+        app:title="@string/auto_reply">
+
+        <rikka.material.preference.MaterialSwitchPreference
+            app:key="auto_reply_enabled"
+            app:summary="@string/auto_reply_sum"
+            app:title="@string/auto_reply" />
+
+        <Preference
+            app:dependency="auto_reply_enabled"
+            app:key="auto_reply_rules"
+            app:summary="@string/auto_reply_manage_rules_sum"
+            app:title="@string/auto_reply_manage_rules" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

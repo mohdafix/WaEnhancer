@@ -11,6 +11,7 @@ import androidx.annotation.Nullable;
 import androidx.preference.Preference;
 
 import com.wmods.wppenhacer.R;
+import com.wmods.wppenhacer.activities.AutoReplyRulesActivity;
 import com.wmods.wppenhacer.activities.ScheduledMessagesListActivity;
 import com.wmods.wppenhacer.ui.fragments.base.BaseFragment;
 import com.wmods.wppenhacer.ui.fragments.base.BasePreferenceFragment;
@@ -106,6 +107,17 @@ public class GeneralFragment extends BaseFragment {
                     return true;
                 });
             }
+        }
+
+        @Override
+        public boolean onPreferenceTreeClick(Preference preference) {
+            String key = preference.getKey();
+            if ("auto_reply_rules".equals(key)) {
+                Intent intent = new Intent(getActivity(), AutoReplyRulesActivity.class);
+                startActivity(intent);
+                return true;
+            }
+            return super.onPreferenceTreeClick(preference);
         }
     }
 

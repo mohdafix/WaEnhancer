@@ -107,6 +107,11 @@
             android:theme="@style/AppTheme" />
 
         <activity
+            android:name=".activities.AutoReplyRulesActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+
+        <activity
             android:name=".activities.CallRecordingSettingsActivity"
             android:theme="@style/Theme.Material3.DynamicColors.DayNight.NoActionBar"
             android:parentActivityName=".activities.MainActivity" />
