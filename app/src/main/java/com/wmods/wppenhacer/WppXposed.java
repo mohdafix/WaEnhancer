@@ -28,6 +28,9 @@ import com.wmods.wppenhacer.xposed.core.FeatureLoader;
 import com.wmods.wppenhacer.xposed.downgrade.Patch;
 import com.wmods.wppenhacer.xposed.utils.ResId;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import de.robv.android.xposed.IXposedHookInitPackageResources;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.IXposedHookZygoteInit;
@@ -44,6 +47,7 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
     private static XSharedPreferences pref;
     private static String MODULE_PATH;
     public static XC_InitPackageResources.InitPackageResourcesParam ResParam;
+    public static java.util.Map<Integer, String> tickResourceMap = new java.util.HashMap<>();
 
     public static String getModulePath() {
         return MODULE_PATH;
@@ -127,22 +131,81 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
     }
 
     /**
-     * WhatsApp's 8 stock tick drawable names used for message status indicators.
+     * Mapping of WhatsApp target drawable names to our module's resource suffixes.
+     * Allows multiple WhatsApp resources (e.g. Chat vs Home) to map to a single
+     * custom style asset.
      */
-    private static final String[] TICK_DRAWABLE_NAMES = {
-            "message_unsent",
-            "message_unsent_onmedia",
-            "message_got_receipt_from_server",
-            "message_got_receipt_from_server_onmedia",
-            "message_got_receipt_from_target",
-            "message_got_receipt_from_target_onmedia",
-            "message_got_read_receipt_from_target",
-            "message_got_read_receipt_from_target_onmedia",
-            "pip_message_got_receipt_from_target",
-            "pip_message_got_receipt_from_target_onmedia",
-            "pip_message_got_read_receipt_from_target",
-            "pip_message_got_read_receipt_from_target_onmedia"
-    };
+    private static final java.util.Map<String, String> TICK_RESOURCE_MAPPING = new java.util.HashMap<>();
+
+    static {
+        // 1. Standard Chat & PIP names (Target matches Module suffix)
+        String[] standards = {
+                "message_unsent",
+                "message_unsent_onmedia",
+                "message_got_receipt_from_server",
+                "message_got_receipt_from_server_onmedia",
+                "message_got_receipt_from_target",
+                "message_got_receipt_from_target_onmedia",
+                "message_got_read_receipt_from_target",
+                "message_got_read_receipt_from_target_onmedia",
+                "pip_message_got_receipt_from_target",
+                "pip_message_got_receipt_from_target_onmedia",
+                "pip_message_got_read_receipt_from_target",
+                "pip_message_got_read_receipt_from_target_onmedia"
+        };
+        for (String s : standards)
+            TICK_RESOURCE_MAPPING.put(s, s);
+
+        // 2. Potential Home Screen / Conversation List variants
+        // Mapping these to our standard icons ensures consistent styling globally
+        TICK_RESOURCE_MAPPING.put("status_check", "message_got_receipt_from_server");
+        TICK_RESOURCE_MAPPING.put("status_double_check", "message_got_receipt_from_target");
+        TICK_RESOURCE_MAPPING.put("status_read", "message_got_read_receipt_from_target");
+
+        TICK_RESOURCE_MAPPING.put("ic_status_check", "message_got_receipt_from_server");
+        TICK_RESOURCE_MAPPING.put("ic_status_double_check", "message_got_receipt_from_target");
+        TICK_RESOURCE_MAPPING.put("ic_status_read", "message_got_read_receipt_from_target");
+
+        TICK_RESOURCE_MAPPING.put("ic_msg_panel_sent", "message_got_receipt_from_server");
+        TICK_RESOURCE_MAPPING.put("ic_msg_panel_delivered", "message_got_receipt_from_target");
+        TICK_RESOURCE_MAPPING.put("ic_msg_panel_read", "message_got_read_receipt_from_target");
+
+        // Additional potential variants
+        TICK_RESOURCE_MAPPING.put("message_status_sent", "message_got_receipt_from_server");
+        TICK_RESOURCE_MAPPING.put("message_status_delivered", "message_got_receipt_from_target");
+        TICK_RESOURCE_MAPPING.put("message_status_read", "message_got_read_receipt_from_target");
+
+        TICK_RESOURCE_MAPPING.put("msg_status_gray", "message_got_receipt_from_server");
+        TICK_RESOURCE_MAPPING.put("msg_status_gray_double", "message_got_receipt_from_target");
+        TICK_RESOURCE_MAPPING.put("msg_status_blue_double", "message_got_read_receipt_from_target");
+
+        TICK_RESOURCE_MAPPING.put("ic_message_status_sent", "message_got_receipt_from_server");
+        TICK_RESOURCE_MAPPING.put("ic_message_status_delivered", "message_got_receipt_from_target");
+        TICK_RESOURCE_MAPPING.put("ic_message_status_read", "message_got_read_receipt_from_target");
+
+        TICK_RESOURCE_MAPPING.put("cw_msg_status_sent", "message_got_receipt_from_server");
+        TICK_RESOURCE_MAPPING.put("cw_msg_status_delivered", "message_got_receipt_from_target");
+        TICK_RESOURCE_MAPPING.put("cw_msg_status_read", "message_got_read_receipt_from_target");
+
+        // 3. Findings from Debug Logs (Home Screen / Conversation List)
+        // User reported "msg_status_client" was showing as Pending (Unsent) when it
+        // should be Read/Delivered.
+        // Therefore "msg_status_client" is actually the Double Check icon (Delivered).
+        TICK_RESOURCE_MAPPING.put("msg_status_client", "message_got_receipt_from_target");
+
+        TICK_RESOURCE_MAPPING.put("msg_status_server_receive", "message_got_receipt_from_server");
+        TICK_RESOURCE_MAPPING.put("msg_status_target_receive", "message_got_receipt_from_target");
+        TICK_RESOURCE_MAPPING.put("msg_status_target_read", "message_got_read_receipt_from_target");
+
+        // Also map known variants just in case
+        TICK_RESOURCE_MAPPING.put("msg_status_read", "message_got_read_receipt_from_target");
+        TICK_RESOURCE_MAPPING.put("msg_status_receive", "message_got_receipt_from_target");
+        TICK_RESOURCE_MAPPING.put("msg_status_failed", "message_unsent"); // Start with unsent for failed
+
+        // 4. Ambiguous but likely mapping based on 'ic_read' log
+        TICK_RESOURCE_MAPPING.put("ic_read", "message_got_read_receipt_from_target");
+        TICK_RESOURCE_MAPPING.put("ic_receipt", "message_got_receipt_from_target");
+    }
 
     /**
      * Replace WhatsApp's stock tick drawables with custom style variants using
@@ -170,9 +233,12 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
             }
 
             int replacedCount = 0;
-            for (String tickName : TICK_DRAWABLE_NAMES) {
+            for (java.util.Map.Entry<String, String> entry : TICK_RESOURCE_MAPPING.entrySet()) {
+                String targetName = entry.getKey();
+                String moduleSuffix = entry.getValue();
+
                 // Find the module's replacement drawable resource ID
-                String moduleFieldName = tickStyle + "_" + tickName;
+                String moduleFieldName = tickStyle + "_" + moduleSuffix;
                 int moduleResId;
                 try {
                     var field = R.drawable.class.getField(moduleFieldName);
@@ -185,24 +251,22 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
                     continue;
 
                 // Check if the target resource exists in the app before attempting replacement
-                int targetResId = resparam.res.getIdentifier(tickName, "drawable", resparam.packageName);
+                int targetResId = resparam.res.getIdentifier(targetName, "drawable", resparam.packageName);
                 if (targetResId == 0) {
-                    XposedBridge.log("[Tick Styles] Resource not found in WhatsApp: " + tickName);
-                    continue; // Skip if resource doesn't exist in this WhatsApp version
+                    // Resource not found in this WhatsApp version, normal behavior
+                    continue;
                 }
 
-                final int finalModuleResId = moduleResId;
-                final XModuleResources finalModRes = modRes;
-                final String finalTickName = tickName;
+                // Track this ID as a tick resource so we can block tinting later
+                // We use the MODULE SUFFIX as the tickName for logic in OwnMessageStatus
+                tickResourceMap.put(targetResId, moduleSuffix);
+
                 try {
-                    resparam.res.setReplacement(resparam.packageName, "drawable", tickName,
-                            new XResources.DrawableLoader() {
-                                @Override
-                                public Drawable newDrawable(XResources res, int id) throws Throwable {
-                                    Drawable drawable = finalModRes.getDrawable(finalModuleResId);
-                                    return new TintProofDrawable(drawable, finalTickName);
-                                }
-                            });
+                    // Use XResForwarder instead of deprecated DrawableLoader
+                    // This fixes the "Replacement ... escaped because of deprecated replacement"
+                    // warning
+                    resparam.res.setReplacement(targetResId,
+                            new android.content.res.XResForwarder(modRes, moduleResId));
                     replacedCount++;
                 } catch (Exception e) {
                     // Silently fail if replacement fails - avoids spamming logs for minor resource

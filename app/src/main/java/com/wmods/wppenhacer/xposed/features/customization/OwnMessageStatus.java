@@ -1,11 +1,13 @@
 package com.wmods.wppenhacer.xposed.features.customization;
 
 import android.content.res.ColorStateList;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.util.TypedValue;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
@@ -75,6 +77,64 @@ public class OwnMessageStatus extends Feature {
         }
 
         XposedBridge.log("[Tick Styles] Feature active: style '" + tickStyle + "' — hooking ImageView tint methods");
+
+        // Hook Resources.getDrawable to wrap our forwarded ticks in TintProofDrawable
+        // Used to create TintProofDrawable wrapper for XResForwarder-replaced resources
+        try {
+            XposedHelpers.findAndHookMethod(Resources.class, "getDrawable", int.class, Resources.Theme.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            int id = (int) param.args[0];
+                            if (WppXposed.tickResourceMap.containsKey(id)) {
+                                Drawable d = (Drawable) param.getResult();
+                                if (d != null && !(d instanceof WppXposed.TintProofDrawable)) {
+                                    param.setResult(
+                                            new WppXposed.TintProofDrawable(d, WppXposed.tickResourceMap.get(id)));
+                                }
+                            }
+                        }
+                    });
+        } catch (Throwable e) {
+            XposedBridge.log("[Tick Styles] Error hooking Resources.getDrawable: " + e.getMessage());
+        }
+
+        // Debug hook REMOVED to prevent log spam - verified resource names found:
+        // msg_status_client, msg_status_server_receive, ic_read
+        /*
+         * try {
+         * XposedHelpers.findAndHookMethod(Resources.class, "getDrawable", int.class,
+         * Resources.Theme.class,
+         * new XC_MethodHook() {
+         * 
+         * @Override
+         * protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+         * int id = (int) param.args[0];
+         * try {
+         * Resources res = (Resources) param.thisObject;
+         * String name = res.getResourceEntryName(id);
+         * if (name != null) {
+         * String lowerName = name.toLowerCase();
+         * if (lowerName.contains("mark") || lowerName.contains("status") ||
+         * lowerName.contains("indicator") || lowerName.contains("read") ||
+         * lowerName.contains("receipt") || lowerName.contains("check") ||
+         * lowerName.contains("tick") || lowerName.contains("msg") ||
+         * lowerName.startsWith("ic_")) {
+         * 
+         * // Filter out some common noise if needed, but for now keep it broad
+         * XposedBridge.log("[Tick Styles] DEBUG: getDrawable(" + id + ") -> " + name);
+         * }
+         * }
+         * } catch (Exception e) {
+         * // ignore
+         * }
+         * }
+         * });
+         * } catch (Throwable e) {
+         * XposedBridge.log("[Tick Styles] Error hooking debug getDrawable: " +
+         * e.getMessage());
+         * }
+         */
 
         // Hook ImageView.setImageTintList to block tinting on custom tick drawables.
         // WhatsApp calls this after setImageDrawable to apply color tinting.
