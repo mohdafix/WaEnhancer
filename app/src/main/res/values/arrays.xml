@@ -418,6 +418,61 @@
         <item>rcios11</item>
     </string-array>
 
+    <string-array name="notification_icon_entries">
+        <item>Default</item>
+        <item>White</item>
+        <item>Black</item>
+        <item>Blue</item>
+        <item>Red</item>
+        <item>Green</item>
+        <item>Yellow</item>
+        <item>Orange</item>
+        <item>Gold</item>
+        <item>Cyan</item>
+        <item>Pink</item>
+        <item>Magenta</item>
+        <item>Purple</item>
+        <item>Blue 2</item>
+        <item>Black 2</item>
+        <item>Blue 3</item>
+        <item>Red 2</item>
+        <item>Green 2</item>
+        <item>Yellow 2</item>
+        <item>Orange 2</item>
+        <item>Gold 2</item>
+        <item>Cyan 2</item>
+        <item>Pink 2</item>
+        <item>Magenta 2</item>
+        <item>RC Notif</item>
+    </string-array>
+    <string-array name="notification_icon_values">
+        <item>default</item>
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>11</item>
+        <item>12</item>
+        <item>13</item>
+        <item>14</item>
+        <item>15</item>
+        <item>16</item>
+        <item>17</item>
+        <item>18</item>
+        <item>19</item>
+        <item>20</item>
+        <item>21</item>
+        <item>22</item>
+        <item>23</item>
+    </string-array>
+
     <string-array name="tick_style_entries">
         <item>Default</item>
         <item>AB</item>
@@ -463,5 +518,31 @@
         <item>minions</item>
         <item>pacman</item>
         <item>twitter</item>
+    </string-array>
+
+    <!-- Voice Changer Effects -->
+    <string-array name="voice_effect_entries">
+        <item>Disabled</item>
+        <item>Baby</item>
+        <item>Teenager</item>
+        <item>Deep</item>
+        <item>Robot</item>
+        <item>Drunk</item>
+        <item>Fast</item>
+        <item>Slow Motion</item>
+        <item>Underwater</item>
+        <item>Fun</item>
+    </string-array>
+    <string-array name="voice_effect_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
     </string-array>
 </resources>

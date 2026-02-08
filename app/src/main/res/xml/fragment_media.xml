@@ -127,7 +127,6 @@
             app:summary="@string/disable_the_proximity_sensor_sum"
             app:title="@string/disable_the_proximity_sensor" />
 
-
         <rikka.material.preference.MaterialSwitchPreference
             app:key="proximity_audios"
             app:summary="@string/disable_audio_sensor_sum"
@@ -154,6 +153,19 @@
             app:minValue="0.1"
             app:title="@string/voice_note_speed" />
 
+        <rikka.material.preference.MaterialSwitchPreference
+            app:key="voice_changer_enabled"
+            app:summary="@string/voice_changer_enabled_sum"
+            app:title="@string/voice_changer_enabled" />
+
+        <ListPreference
+            android:defaultValue="0"
+            android:dependency="voice_changer_enabled"
+            android:entries="@array/voice_effect_entries"
+            android:entryValues="@array/voice_effect_values"
+            app:key="voice_changer_effect"
+            app:summary="@string/voice_changer_effect_sum"
+            app:title="@string/voice_changer_effect" />
 
         <rikka.material.preference.MaterialSwitchPreference
             app:key="audio_transcription"
@@ -224,6 +236,5 @@
             app:title="@string/enable_media_preview" />
 
     </PreferenceCategory>
-
 
 </PreferenceScreen>

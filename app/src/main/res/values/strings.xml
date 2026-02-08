@@ -598,4 +598,44 @@
     <string name="title_status">Status</string>
     <string name="five_min_status">5-Minute Status</string>
     <string name="five_min_status_sum">Allows posting status videos up to 5 minutes instead of 30 seconds. Note: Only users with modded WhatsApp can see the full status. Others will see only the first 30 seconds.</string>
+    <string name="notification_icon">Notification Icon</string>
+    <string name="notification_icon_sum">Change the notification icon shown in the status bar</string>
+
+    <!-- Auto Reply -->
+    <string name="auto_reply">Auto Reply</string>
+    <string name="auto_reply_sum">Automatically reply to incoming messages based on rules</string>
+    <string name="auto_reply_manage_rules">Manage Auto Reply Rules</string>
+    <string name="auto_reply_manage_rules_sum">Add, edit, or delete auto-reply rules</string>
+    <string name="auto_reply_add_rule">Add Rule</string>
+    <string name="auto_reply_edit_rule">Edit Rule</string>
+    <string name="auto_reply_delete_rule">Delete Rule</string>
+    <string name="auto_reply_pattern">Pattern</string>
+    <string name="auto_reply_pattern_hint">Text to match (e.g., "hello" or regex pattern)</string>
+    <string name="auto_reply_message">Reply Message</string>
+    <string name="auto_reply_message_hint">Message to send automatically</string>
+    <string name="auto_reply_match_type">Match Type</string>
+    <string name="auto_reply_match_all">All Messages</string>
+    <string name="auto_reply_match_contains">Contains</string>
+    <string name="auto_reply_match_exact">Exact Match</string>
+    <string name="auto_reply_match_regex">Regex</string>
+    <string name="auto_reply_target_type">Target</string>
+    <string name="auto_reply_target_all">Everyone</string>
+    <string name="auto_reply_target_contacts">Contacts Only</string>
+    <string name="auto_reply_target_groups">Groups Only</string>
+    <string name="auto_reply_target_specific">Specific Contacts/Groups</string>
+    <string name="auto_reply_specific_jids">Specific JIDs (comma-separated)</string>
+    <string name="auto_reply_delay">Delay (seconds)</string>
+    <string name="auto_reply_start_time">Start Time</string>
+    <string name="auto_reply_end_time">End Time</string>
+    <string name="auto_reply_enabled_label">Enabled</string>
+    <string name="auto_reply_no_rules">No auto-reply rules configured</string>
+    <string name="auto_reply_rule_saved">Rule saved</string>
+    <string name="auto_reply_rule_deleted">Rule deleted</string>
+    <string name="auto_reply_template_hint">Available variables: {name}, {time}, {date}, {message}</string>
+
+    <!-- Voice Changer -->
+    <string name="voice_changer_enabled">Voice Changer</string>
+    <string name="voice_changer_enabled_sum">Apply voice effects to voice notes before sending</string>
+    <string name="voice_changer_effect">Voice Effect</string>
+    <string name="voice_changer_effect_sum">Select the voice effect to apply</string>
 </resources>
