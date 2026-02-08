@@ -123,7 +123,7 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
 
         // Notification Icon: replace WhatsApp's "notifybar" drawable at the resource
         // level.
-        applyNotificationIconReplacement(resparam);
+        // applyNotificationIconReplacement(resparam);
     }
 
     /**

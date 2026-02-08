@@ -155,13 +155,7 @@
             android:summary="@string/manage_theme_sum"
             android:title="@string/theme_manager" />
 
-        <ListPreference
-            android:defaultValue="default"
-            android:entries="@array/notification_icon_entries"
-            android:entryValues="@array/notification_icon_values"
-            app:key="notification_icon"
-            app:summary="%s"
-            app:title="@string/notification_icon" />
+
 
         <ListPreference
             android:entries="@array/animations_names"
