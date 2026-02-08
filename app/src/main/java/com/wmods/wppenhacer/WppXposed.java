@@ -251,13 +251,30 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
                 XposedBridge.log("[NotificationIcon] Failed to load: " + assetPath);
                 return;
             }
-            XposedBridge.log("[NotificationIcon] Loaded icon: " + assetPath +
-                    " (" + testBitmap.getWidth() + "x" + testBitmap.getHeight() + ")");
+            // XposedBridge.log("[NotificationIcon] Loaded icon: " + assetPath +
+            // " (" + testBitmap.getWidth() + "x" + testBitmap.getHeight() + ")");
 
-            // Replace "notifybar" drawable in WhatsApp's resources
-            // Cache the bitmap to avoid re-creating AssetManager on every load
+            // List of potential resource names for the notification icon
+            String[] candidates = { "notifybar", "ic_stat_notify", "ic_notification" };
+            String targetName = null;
+
+            for (String candidate : candidates) {
+                int resId = resparam.res.getIdentifier(candidate, "drawable", resparam.packageName);
+                if (resId != 0) {
+                    targetName = candidate;
+                    break;
+                }
+            }
+
+            if (targetName == null) {
+                XposedBridge.log(
+                        "[NotificationIcon] Could not find notification icon resource (tried: notifybar, ic_stat_notify, ic_notification)");
+                return;
+            }
+
+            // Replace the found drawable in WhatsApp's resources
             final Bitmap cachedBitmap = testBitmap;
-            resparam.res.setReplacement(resparam.packageName, "drawable", "notifybar",
+            resparam.res.setReplacement(resparam.packageName, "drawable", targetName,
                     new XResources.DrawableLoader() {
                         @Override
                         public Drawable newDrawable(XResources res, int id) throws Throwable {
@@ -265,7 +282,8 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
                         }
                     });
 
-            XposedBridge.log("[NotificationIcon] Replaced 'notifybar' drawable with style '" + iconStyle + "'");
+            XposedBridge
+                    .log("[NotificationIcon] Replaced '" + targetName + "' drawable with style '" + iconStyle + "'");
         } catch (Exception e) {
             XposedBridge.log("[NotificationIcon] Error: " + e.getMessage());
         }
