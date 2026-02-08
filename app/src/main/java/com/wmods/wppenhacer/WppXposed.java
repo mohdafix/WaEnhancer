@@ -2,18 +2,24 @@ package com.wmods.wppenhacer;
 
 import android.annotation.SuppressLint;
 import android.content.ContextWrapper;
+import android.content.res.AssetManager;
 import android.content.res.XModuleResources;
 import android.content.res.XResources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.view.Window;
 import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;
+
+import java.io.InputStream;
 
 import com.wmods.wppenhacer.activities.MainActivity;
 import com.wmods.wppenhacer.xposed.AntiUpdater;
@@ -111,6 +117,9 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
         // This works regardless of how WhatsApp loads the drawable (setImageResource,
         // setImageDrawable, getDrawable, etc.).
         applyTickStyleReplacements(resparam, modRes);
+
+        // Notification Icon: replace WhatsApp's "notifybar" drawable at the resource level.
+        applyNotificationIconReplacement(resparam);
     }
 
     /**
@@ -189,6 +198,78 @@ public class WppXposed implements IXposedHookLoadPackage, IXposedHookInitPackage
             }
         } catch (Exception e) {
             XposedBridge.log("[Tick Styles] Error applying tick replacements: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Replace WhatsApp's "notifybar" drawable with a custom notification icon
+     * loaded from the module APK's assets. Uses the same Xposed resource
+     * replacement technique as tick styles, so it intercepts ALL 60+ code paths
+     * that reference WhatsApp's notification icon resource.
+     *
+     * The icons are stored in assets/notifybar/notifybar_{0-23}.png rather than
+     * as compiled drawable resources, so we load them via AssetManager and wrap
+     * in a BitmapDrawable.
+     */
+    private void applyNotificationIconReplacement(
+            XC_InitPackageResources.InitPackageResourcesParam resparam) {
+        try {
+            var prefs = getPref();
+            prefs.reload();
+            String iconStyle = prefs.getString("notification_icon", "default");
+
+            if (iconStyle == null || iconStyle.equals("default")) {
+                return;
+            }
+
+            if (MODULE_PATH == null) {
+                XposedBridge.log("[NotificationIcon] Module path is null, skipping");
+                return;
+            }
+
+            // Pre-load the bitmap from assets so we can verify it works
+            final String assetPath = "notifybar/notifybar_" + iconStyle + ".png";
+            Bitmap testBitmap = loadAssetBitmap(assetPath);
+            if (testBitmap == null) {
+                XposedBridge.log("[NotificationIcon] Failed to load: " + assetPath);
+                return;
+            }
+            XposedBridge.log("[NotificationIcon] Loaded icon: " + assetPath +
+                    " (" + testBitmap.getWidth() + "x" + testBitmap.getHeight() + ")");
+
+            // Replace "notifybar" drawable in WhatsApp's resources
+            // Cache the bitmap to avoid re-creating AssetManager on every load
+            final Bitmap cachedBitmap = testBitmap;
+            resparam.res.setReplacement(resparam.packageName, "drawable", "notifybar",
+                    new XResources.DrawableLoader() {
+                        @Override
+                        public Drawable newDrawable(XResources res, int id) throws Throwable {
+                            return new BitmapDrawable(res, cachedBitmap);
+                        }
+                    });
+
+            XposedBridge.log("[NotificationIcon] Replaced 'notifybar' drawable with style '" + iconStyle + "'");
+        } catch (Exception e) {
+            XposedBridge.log("[NotificationIcon] Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Load a bitmap from the module APK's assets directory.
+     */
+    @SuppressWarnings("deprecation")
+    private Bitmap loadAssetBitmap(String assetPath) {
+        try {
+            AssetManager assetManager = AssetManager.class.newInstance();
+            AssetManager.class.getMethod("addAssetPath", String.class)
+                    .invoke(assetManager, MODULE_PATH);
+            InputStream is = assetManager.open(assetPath);
+            Bitmap bitmap = BitmapFactory.decodeStream(is);
+            is.close();
+            return bitmap;
+        } catch (Throwable t) {
+            XposedBridge.log("[NotificationIcon] Error loading asset: " + t.getMessage());
+            return null;
         }
     }
 
