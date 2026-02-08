@@ -44,8 +44,8 @@ android {
         applicationId = "com.wmods.wppenhacer"
         minSdk = 28
         targetSdk = 36
-        versionCode = 153
-        versionName = "1.5.3-DEV ($gitHash)"
+        versionCode = 154
+        versionName = "1.5.4-DEV ($gitHash)"
         multiDexEnabled = true
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
